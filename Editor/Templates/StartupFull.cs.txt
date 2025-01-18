@@ -1,0 +1,95 @@
+﻿using System;
+using FFS.Libraries.StaticEcs;
+using FFS.Libraries.StaticEcs.Unity;
+using UnityEngine;
+
+public struct {{NAME}}WorldType : IWorldType { }
+public abstract class {{NAME}}Ecs : Ecs<{{NAME}}WorldType> { }
+public abstract class {{NAME}}World : Ecs<{{NAME}}WorldType>.World { }
+public abstract class {{NAME}}Events : Ecs<{{NAME}}WorldType>.Events { }
+public struct {{NAME}}SystemsType : ISystemsType { }
+public struct {{NAME}}FixedSystemsType : ISystemsType { }
+public struct {{NAME}}LateSystemsType : ISystemsType { }
+public abstract class {{NAME}}Systems : {{NAME}}Ecs.Systems<{{NAME}}SystemsType> { }
+public abstract class {{NAME}}FixedSystems : {{NAME}}Ecs.Systems<{{NAME}}FixedSystemsType> { }
+public abstract class {{NAME}}LateSystems : {{NAME}}Ecs.Systems<{{NAME}}LateSystemsType> { }
+
+namespace {{NAMESPACE}} {
+    [Serializable]
+    public class {{NAME}}Context { }
+
+    public class {{NAME}} : MonoBehaviour {
+        public {{NAME}}Context context;
+
+        private void Start() {
+            // ============================================ MAIN INITIALIZATION ======================================================
+            {{NAME}}Ecs.Create(EcsConfig.Default());
+
+            // {{NAME}}World.RegisterComponentType<YourComponentType>();
+            // {{NAME}}World.RegisterTagType<YourTagType>();
+            // {{NAME}}World.RegisterMaskType<YourMaskType>();
+            // {{NAME}}Events.RegisterEventType<YourEventType>();
+
+            #if UNITY_EDITOR
+            EcsDebug<{{NAME}}WorldType>.AddWorld();
+            #endif
+            {{NAME}}Ecs.Initialize();
+
+
+            // ============================================ CONTEXT INITIALIZATION ====================================================
+            {{NAME}}Ecs.Context<{{NAME}}Context>.Set(context);
+
+
+            // ============================================ MAIN SYSTEMS INITIALIZATION ===============================================
+            {{NAME}}Systems.Create();
+
+            // {{NAME}}Systems.AddCallOnce(new YourInitOrDestroySystem());
+            // {{NAME}}Systems.AddUpdate(new YourUpdateSystem1(), new YourUpdateSystem2(), new YourUpdateSystem3());
+            #if UNITY_EDITOR
+            EcsDebug<{{NAME}}WorldType>.AddSystem<{{NAME}}SystemsType>();
+            #endif
+            {{NAME}}Systems.Initialize();
+
+
+            // ============================================ FIXED SYSTEMS INITIALIZATION ==============================================
+            {{NAME}}FixedSystems.Create();
+
+            // {{NAME}}FixedSystems.AddCallOnce(new YourInitOrDestroySystem());
+            // {{NAME}}FixedSystems.AddUpdate(new YourFixedUpdateSystem1(), new YourFixedUpdateSystem2(), new YourFixedUpdateSystem3());
+            #if UNITY_EDITOR
+            EcsDebug<{{NAME}}WorldType>.AddSystem<{{NAME}}FixedSystemsType>();
+            #endif
+            {{NAME}}FixedSystems.Initialize();
+
+
+            // ============================================ LATE SYSTEMS INITIALIZATION ==============================================
+            {{NAME}}LateSystems.Create();
+
+            // {{NAME}}LateSystems.AddCallOnce(new YourInitOrDestroySystem());
+            // {{NAME}}LateSystems.AddUpdate(new YourLateUpdateSystem1(), new YourLateUpdateSystem2(), new YourLateUpdateSystem3());
+            #if UNITY_EDITOR
+            EcsDebug<{{NAME}}WorldType>.AddSystem<{{NAME}}LateSystemsType>();
+            #endif
+            {{NAME}}LateSystems.Initialize();
+        }
+
+        private void Update() {
+            {{NAME}}Systems.Update();
+        }
+
+        private void FixedUpdate() {
+            {{NAME}}FixedSystems.Update();
+        }
+
+        private void LateUpdate() {
+            {{NAME}}LateSystems.Update();
+        }
+
+        private void OnDestroy() {
+            {{NAME}}Systems.Destroy();
+            {{NAME}}FixedSystems.Destroy();
+            {{NAME}}LateSystems.Destroy();
+            {{NAME}}Ecs.Destroy();
+        }
+    }
+}
