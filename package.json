@@ -1,0 +1,22 @@
+{
+    "name": "com.felid-force-studios.static-ecs-unity",
+    "author":
+    {
+        "name": "Felid-Force-Studios",
+        "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"
+    },
+    "displayName": "Static ECS - Unity module",
+    "version": "0.9.1",
+    "unity": "2020.3",
+    "description": "Static ECS - Unity module",
+    "keywords":
+    [
+        "ecs",
+        "performance",
+        "staticecs"
+    ]
+}

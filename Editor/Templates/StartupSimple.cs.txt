@@ -1,0 +1,59 @@
+﻿using System;
+using FFS.Libraries.StaticEcs;
+using FFS.Libraries.StaticEcs.Unity;
+using UnityEngine;
+
+public struct {{NAME}}WorldType : IWorldType { }
+public abstract class {{NAME}}Ecs : Ecs<{{NAME}}WorldType> { }
+public abstract class {{NAME}}World : Ecs<{{NAME}}WorldType>.World { }
+public abstract class {{NAME}}Events : Ecs<{{NAME}}WorldType>.Events { }
+public struct {{NAME}}SystemsType : ISystemsType { }
+public abstract class {{NAME}}Systems : {{NAME}}Ecs.Systems<{{NAME}}SystemsType> { }
+
+namespace {{NAMESPACE}} {
+    [Serializable]
+    public class {{NAME}}Context { }
+
+    public class {{NAME}} : MonoBehaviour {
+        public {{NAME}}Context context;
+
+        private void Start() {
+            // ============================================ MAIN INITIALIZATION ======================================================
+            {{NAME}}Ecs.Create(EcsConfig.Default());
+
+            // {{NAME}}World.RegisterComponentType<YourComponentType>();
+            // {{NAME}}World.RegisterTagType<YourTagType>();
+            // {{NAME}}World.RegisterMaskType<YourMaskType>();
+            // {{NAME}}Events.RegisterEventType<YourEventType>();
+
+            #if UNITY_EDITOR
+            EcsDebug<{{NAME}}WorldType>.AddWorld();
+            #endif
+            {{NAME}}Ecs.Initialize();
+
+
+            // ============================================ CONTEXT INITIALIZATION ====================================================
+            {{NAME}}Ecs.Context<{{NAME}}Context>.Set(context);
+
+
+            // ============================================ MAIN SYSTEMS INITIALIZATION ===============================================
+            {{NAME}}Systems.Create();
+
+            // {{NAME}}Systems.AddCallOnce(new YourInitOrDestroySystem());
+            // {{NAME}}Systems.AddUpdate(new YourUpdateSystem1(), new YourUpdateSystem2(), new YourUpdateSystem3());
+            #if UNITY_EDITOR
+            EcsDebug<{{NAME}}WorldType>.AddSystem<{{NAME}}SystemsType>();
+            #endif
+            {{NAME}}Systems.Initialize();
+        }
+
+        private void Update() {
+            {{NAME}}Systems.Update();
+        }
+
+        private void OnDestroy() {
+            {{NAME}}Systems.Destroy();
+            {{NAME}}Ecs.Destroy();
+        }
+    }
+}

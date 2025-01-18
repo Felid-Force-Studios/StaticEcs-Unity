@@ -1,0 +1,19 @@
+{
+    "name": "FFS.StaticEcs.Unity.Editor",
+    "rootNamespace": "FFS.StaticEcs.Unity.Editor",
+    "references": [
+        "FFS.StaticEcs",
+        "FFS.StaticEcs.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
