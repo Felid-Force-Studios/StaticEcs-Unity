@@ -12,25 +12,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.NullChecks, false)]
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
     #endif
-    [Serializable]
-    public struct RuntimeEvent {
-        public static RuntimeEvent Empty = new() {
-            InternalIdx = -1,
-            Version = -1,
-            Type = null
-        };
-            
-        public Type Type;
-        public int InternalIdx;
-        public short Version;
-
-        public bool IsEmpty() => InternalIdx == -1;
-    }
-    
-    #if ENABLE_IL2CPP
-    [Il2CppSetOption(Option.NullChecks, false)]
-    [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
-    #endif
     [DefaultExecutionOrder(short.MaxValue)]
     public partial class StaticEcsEventProvider : AbstractStaticEcsProvider {
         [SerializeReference, HideInInspector] public IEvent EventTemplate;
@@ -74,6 +55,25 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
             return true;
         }
+    }
+    
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, false)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
+    #endif
+    [Serializable]
+    public struct RuntimeEvent {
+        public static RuntimeEvent Empty = new() {
+            InternalIdx = -1,
+            Version = -1,
+            Type = null
+        };
+            
+        public Type Type;
+        public int InternalIdx;
+        public short Version;
+
+        public bool IsEmpty() => InternalIdx == -1;
     }
 }
 #endif
