@@ -212,8 +212,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     if (provider.EntityIsActual()) {
                         if (viewer) {
                             menu.AddItem(new GUIContent("Close"), false, () => { provider.Entity = null; });
-                            menu.AddItem(new GUIContent("Copy as new entity"), false, () => { });
-                            menu.AddItem(new GUIContent("Copy as builder template"), false, () => { });
+                            // menu.AddItem(new GUIContent("Copy as new entity"), false, () => { });
+                            // menu.AddItem(new GUIContent("Copy as builder template"), false, () => { });
                         }
 
                         menu.AddItem(new GUIContent("Delete entity"), false, () => {

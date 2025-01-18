@@ -25,7 +25,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         internal float drawRate = 0.5f;
         internal float drawFrames = 2;
         private float _acc;
-        private int a;
         
         private bool _initialized;
 
@@ -47,6 +46,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 tab.Init();
             }
             _selectedTab = _tabs[0];
+            _initialized = true;
         }
 
         private void OnEnable() {
@@ -70,6 +70,21 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 return;
             }
 
+            if (_currentWorldData == null) {
+                foreach (var typeToWorld in StaticEcsDebugData.Worlds) {
+                    SetWorldData(typeToWorld.Value, typeToWorld.Key);
+                    break;
+                }
+            }
+            
+            if (_currentWorldData == null) return;
+
+            if (_currentWorldData.World.Status() != WorldStatus.Initialized) {
+                EditorGUILayout.HelpBox("World not initialized", MessageType.Info);
+                DrawWorldSelector();
+                return;
+            }
+            
             GUILayout.BeginHorizontal(EditorStyles.toolbar);
             {
                 foreach (var tab in _tabs) {
@@ -81,22 +96,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
             GUILayout.EndHorizontal();
             EditorGUILayout.Space();
-
-            if (_currentWorldData == null) {
-                foreach (var typeToWorld in StaticEcsDebugData.Worlds) {
-                    SetWorldData(typeToWorld.Value, typeToWorld.Key);
-                    break;
-                }
-            }
-            
-            if (_currentWorldData == null) return;
             
             _selectedTab.Draw(this);
-        }
-
-        internal static void ShowLogTab() {
-            if (_instance == null) return;
-            _instance._selectedTab = _instance._tabs[3];
         }
 
         internal static void DrawWorldSelector() {
