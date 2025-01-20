@@ -194,7 +194,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawHeaders();
             EditorGUI.BeginChangeCheck();
             var userScrollChanged = false;
-            verticalScroll = GUILayout.BeginScrollView(verticalScroll, GUI.skin.label, GUI.skin.verticalScrollbar);
+            verticalScroll = GUILayout.BeginScrollView(verticalScroll);
             if (EditorGUI.EndChangeCheck()) {
                 userScrollChanged = true;
             }
@@ -232,6 +232,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                                 Drawer.DrawField(e, field, style, Ui.WidthLine(600));
                             } else if (meta.TryGetTableProperty(out var property)) {
                                 Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
+                            } else {
+                                EditorGUILayout.LabelField("✔", style, Ui.WidthLine(600));
                             }
                         } else {
                             EditorGUILayout.LabelField("Hidden", style, Ui.WidthLine(600));

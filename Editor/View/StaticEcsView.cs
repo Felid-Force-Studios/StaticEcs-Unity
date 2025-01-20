@@ -32,27 +32,27 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (!_instance) {
                 _instance = this;
             }
-            titleContent = new GUIContent("Static ECS");
 
-            _tabs.Add(new StaticEcsViewEntitiesTab());
-            _tabs.Add(new StaticEcsViewStatsTab());
-            #if !FFS_ECS_DISABLE_EVENTS
-            _tabs.Add(new StaticEcsViewEventsTab());
-            #endif
-            _tabs.Add(new StaticEcsViewSystemsTab());
-            _tabs.Add(new StaticEcsViewSettingsTab());
+            if (!_initialized) {
+                titleContent = new GUIContent("Static ECS");
+
+                _tabs.Add(new StaticEcsViewEntitiesTab());
+                _tabs.Add(new StaticEcsViewStatsTab());
+                #if !FFS_ECS_DISABLE_EVENTS
+                _tabs.Add(new StaticEcsViewEventsTab());
+                #endif
+                _tabs.Add(new StaticEcsViewSystemsTab());
+                _tabs.Add(new StaticEcsViewSettingsTab());
                 
-            foreach (var tab in _tabs) {
-                tab.Init();
+                foreach (var tab in _tabs) {
+                    tab.Init();
+                }
+                _selectedTab = _tabs[0];
+                _initialized = true;
             }
-            _selectedTab = _tabs[0];
-            _initialized = true;
         }
 
         private void OnEnable() {
-            if (!_initialized) {
-                Init();
-            }
             EditorApplication.update += Draw;
         }
 
@@ -69,6 +69,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.HelpBox("Data is only available in play mode", MessageType.Info);
                 return;
             }
+            
+            Init();
 
             if (_currentWorldData == null) {
                 foreach (var typeToWorld in StaticEcsDebugData.Worlds) {

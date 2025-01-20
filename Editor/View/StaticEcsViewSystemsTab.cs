@@ -109,6 +109,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly Type IInitSystemType = typeof(IInitSystem);
         private static readonly Type ISystemsBatchType = typeof(ISystemsBatch);
         private static readonly Type IDestroySystemType = typeof(IDestroySystem);
+        private Vector2 verticalScroll = Vector2.zero;
 
         internal void Draw() {
             switch (Parent.SelectedTab) {
@@ -118,6 +119,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     Ui.DrawSeparator();
                     EditorGUILayout.EndHorizontal();
                     Ui.DrawHorizontalSeparator(410f);
+                    verticalScroll = EditorGUILayout.BeginScrollView(verticalScroll);
                     
                     for (var i = 0; i < Systems.count; i++) {
                         var item = Systems.systems[i].system;
@@ -151,6 +153,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             }
                         }
                     }
+                    EditorGUILayout.EndScrollView();
 
                     break;
                 case StaticEcsViewSystemsTab.TabType.Update:
@@ -163,7 +166,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     Ui.DrawSeparator();
                     EditorGUILayout.EndHorizontal();
                     Ui.DrawHorizontalSeparator(540f);
-                    
+                    verticalScroll = EditorGUILayout.BeginScrollView(verticalScroll);
+
                     for (var i = 0; i < Systems.count; i++) {
                         var item = Systems.systems[i].system;
                         var itemType = item.GetType();
@@ -197,6 +201,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             Ui.DrawHorizontalSeparator(540f);
                         }
                     }
+                    EditorGUILayout.EndScrollView();
 
                     break;
                 case StaticEcsViewSystemsTab.TabType.Destroy:
@@ -205,7 +210,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     Ui.DrawSeparator();
                     EditorGUILayout.EndHorizontal();
                     Ui.DrawHorizontalSeparator(410f);
-                    
+                    verticalScroll = EditorGUILayout.BeginScrollView(verticalScroll);
+
                     for (var i = 0; i < Systems.count; i++) {
                         var item = Systems.systems[i].system;
                         var itemType = item.GetType();
@@ -239,6 +245,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         }
                     }
 
+                    EditorGUILayout.EndScrollView();
                     break;
             }
         }

@@ -160,7 +160,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 var pool = pools[i];
                 if (pool != null) {
                     EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.FullName, Ui.WidthLine(200));
+                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
                     Ui.DrawSeparator();
                     EditorGUILayout.LabelField(pool.Count().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
@@ -174,7 +174,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.EndHorizontal();
                 } else if (_showNotRegistered) {
                     EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.FullName, Ui.WidthLine(200));
+                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
                     Ui.DrawSeparator();
                     EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
@@ -206,7 +206,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 var pool = eventPools[i];
                 if (pool != null) {
                     EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.FullName, Ui.WidthLine(200));
+                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
                     Ui.DrawSeparator();
                     EditorGUILayout.LabelField(pool.NotDeletedCount().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
@@ -217,7 +217,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.EndHorizontal();
                 } else if (_showNotRegistered) {
                     EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.FullName, Ui.WidthLine(200));
+                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
                     Ui.DrawSeparator();
                     EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
