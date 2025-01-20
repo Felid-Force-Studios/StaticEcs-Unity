@@ -172,8 +172,8 @@ public struct DamageEvent : IEvent {
 # Вопросы
 Для реализации своего редактора для конкретного типа или компонента, необходимо в папке Editor вашего проекта  
 Создать класс реализующий `IStaticEcsValueDrawer` или `IStaticEcsValueDrawer<T>`  
-метод `DrawValue` отображает информацию на вкладках `Entity viever`, `Event viever` и `StaticEcsEntityProvider`, `StaticEcsEventProvider`
-метод `DrawTableValue` отображает информацию на вкладках `Entity table`, `Event table`
+метод `DrawValue` отображает информацию на вкладках `Entity viever`, `Event viever` и `StaticEcsEntityProvider`, `StaticEcsEventProvider`  
+метод `DrawTableValue` отображает информацию на вкладках `Entity table`, `Event table`  
 
 Пример:
 ```csharp
