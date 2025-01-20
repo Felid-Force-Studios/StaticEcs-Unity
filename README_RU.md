@@ -195,4 +195,4 @@ public struct DamageEvent : IEvent {
 ```
 
 # Лицензия
-[MIT license](./LICENSE)
+[MIT license](./LICENSE.md)
