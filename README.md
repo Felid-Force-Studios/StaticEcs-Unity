@@ -171,8 +171,8 @@ Displays the average execution time of each system
 # Questions
 To implement your own editor for a specific type or component, you need in the Editor folder of your project  
 Create a class that implements `IStaticEcsValueDrawer` or `IStaticEcsValueDrawer<T>`  
-method `DrawValue` displays information on tabs `Entity viever`, `Event viever` и `StaticEcsEntityProvider`, `StaticEcsEventProvider`
-method `DrawTableValue` displays information on tabs `Entity table`, `Event table`
+method `DrawValue` displays information on tabs `Entity viever`, `Event viever` и `StaticEcsEntityProvider`, `StaticEcsEventProvider`  
+method `DrawTableValue` displays information on tabs `Entity table`, `Event table`  
 
 Example:
 ```csharp
