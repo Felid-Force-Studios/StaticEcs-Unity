@@ -10,7 +10,7 @@
         "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"
     },
     "displayName": "Static ECS - Unity module",
-    "version": "0.9.1",
+    "version": "0.9.2.1",
     "unity": "2020.3",
     "description": "Static ECS - Unity module",
     "keywords":

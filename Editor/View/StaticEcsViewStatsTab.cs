@@ -28,6 +28,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class StatsDrawer {
+        private readonly IStandardRawPool[] standardComponentPools;
         private readonly IRawPool[] componentPools;
         #if !FFS_ECS_DISABLE_TAGS
         private readonly IRawPool[] tagPools;
@@ -48,6 +49,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public StatsDrawer(AbstractWorldData worldData) {
             _worldData = worldData;
             _world = _worldData.World;
+            standardComponentPools = new IStandardRawPool[MetaData.StandardComponents.Count];
+            for (var i = 0; i < MetaData.StandardComponents.Count; i++) {
+                if (_world.TryGetStandardComponentsRawPool(MetaData.StandardComponents[i].Type, out var pool)) {
+                    standardComponentPools[i] = pool;
+                }
+            }
+            
             componentPools = new IRawPool[MetaData.Components.Count];
             for (var i = 0; i < MetaData.Components.Count; i++) {
                 if (_world.TryGetComponentsRawPool(MetaData.Components[i].Type, out var pool)) {
@@ -98,6 +106,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             verticalScrollStatsPosition = EditorGUILayout.BeginScrollView(verticalScrollStatsPosition);
 
+            DrawComponentPoolsStats("Standard components:", MetaData.StandardComponents, standardComponentPools);
             DrawComponentPoolsStats("Components:", MetaData.Components, componentPools);
             #if !FFS_ECS_DISABLE_TAGS
             DrawComponentPoolsStats("Tags:", MetaData.Tags, tagPools);
@@ -144,7 +153,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.Space(10);
         }
 
-        private void DrawComponentPoolsStats(string type, List<EditorEntityDataMeta> indexes, IRawPool[] pools) {
+        private void DrawComponentPoolsStats(string type, List<EditorEntityDataMeta> indexes, IStandardRawPool[] pools) {
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.SelectableLabel(type, Ui.LabelStyleWhiteCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();

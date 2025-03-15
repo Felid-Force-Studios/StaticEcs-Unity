@@ -288,7 +288,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIContent _iconLockOff;
         
-        internal static GUIContent IconView {
+        public static GUIContent IconView {
             [MethodImpl(AggressiveInlining)]
             get {
                 _iconView ??= EditorGUIUtility.IconContent("ViewToolOrbit");

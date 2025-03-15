@@ -9,6 +9,7 @@ using Object = UnityEngine.Object;
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public static class MetaData {
+        internal static readonly List<EditorEntityDataMeta> StandardComponents = new();
         internal static readonly List<EditorEntityDataMeta> Components = new();
         internal static readonly List<EditorEntityDataMeta> Tags = new();
         internal static readonly List<EditorEntityDataMeta> Masks = new();
@@ -39,6 +40,33 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             Inspectors[cType] = ins;
                         }
                         continue;
+                    }
+
+                    if (type.IsValueType && type.GetInterfaces().Contains(typeof(IStandardComponent)) && type != typeof(EntityVersion)) {
+                        var fullName = "";
+                        var name = "";
+                        if (Attribute.IsDefined(type, nameAttr)) {
+                            fullName = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).FullName;
+                            name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
+                        }
+
+                        if (string.IsNullOrEmpty(fullName)) {
+                            fullName = type.FullName!.Replace('.', '/').Replace('+', '/');
+                        }
+
+                        if (string.IsNullOrEmpty(name)) {
+                            name = type.EditorTypeName();
+                        }
+
+                        if (StandardComponents.Find(meta => meta.FullName == fullName) != null) {
+                            Debug.LogError($"StandardComponent `{fullName}` already registered, type `{type}` ignored");
+                            continue;
+                        }
+                        
+                        var (field, property, width) = FindValueAttribute(type);
+                        width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
+
+                        StandardComponents.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, new[] { GUILayout.Width(width + 70f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
                     }
 
                     if (type.IsValueType && type.GetInterfaces().Contains(typeof(IComponent))) {
@@ -310,8 +338,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawTableValue(ref typedValue, style, layoutOptions);
         }
 
-        protected abstract void DrawTableValue(ref T value, GUIStyle style, GUILayoutOption[] layoutOptions);
+        public abstract void DrawTableValue(ref T value, GUIStyle style, GUILayoutOption[] layoutOptions);
 
-        protected abstract bool DrawValue(string label, ref T value);
+        public abstract bool DrawValue(string label, ref T value);
     }
 }

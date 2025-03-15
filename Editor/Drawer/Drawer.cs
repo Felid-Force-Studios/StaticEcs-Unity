@@ -10,6 +10,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static class Drawer {
         private const int MaxFieldToStringLength = 128;
 
+        private static readonly List<IStandardComponent> _standardComponentsCache = new();
         private static readonly List<IComponent> _componentsCache = new();
         #if !FFS_ECS_DISABLE_TAGS
         private static readonly List<ITag> _tagsCache = new();
@@ -179,7 +180,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
         #endif
 
-        public static void DrawEntity(StaticEcsEntityProvider provider, bool viewer, Action<StaticEcsEntityProvider> onClickBuild) {
+        public static void DrawEntity(StaticEcsEntityProvider provider, bool viewer, Action<StaticEcsEntityProvider> onClickBuild, bool allowStandardComponentsAddDelete) {
             provider.Scroll = EditorGUILayout.BeginScrollView(provider.Scroll, Ui.MaxWidth600);
             EditorGUILayout.Space(10);
 
@@ -246,6 +247,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             EditorGUILayout.Space(10);
+            
+            provider.StandardComponents(_standardComponentsCache);
+            EditorGUILayout.Space(10);
+            DrawStandardComponents(_standardComponentsCache, provider, Ui.MaxWidth600, allowStandardComponentsAddDelete);
+            _standardComponentsCache.Clear();
+
             provider.Components(_componentsCache);
             EditorGUILayout.Space(10);
             DrawComponents(_componentsCache, provider, Ui.MaxWidth600);
@@ -290,6 +297,102 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             menu.ShowAsContext();
         }
 
+        private static void DrawStandardComponents(List<IStandardComponent> components, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth, bool allowAddDelete) {
+            EditorGUILayout.BeginHorizontal();
+            {
+                var hasAll = MetaData.StandardComponents.Count == components.Count;
+                GUI.enabled = allowAddDelete;
+                if (GUILayout.Button("+", hasAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleWhite, Ui.WidthLine(20)) && !hasAll) {
+                    DrawStandardComponentsMenu(components, provider);
+                }
+                GUI.enabled = true;
+
+                EditorGUILayout.LabelField("Standard components:", Ui.HeaderStyleWhite, Ui.WidthLine(200));
+            }
+            EditorGUILayout.EndHorizontal();
+
+            var versionIndex = components.FindIndex(component => component is EntityVersion);
+            if (versionIndex >= 0) {
+                DrawStandardComponent(components[versionIndex], provider, maxWidth, true, allowAddDelete);
+            }
+
+            for (int i = 0, iMax = components.Count; i < iMax; i++) {
+                if (i == versionIndex) continue;
+                DrawStandardComponent(components[i], provider, maxWidth, false, allowAddDelete);
+            }
+        }
+
+        private static void DrawStandardComponent(IStandardComponent component, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth, bool readOnly, bool allowAddDelete) {
+            var type = component.GetType();
+            var typeName = type.EditorTypeName();
+
+            GUI.enabled = !readOnly;
+            GUILayout.BeginHorizontal(GUI.skin.box, maxWidth);
+            {
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    if (TryDrawValueByCustomDrawer(typeName, type, component, out var changed, out var newValue)) {
+                        if (changed) {
+                            provider.OnChangeStandardComponent((IStandardComponent) newValue, type);
+                            EditorUtility.SetDirty(provider);
+                        }
+                    } else {
+                        EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
+                        EditorGUI.indentLevel++;
+                        foreach (var field in MetaData.GetCachedType(type)) {
+                            if (TryDrawField(component, field, out newValue)) {
+                                field.SetValue(component, newValue);
+                                provider.OnChangeStandardComponent(component, type);
+                                EditorUtility.SetDirty(provider);
+                            }
+                        }
+
+                        EditorGUI.indentLevel--;
+                    }
+                }
+                GUILayout.EndVertical();
+                
+                GUI.enabled = allowAddDelete;
+                if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
+                    provider.OnDeleteStandardComponent(type);
+                    EditorUtility.SetDirty(provider);
+                }
+                GUI.enabled = !readOnly;
+            }
+            GUILayout.EndHorizontal();
+            EditorGUILayout.Space(2);
+            GUI.enabled = true;
+        }
+        
+        private static void DrawStandardComponentsMenu(List<IStandardComponent> actualComponents, StaticEcsEntityProvider provider) {
+            var menu = new GenericMenu();
+            foreach (var component in MetaData.StandardComponents) {
+                var has = false;
+                foreach (var actual in actualComponents) {
+                    if (actual.GetType() == component.Type) {
+                        has = true;
+                        break;
+                    }
+                }
+
+
+                if (has) continue;
+
+                if (provider.ShouldShowStandardComponent(component.Type, Application.isPlaying)) {
+                    menu.AddItem(new GUIContent(component.FullName), false, objType => {
+                                     var objRaw = Activator.CreateInstance((Type) objType, true);
+                                     provider.OnSelectStandardComponent((IStandardComponent) objRaw);
+                                     EditorUtility.SetDirty(provider);
+                                 },
+                                 component.Type);
+                } else {
+                    menu.AddDisabledItem(new GUIContent(component.FullName));
+                }
+            }
+
+            menu.ShowAsContext();
+        }
+
         private static void DrawComponents(List<IComponent> components, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth) {
             EditorGUILayout.BeginHorizontal();
             {
@@ -298,7 +401,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawComponentsMenu(components, provider);
                 }
 
-                EditorGUILayout.LabelField("Components:", Ui.HeaderStyleWhite, Ui.WidthLine(120));
+                EditorGUILayout.LabelField("Components:", Ui.HeaderStyleWhite, Ui.WidthLine(200));
             }
             EditorGUILayout.EndHorizontal();
 
@@ -380,7 +483,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawTagsMenu(tags, provider);
                 }
 
-                EditorGUILayout.LabelField("Tags:", Ui.HeaderStyleWhite, Ui.WidthLine(120));
+                EditorGUILayout.LabelField("Tags:", Ui.HeaderStyleWhite, Ui.WidthLine(200));
             }
             EditorGUILayout.EndHorizontal();
 
@@ -437,7 +540,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawMasksMenu(masks, provider);
                 }
 
-                EditorGUILayout.LabelField("Masks:", Ui.HeaderStyleWhite, Ui.WidthLine(120));
+                EditorGUILayout.LabelField("Masks:", Ui.HeaderStyleWhite, Ui.WidthLine(200));
             }
             EditorGUILayout.EndHorizontal();
 
@@ -517,9 +620,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 strVal = strVal.Substring(0, MaxFieldToStringLength);
             }
 
-            EditorGUILayout.LabelField(strVal, new GUIStyle(EditorStyles.numberField) {
-                alignment = TextAnchor.MiddleCenter
-            }, layout);
+            EditorGUILayout.LabelField(strVal, style, layout);
         }
 
         private static bool TryDrawField(object component, FieldInfo field, out object newValue) {

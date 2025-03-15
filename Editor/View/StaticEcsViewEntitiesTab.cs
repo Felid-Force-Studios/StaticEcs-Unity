@@ -50,6 +50,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private float _maxWidth;
         
+        private readonly List<EditorEntityDataMetaByWorld> _standardComponents = new();
+        private readonly List<EditorEntityDataMetaByWorld> _standardComponentsColumns = new();
+        
         private readonly List<EditorEntityDataMetaByWorld> _components = new();
         private readonly List<EditorEntityDataMetaByWorld> _componentsColumns = new();
 
@@ -63,15 +66,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly List<EditorEntityDataMetaByWorld> _maskColumns = new();
         #endif
 
-        private IRawPool _sortPool;
+        private EditorEntityDataMetaByWorld _sortIdx;
         private readonly List<int> _tempEntities = new();
         private readonly List<int> _pinedEntities = new();
 
         private readonly StaticEcsEntityProvider _entityBuilder;
         private bool _entityBuilderShowLeftTab = true;
         private bool _entityBuilderShowRightTab;
-        private readonly StaticEcsEntityProvider _entityViewWindowLeft;
-        private readonly StaticEcsEntityProvider _entityViewWindowRight;
+        private static StaticEcsEntityProvider _entityViewWindowLeft;
+        private static StaticEcsEntityProvider _entityViewWindowRight;
         
         private readonly StaticEcsViewEntitiesTab _parent;
         private readonly AbstractWorldData _worldData;
@@ -80,16 +83,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         internal EntitiesDrawer(StaticEcsViewEntitiesTab parent, AbstractWorldData worldData) {
             _worldData = worldData;
             _parent = parent;
+            
+            foreach (var val in MetaData.StandardComponents) {
+                if (worldData.World.TryGetStandardComponentsRawPool(val.Type, out var pool)) {
+                    _standardComponents.Add(new EditorEntityDataMetaByWorld(val, pool, i => true));
+                }
+            }
+            
             foreach (var val in MetaData.Components) {
                 if (worldData.World.TryGetComponentsRawPool(val.Type, out var pool)) {
-                    _components.Add(new EditorEntityDataMetaByWorld(val, pool));
+                    _components.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
                 }
             }
 
             #if !FFS_ECS_DISABLE_TAGS
             foreach (var val in MetaData.Tags) {
                 if (worldData.World.TryGetTagsRawPool(val.Type, out var pool)) {
-                    _tags.Add(new EditorEntityDataMetaByWorld(val, pool));
+                    _tags.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
                 }
             }
             #endif
@@ -97,15 +107,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             #if !FFS_ECS_DISABLE_MASKS
             foreach (var val in MetaData.Masks) {
                 if (worldData.World.TryGetMasksRawPool(val.Type, out var pool)) {
-                    _masks.Add(new EditorEntityDataMetaByWorld(val, pool));
+                    _masks.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
                 }
             }
             #endif
             
             ShowAllColumns();
 
-            _entityViewWindowLeft = CreateStaticEcsEntityDebugView();
-            _entityViewWindowRight = CreateStaticEcsEntityDebugView();
+            _entityViewWindowLeft ??= CreateStaticEcsEntityDebugView();
+            _entityViewWindowRight ??= CreateStaticEcsEntityDebugView();
             _entityBuilder = CreateStaticEcsEntityDebugView();
         }
 
@@ -123,12 +133,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         EditorGUILayout.HelpBox("Select an entity from the [Table] or build from [Entity builder]", MessageType.Info, true);
                         GUILayout.EndVertical();
                     } else {
-                        Drawer.DrawEntity(_entityViewWindowLeft, true, _ => { });
+                        Drawer.DrawEntity(_entityViewWindowLeft, true, _ => { }, false);
                     }
 
                     if (_entityViewWindowRight.EntityIsActual()) {
                         Ui.DrawVerticalSeparator();
-                        Drawer.DrawEntity(_entityViewWindowRight, true, _ => { });
+                        Drawer.DrawEntity(_entityViewWindowRight, true, _ => { }, false);
                     }
 
                     GUILayout.EndHorizontal();
@@ -144,20 +154,30 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     GUILayout.EndVertical();
                     EditorGUILayout.Space(10);
 
+                    if (!_entityBuilder.HasStandardComponents()) {
+                        foreach (var idx in _standardComponents) {
+                            _entityBuilder.OnSelectStandardComponent((IStandardComponent) Activator.CreateInstance(idx.Type, true));
+                        }
+                    }
+
                     Drawer.DrawEntity(_entityBuilder, true, provider => {
                         provider.CreateEntity();
                         if (_entityBuilderShowLeftTab) {
                             _parent.SelectedTab = StaticEcsViewEntitiesTab.TabType.Viewer;
                             _entityViewWindowLeft.Entity = provider.Entity;
+                            _entityViewWindowLeft.WorldTypeName = _worldData.WorldTypeTypeFullName;
+                            _entityViewWindowLeft.WorldEditorName = _worldData.worldEditorName;
                         }
 
                         if (_entityBuilderShowRightTab) {
                             _parent.SelectedTab = StaticEcsViewEntitiesTab.TabType.Viewer;
                             _entityViewWindowRight.Entity = provider.Entity;
+                            _entityViewWindowRight.WorldTypeName = _worldData.WorldTypeTypeFullName;
+                            _entityViewWindowRight.WorldEditorName = _worldData.worldEditorName;
                         }
 
                         provider.Entity = null;
-                    });
+                    }, false);
                     break;
             }
         }
@@ -176,6 +196,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void ShowAllColumns() {
+            _standardComponentsColumns.Clear();
+            foreach (var val in _standardComponents) {
+                _standardComponentsColumns.Add(val);
+            }
+            
             _componentsColumns.Clear();
             foreach (var val in _components) {
                 _componentsColumns.Add(val);
@@ -197,6 +222,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void ShowNoneColumns() {
+            _standardComponentsColumns.Clear();
             _componentsColumns.Clear();
             #if !FFS_ECS_DISABLE_TAGS
             _tagsColumns.Clear();
@@ -267,9 +293,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private void DrawHeaders() {
             const string EntityID = "Entity ID";
-            const string DataOn = "☑";
-            const string DataOff = "☐";
-
+   
             EditorGUILayout.BeginHorizontal();
             {
                 EditorGUILayout.LabelField(GUIContent.none, Ui.WidthLine(96));
@@ -281,7 +305,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 for (var i = 0; i < _tagsColumns.Count;) {
                     var idx = _tagsColumns[i];
                     EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
-                    DrawSortButton(idx.Pool);
+                    DrawSortButton(idx);
                     DrawDeleteColumnButton(ref i, _tagsColumns);
                     Ui.DrawSeparator();
                 }
@@ -292,45 +316,53 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     var idx = _maskColumns[i];
                     EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
 
-                    DrawSortButton(idx.Pool);
+                    DrawSortButton(idx);
                     DrawDeleteColumnButton(ref i, _maskColumns);
                     Ui.DrawSeparator();
                 }
                 #endif
-
-                for (var i = 0; i < _componentsColumns.Count;) {
-                    var idx = _componentsColumns[i];
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
-
-                    if (idx.ShowTableData) {
-                        if (GUILayout.Button(DataOn, Ui.ButtonStyleGreen, Ui.WidthLine(21))) {
-                            idx.ShowTableData = false;
-                        }
-                    } else {
-                        if (GUILayout.Button(DataOff, Ui.ButtonStyleWhite, Ui.WidthLine(21))) {
-                            idx.ShowTableData = true;
-                        }
-                    }
-
-                    DrawSortButton(idx.Pool);
-                    DrawDeleteColumnButton(ref i, _componentsColumns);
-                    Ui.DrawSeparator();
-                }
+                
+                DrawComponents(_standardComponentsColumns);
+                DrawComponents(_componentsColumns);
             }
             EditorGUILayout.EndHorizontal();
             Ui.DrawHorizontalSeparator(_maxWidth);
         }
 
-        private void DrawSortButton(IRawPool pool) {
+        private void DrawComponents(List<EditorEntityDataMetaByWorld> columns) {
+            const string DataOn = "☑";
+            const string DataOff = "☐";
+            
+            for (var i = 0; i < columns.Count;) {
+                var idx = columns[i];
+                EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
+
+                if (idx.ShowTableData) {
+                    if (GUILayout.Button(DataOn, Ui.ButtonStyleGreen, Ui.WidthLine(21))) {
+                        idx.ShowTableData = false;
+                    }
+                } else {
+                    if (GUILayout.Button(DataOff, Ui.ButtonStyleWhite, Ui.WidthLine(21))) {
+                        idx.ShowTableData = true;
+                    }
+                }
+
+                DrawSortButton(idx);
+                DrawDeleteColumnButton(ref i, columns);
+                Ui.DrawSeparator();
+            }
+        }
+
+        private void DrawSortButton(EditorEntityDataMetaByWorld idx) {
             const string Label = "⇧";
 
-            if (pool == _sortPool) {
+            if (idx == _sortIdx) {
                 if (GUILayout.Button(Label, Ui.ButtonStyleGreen, Ui.WidthLine(20))) {
-                    _sortPool = null;
+                    _sortIdx = null;
                 }
             } else {
                 if (GUILayout.Button(Label, Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
-                    _sortPool = pool;
+                    _sortIdx = idx;
                 }
             }
         }
@@ -354,8 +386,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 return true;
             }
 
-            if (sorted && _sortPool != null) {
-                if (!_sortPool.Has(entIdx)) {
+            if (sorted && _sortIdx != null) {
+                if (!_sortIdx.HasComponent(entIdx)) {
                     if (_tempEntities.Count < _maxEntityResult - _currentEntityCount) {
                         _tempEntities.Add(entIdx);
                     }
@@ -363,7 +395,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     return true;
                 }
 
-                if (_currentEntityCount >= _sortPool.Count() && _tempEntities.Count >= _maxEntityResult - _currentEntityCount) {
+                if (_currentEntityCount >= _sortIdx.Pool.Count() && _tempEntities.Count >= _maxEntityResult - _currentEntityCount) {
                     return false;
                 }
             }
@@ -395,6 +427,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             #if !FFS_ECS_DISABLE_MASKS
             DrawComponents(entIdx, _maskColumns, 46f + 16f);
             #endif
+            DrawComponents(entIdx, _standardComponentsColumns, 70f + 16f);
             DrawComponents(entIdx, _componentsColumns, 70f + 16f);
         }
 
@@ -449,7 +482,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             const string HasComponent = "✔";
 
             foreach (var idx in types) {
-                if (idx.Pool.Has(entIdx)) {
+                if (idx.HasComponent(entIdx)) {
                     if (idx.ShowTableData && idx.TryGetTableField(out var field)) {
                         Drawer.DrawField(idx.Pool.GetRaw(entIdx), field, Ui.LabelStyleWhiteCenter, idx.LayoutWithOffset);
                     } else if (idx.ShowTableData && idx.TryGetTableProperty(out var property)) {
@@ -468,13 +501,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class EditorEntityDataMetaByWorld : EditorEntityDataMeta {
-        public readonly IRawPool Pool;
+        public readonly IStandardRawPool Pool;
+        private readonly Func<int, bool> _hasComponentFunc;
         public bool ShowTableData;
 
-        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IRawPool pool)
+        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IStandardRawPool pool, Func<int, bool> hasComponentFunc)
             : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
+            _hasComponentFunc = hasComponentFunc;
             ShowTableData = false;
             Pool = pool;
         }
+
+        public bool HasComponent(int entIdx) => _hasComponentFunc(entIdx);
     }
 }

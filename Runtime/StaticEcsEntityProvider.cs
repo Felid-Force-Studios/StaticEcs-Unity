@@ -17,6 +17,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [DefaultExecutionOrder(short.MaxValue)]
     public partial class StaticEcsEntityProvider : AbstractStaticEcsProvider {
         [SerializeReference, HideInInspector] private List<IComponent> components = new();
+        [SerializeReference, HideInInspector] private List<IStandardComponent> standardComponents = new();
 
         #if !FFS_ECS_DISABLE_TAGS
         [SerializeReference, HideInInspector] private List<ITag> tags = new();
@@ -63,6 +64,20 @@ namespace FFS.Libraries.StaticEcs.Unity {
             
             Entity = World.NewEntity(value);
             PackedEntity = Entity.Pack();
+            
+            for (var i = 0; i < standardComponents.Count; i++) {
+                var standardComponent = standardComponents[i];
+                #if DEBUG
+                if (standardComponent == null) {
+                    throw new Exception("[StaticEcsEntityProvider] NULL standardComponent");
+                }
+                #endif
+                if (standardComponent is IOnProvideComponent e) {
+                    e.OnProvide(gameObject);
+                }
+
+                Entity.SetRawStandard(standardComponent);
+            }
             
             for (var i = 1; i < components.Count; i++) {
                 value = components[i];

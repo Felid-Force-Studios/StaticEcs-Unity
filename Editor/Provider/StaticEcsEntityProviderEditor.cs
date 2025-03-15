@@ -21,7 +21,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 DrawDefaultInspector();
             }
             
-            Drawer.DrawEntity(_provider, false, provider => provider.CreateEntity());
+            Drawer.DrawEntity(_provider, false, provider => provider.CreateEntity(), !_provider.EntityIsActual());
         }
     }
 }

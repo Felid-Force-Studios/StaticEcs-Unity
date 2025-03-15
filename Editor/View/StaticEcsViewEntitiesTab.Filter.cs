@@ -186,6 +186,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (GUILayout.Button("+", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
                     var menu = new GenericMenu();
+                    foreach (var idx in _standardComponents) {
+                        if (!_standardComponentsColumns.Contains(idx)) {
+                            menu.AddItem(new GUIContent(idx.FullName), false, objType => _standardComponentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                        }
+                    }
+                    
                     foreach (var idx in _components) {
                         if (!_componentsColumns.Contains(idx)) {
                             menu.AddItem(new GUIContent(idx.FullName), false, objType => _componentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
@@ -223,11 +229,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     for (var i = 0; i < _components.Count; i++) {
                         _components[i].ShowTableData = true;
                     }
+                    for (var i = 0; i < _standardComponents.Count; i++) {
+                        _standardComponents[i].ShowTableData = true;
+                    }
                 }
 
                 if (GUILayout.Button("None", Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
                     for (var i = 0; i < _components.Count; i++) {
                         _components[i].ShowTableData = false;
+                    }
+                    for (var i = 0; i < _standardComponents.Count; i++) {
+                        _standardComponents[i].ShowTableData = false;
                     }
                 }
             }

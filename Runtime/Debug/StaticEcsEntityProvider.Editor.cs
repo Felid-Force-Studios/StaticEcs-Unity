@@ -9,6 +9,22 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public bool HasComponents() {
             return components.Count > 0;
         }
+        
+        public void StandardComponents(List<IStandardComponent> result) {
+            if (EntityIsActual()) {
+                Entity.GetAllStandardComponents(result);
+            } else {
+                result.AddRange(standardComponents);
+            }
+        }
+        
+        public bool HasStandardComponents() {
+            if (EntityIsActual()) {
+                return Entity.StandardComponentsCount() > 0;
+            }
+
+            return standardComponents.Count > 0;
+        }
 
         public void Components(List<IComponent> result) {
             if (EntityIsActual()) {
@@ -95,6 +111,47 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public bool EntityIsActual() {
             return Entity != null && Entity.Version() == PackedEntity._version && Entity.IsActual();
         }
+        
+        public bool ShouldShowStandardComponent(Type componentType, bool runtime) {
+            if (!EntityIsActual() && !runtime) return true;
+            return World.TryGetStandardComponentsRawPool(componentType, out var _);
+        }
+        
+        public virtual void OnChangeStandardComponent(IStandardComponent component, Type componentType) {
+            if (EntityIsActual()) {
+                Entity.SetRawStandard(component);
+            } else {
+                for (var i = 0; i < standardComponents.Count; i++) {
+                    var val = standardComponents[i];
+                    if (val.GetType() == componentType) {
+                        standardComponents[i] = component;
+                        return;
+                    }
+                }
+                standardComponents.Add(component);
+            }
+        }
+        
+        public virtual void OnSelectStandardComponent(IStandardComponent component) {
+            if (EntityIsActual()) {
+                Entity.SetRawStandard(component);
+            } else {
+                for (var i = 0; i < standardComponents.Count; i++) {
+                    var val = standardComponents[i];
+                    if (val.GetType() == component.GetType()) {
+                        standardComponents[i] = component;
+                        return;
+                    }
+                }
+                standardComponents.Add(component);
+            }
+        }
+        
+        public virtual void OnDeleteStandardComponent(Type componentType) {
+            if (!EntityIsActual()) {
+                standardComponents.RemoveAll(component => component.GetType() == componentType);
+            }
+        }
 
         public bool ShouldShowComponent(Type componentType, bool runtime) {
             if (!EntityIsActual() && !runtime) return true;
@@ -130,8 +187,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 components.Add(component);
             }
         }
-
-
 
         public virtual void OnDeleteComponent(Type componentType) {
             if (EntityIsActual()) {

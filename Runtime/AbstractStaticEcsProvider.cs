@@ -24,6 +24,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         [SerializeField, HideInInspector] private string _worldTypeName;
         
         public IWorld World {
+            
             get {
                 if (_world == null) {
                     foreach (var typeToWorld in Worlds._worlds) {
