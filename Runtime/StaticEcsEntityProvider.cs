@@ -15,7 +15,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
     #endif
     [DefaultExecutionOrder(short.MaxValue)]
-    public partial class StaticEcsEntityProvider : AbstractStaticEcsProvider {
+    public partial class StaticEcsEntityProvider : AbstractStaticEcsProvider, IStaticEcsEntityProvider {
         [SerializeReference, HideInInspector] private List<IComponent> components = new();
         [SerializeReference, HideInInspector] private List<IStandardComponent> standardComponents = new();
 

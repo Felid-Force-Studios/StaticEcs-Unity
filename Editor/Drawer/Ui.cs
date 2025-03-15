@@ -10,7 +10,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static class Ui {
 
         #region BUTTONS
-        internal static GUIStyle ButtonStyleYellow {
+        public static GUIStyle ButtonStyleYellow {
             [MethodImpl(AggressiveInlining)]
             get {
                 _buttonStyleRed ??= new(GUI.skin.button) {
@@ -25,7 +25,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIStyle _buttonStyleRed;
         
-        internal static GUIStyle ButtonStyleGreen {
+        public static GUIStyle ButtonStyleGreen {
             [MethodImpl(AggressiveInlining)]
             get {
                 _buttonStyleGreen ??= new(GUI.skin.button) {
@@ -39,7 +39,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIStyle _buttonStyleGreen;
         
-        internal static GUIStyle ButtonStyleGrey {
+        public static GUIStyle ButtonStyleGrey {
             [MethodImpl(AggressiveInlining)]
             get {
                 _buttonStyleGrey ??= new(GUI.skin.button) {
@@ -53,7 +53,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIStyle _buttonStyleGrey;
         
-        internal static GUIStyle ButtonStyleWhite {
+        public static GUIStyle ButtonStyleWhite {
             [MethodImpl(AggressiveInlining)]
             get {
                 _buttonStyleWhite ??= new(GUI.skin.button) {
@@ -67,7 +67,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIStyle _buttonStyleWhite;
         
-        internal static GUIStyle ButtonStyleWhiteMini {
+        public static GUIStyle ButtonStyleWhiteMini {
             [MethodImpl(AggressiveInlining)]
             get {
                 _buttonStyleWhiteMini ??= new(GUI.skin.button) {
@@ -82,7 +82,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static GUIStyle _buttonStyleWhiteMini;
         #endregion
         
-        internal static GUIStyle HeaderStyleWhite {
+        public static GUIStyle HeaderStyleWhite {
             [MethodImpl(AggressiveInlining)]
             get {
                 _headerStyleWhite ??= new GUIStyle(EditorStyles.label) {
@@ -96,7 +96,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         
         private static GUIStyle _headerStyleWhite;
         
-        internal static GUIStyle LabelStyleWhiteCenter {
+        public static GUIStyle LabelStyleWhiteCenter {
             [MethodImpl(AggressiveInlining)]
             get {
                 _labelStyleWhiteCenter ??= new GUIStyle(EditorStyles.label) {
@@ -111,7 +111,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         
         private static GUIStyle _labelStyleWhiteCenter;
         
-        internal static GUIStyle LabelStyleWhiteBold {
+        public static GUIStyle LabelStyleWhiteBold {
             [MethodImpl(AggressiveInlining)]
             get {
                 _labelStyleWhiteBold ??= new GUIStyle(EditorStyles.boldLabel) {
@@ -125,7 +125,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         
         private static GUIStyle _labelStyleWhiteBold;
         
-        internal static GUIStyle LabelStyleGreyCenter {
+        public static GUIStyle LabelStyleGreyCenter {
             [MethodImpl(AggressiveInlining)]
             get {
                 _labelStyleGreyCenter ??= new GUIStyle(EditorStyles.label) {
@@ -140,7 +140,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         
         private static GUIStyle _labelStyleGreyCenter;
         
-        internal static GUIStyle LabelStyleYellowCenter {
+        public static GUIStyle LabelStyleYellowCenter {
             [MethodImpl(AggressiveInlining)]
             get {
                 _labelStyleYellowCenter ??= new GUIStyle(EditorStyles.label) {
@@ -155,7 +155,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         
         private static GUIStyle _labelStyleYellowCenter;
         
-        internal static GUIStyle BoxStyle {
+        public static GUIStyle BoxStyle {
             [MethodImpl(AggressiveInlining)]
             get {
                 if (_boxStyle == null) {
@@ -185,7 +185,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly Dictionary<float, (string d6, string simple)> _intD6StringCache = new();
         
         [MethodImpl(AggressiveInlining)]
-        internal static (string d6, string simple) IntToStringD6(int val) {
+        public static (string d6, string simple) IntToStringD6(int val) {
             if (!_intD6StringCache.TryGetValue(val, out var res)) {
                 res = (val.ToString("D6", CultureInfo.InvariantCulture), val.ToString(CultureInfo.InvariantCulture));
                 _intD6StringCache.Add(val, res);
@@ -198,26 +198,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly Dictionary<float, GUILayoutOption> _widthCache = new();
         
         [MethodImpl(AggressiveInlining)]
-        internal static void DrawHorizontalSeparator(float width) {
+        public static void DrawHorizontalSeparator(float width) {
             var boxStyle = BoxStyle;
             _boxLayout[0] = WidthInternal(width);
             GUILayout.Box(GUIContent.none, boxStyle, _boxLayout);
         }
         
         [MethodImpl(AggressiveInlining)]
-        internal static void DrawHorizontalSeparator(GUILayoutOption[] option) {
+        public static void DrawHorizontalSeparator(GUILayoutOption[] option) {
             var boxStyle = BoxStyle;
             _boxLayout[0] = option[0];
             GUILayout.Box(GUIContent.none, boxStyle, _boxLayout);
         }
         
         [MethodImpl(AggressiveInlining)]
-        internal static void DrawVerticalSeparator() {
+        public static void DrawVerticalSeparator() {
             GUILayout.Box(GUIContent.none, BoxStyle, GUILayout.MaxHeight(float.MaxValue));
         }
         
         [MethodImpl(AggressiveInlining)]
-        internal static void DrawSeparator() {
+        public static void DrawSeparator() {
             EditorGUILayout.LabelField(SeparatorContent, LabelStyleWhiteCenter, WidthLine(10));
         }
         
@@ -232,33 +232,33 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return w;
         }
 
-        internal static GUILayoutOption[] Width(float width) {
+        public static GUILayoutOption[] Width(float width) {
             _widthLayout[0] = WidthInternal(width);
             return _widthLayout;
         }
 
-        internal static GUILayoutOption[] WidthLine(float width) {
+        public static GUILayoutOption[] WidthLine(float width) {
             _widthLayoutLine[0] = WidthInternal(width);
             return _widthLayoutLine;
         }
         
-        internal static readonly GUILayoutOption[] Width30Height20 = {
+        public static readonly GUILayoutOption[] Width30Height20 = {
             GUILayout.Width(30), GUILayout.Height(20)
         };
         
-        internal static readonly GUILayoutOption[] MaxWidth600SingleLine = {
+        public static readonly GUILayoutOption[] MaxWidth600SingleLine = {
             GUILayout.MaxWidth(600), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight)
         };
         
-        internal static readonly GUILayoutOption[] MaxWidth600 = {
+        public static readonly GUILayoutOption[] MaxWidth600 = {
             GUILayout.MaxWidth(600),
         };
         
-        internal static readonly GUILayoutOption[] MaxWidth1200 = {
+        public static readonly GUILayoutOption[] MaxWidth1200 = {
             GUILayout.MaxWidth(1200),
         };
         
-        internal static GUIContent IconTrash {
+        public static GUIContent IconTrash {
             [MethodImpl(AggressiveInlining)]
             get {
                 _iconTrash ??= EditorGUIUtility.IconContent("TreeEditor.Trash");
@@ -268,7 +268,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIContent _iconTrash;
         
-        internal static GUIContent IconLockOn {
+        public static GUIContent IconLockOn {
             [MethodImpl(AggressiveInlining)]
             get {
                 _iconLockOn ??= EditorGUIUtility.IconContent("LockIcon-On");
@@ -278,7 +278,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIContent _iconLockOn;
         
-        internal static GUIContent IconLockOff {
+        public static GUIContent IconLockOff {
             [MethodImpl(AggressiveInlining)]
             get {
                 _iconLockOff ??= EditorGUIUtility.IconContent("LockIcon");
@@ -298,7 +298,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIContent _iconView;
         
-        internal static GUIContent IconMenu {
+        public static GUIContent IconMenu {
             [MethodImpl(AggressiveInlining)]
             get {
                 _iconMenu ??= EditorGUIUtility.IconContent("_Menu");

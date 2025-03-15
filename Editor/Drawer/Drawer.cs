@@ -246,8 +246,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.HelpBox("Please, provide at least one component", MessageType.Warning, true);
             }
 
+            DrawEntity(provider, allowStandardComponentsAddDelete);
+            EditorGUILayout.EndScrollView();
+        }
+
+        public static void DrawEntity<TProvider>(TProvider provider, bool allowStandardComponentsAddDelete = true) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.Space(10);
-            
+
             provider.StandardComponents(_standardComponentsCache);
             EditorGUILayout.Space(10);
             DrawStandardComponents(_standardComponentsCache, provider, Ui.MaxWidth600, allowStandardComponentsAddDelete);
@@ -271,8 +276,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawMasks(_masksCache, provider, Ui.MaxWidth600);
             _masksCache.Clear();
             #endif
-
-            EditorGUILayout.EndScrollView();
         }
 
         private static void DrawWorldMenu(AbstractStaticEcsProvider provider) {
@@ -297,7 +300,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             menu.ShowAsContext();
         }
 
-        private static void DrawStandardComponents(List<IStandardComponent> components, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth, bool allowAddDelete) {
+        private static void DrawStandardComponents<TProvider>(List<IStandardComponent> components, TProvider provider, GUILayoutOption[] maxWidth, bool allowAddDelete) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.StandardComponents.Count == components.Count;
@@ -322,7 +325,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawStandardComponent(IStandardComponent component, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth, bool readOnly, bool allowAddDelete) {
+        private static void DrawStandardComponent<TProvider>(IStandardComponent component, TProvider provider, GUILayoutOption[] maxWidth, bool readOnly, bool allowAddDelete) where TProvider : Object, IStaticEcsEntityProvider {
+            if (component == null) {
+                EditorGUILayout.LabelField("Broken standard component - is null", EditorStyles.boldLabel);
+                if (GUILayout.Button("Delete all broken standard components", Ui.ButtonStyleWhite, Ui.WidthLine(240))) {
+                    provider.DeleteAllBrokenStandardComponents();
+                    EditorUtility.SetDirty(provider);
+                }
+                EditorGUILayout.Space(2);
+                return;
+            }
+            
             var type = component.GetType();
             var typeName = type.EditorTypeName();
 
@@ -364,7 +377,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             GUI.enabled = true;
         }
         
-        private static void DrawStandardComponentsMenu(List<IStandardComponent> actualComponents, StaticEcsEntityProvider provider) {
+        private static void DrawStandardComponentsMenu<TProvider>(List<IStandardComponent> actualComponents, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
             var menu = new GenericMenu();
             foreach (var component in MetaData.StandardComponents) {
                 var has = false;
@@ -393,7 +406,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             menu.ShowAsContext();
         }
 
-        private static void DrawComponents(List<IComponent> components, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth) {
+        private static void DrawComponents<TProvider>(List<IComponent> components, TProvider provider, GUILayoutOption[] maxWidth) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.Components.Count == components.Count;
@@ -407,6 +420,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             for (int i = 0, iMax = components.Count; i < iMax; i++) {
                 var component = components[i];
+
+                if (component == null) {
+                    EditorGUILayout.LabelField($"Broken component - is null, index {i}", EditorStyles.boldLabel);
+                    if (GUILayout.Button("Delete all broken components", Ui.ButtonStyleWhite, Ui.WidthLine(240))) {
+                        provider.DeleteAllBrokenComponents();
+                        EditorUtility.SetDirty(provider);
+                    }
+                    EditorGUILayout.Space(2);
+                    continue;
+                }
+                
                 var type = component.GetType();
                 var typeName = type.EditorTypeName();
 
@@ -445,7 +469,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawComponentsMenu(List<IComponent> actualComponents, StaticEcsEntityProvider provider) {
+        private static void DrawComponentsMenu<TProvider>(List<IComponent> actualComponents, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
             var menu = new GenericMenu();
             foreach (var component in MetaData.Components) {
                 var has = false;
@@ -475,7 +499,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
         
         #if !FFS_ECS_DISABLE_TAGS
-        private static void DrawTags(List<ITag> tags, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth) {
+        private static void DrawTags<TProvider>(List<ITag> tags, TProvider provider, GUILayoutOption[] maxWidth) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.Tags.Count == tags.Count;
@@ -488,7 +512,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.EndHorizontal();
 
             for (int i = 0, iMax = tags.Count; i < iMax; i++) {
-                var type = tags[i].GetType();
+                var tag = tags[i];
+                if (tag == null) {
+                    EditorGUILayout.LabelField($"Broken tag - is null, index {i}", EditorStyles.boldLabel);
+                    if (GUILayout.Button("Delete all broken tags", Ui.ButtonStyleWhite, Ui.WidthLine(240))) {
+                        provider.DeleteAllBrokenTags();
+                        EditorUtility.SetDirty(provider);
+                    }
+                    EditorGUILayout.Space(2);
+                    continue;
+                }
+                
+                var type = tag.GetType();
                 EditorGUILayout.BeginHorizontal(GUI.skin.box, maxWidth);
                 {
                     EditorGUILayout.SelectableLabel(type.EditorTypeName(), EditorStyles.boldLabel, Ui.MaxWidth600SingleLine);
@@ -502,7 +537,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawTagsMenu(List<ITag> actualTags, StaticEcsEntityProvider provider) {
+        private static void DrawTagsMenu<TProvider>(List<ITag> actualTags, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
             var menu = new GenericMenu();
             foreach (var tag in MetaData.Tags) {
                 var has = false;
@@ -532,7 +567,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         #endif
 
         #if !FFS_ECS_DISABLE_MASKS
-        private static void DrawMasks(List<IMask> masks, StaticEcsEntityProvider provider, GUILayoutOption[] maxWidth) {
+        private static void DrawMasks<TProvider>(List<IMask> masks, TProvider provider, GUILayoutOption[] maxWidth) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.Masks.Count == masks.Count;
@@ -545,7 +580,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.EndHorizontal();
 
             for (int i = 0, iMax = masks.Count; i < iMax; i++) {
-                var type = masks[i].GetType();
+                var mask =  masks[i];
+                if (mask == null) {
+                    EditorGUILayout.LabelField($"Broken mask - is null, index {i}", EditorStyles.boldLabel);
+                    if (GUILayout.Button("Delete all broken masks", Ui.ButtonStyleWhite, Ui.WidthLine(240))) {
+                        provider.DeleteAllBrokenMasks();
+                        EditorUtility.SetDirty(provider);
+                    }
+                    EditorGUILayout.Space(2);
+                    continue;
+                }
+                var type = mask.GetType();
                 EditorGUILayout.BeginHorizontal(GUI.skin.box, maxWidth);
                 {
                     EditorGUILayout.SelectableLabel(type.EditorTypeName(), EditorStyles.boldLabel, Ui.MaxWidth600SingleLine);
@@ -559,7 +604,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
         
-        private static void DrawMasksMenu(List<IMask> actualMasks, StaticEcsEntityProvider provider) {
+        private static void DrawMasksMenu<TProvider>(List<IMask> actualMasks, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
             var menu = new GenericMenu();
             foreach (var mask in MetaData.Masks) {
                 var has = false;
