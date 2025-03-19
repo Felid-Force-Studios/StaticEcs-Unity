@@ -101,7 +101,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class SystemDrawer {
         internal StaticEcsViewSystemsTab Parent;
         internal Type SysIdType;
-        internal ((ISystem system, short order)[] systems, int count, Type worldType) Systems;
+        internal ((ISystem system, short order, int idx)[] systems, int count, Type worldType) Systems;
         internal List<SystemInfo>[] SystemsInfo;
 
         private static Dictionary<int, string> _formattedTime = new();

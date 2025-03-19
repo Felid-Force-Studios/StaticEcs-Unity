@@ -316,10 +316,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetData<WorldType>(ref int minCount, ref int[] entities) where WorldType : struct, IWorldType {
+        public void SetAllData<WorldType>(ref uint minCount, ref uint[] entities, byte bufId) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
                 Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
             }
+            SetBitMask<WorldType>(bufId);
         }
 
         [MethodImpl(AggressiveInlining)]
@@ -374,10 +375,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetData<WorldType>(ref int minCount, ref int[] entities) where WorldType : struct, IWorldType {
+        public void SetAllData<WorldType>(ref uint minCount, ref uint[] entities, byte bufId) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
                 Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
             }
+            SetMask<WorldType>(bufId);
         }
 
         [MethodImpl(AggressiveInlining)]
@@ -409,14 +411,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetData<WorldType>(ref int minComponentsCount, ref int[] minEntities) where WorldType : struct, IWorldType {
+        public void SetData<WorldType>(ref uint minComponentsCount, ref uint[] minEntities) where WorldType : struct, IWorldType {
             foreach (var method in _methods) {
                 method.SetData<WorldType>(ref minComponentsCount, ref minEntities);
             }
         }
 
         [MethodImpl(AggressiveInlining)]
-        public bool CheckEntity(int entityId) {
+        public bool CheckEntity(uint entityId) {
             foreach (var method in _methods) {
                 if (!method.CheckEntity(entityId)) {
                     return false;

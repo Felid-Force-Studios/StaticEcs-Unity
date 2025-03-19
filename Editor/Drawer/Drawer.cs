@@ -81,7 +81,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                                 provider.EventCache = null;
                             });
                             menu.AddItem(new GUIContent("Send as new event"), false, () => {
-                                var actualEvent = provider.GetActualEvent(out var cached);
+                                var actualEvent = provider.GetActualEvent(out var _);
                                 if (provider.World.Events().TryGetPool(actualEvent.GetType(), out var pool)) {
                                     pool.AddRaw(actualEvent);
                                     provider.EventCache = actualEvent;
@@ -230,7 +230,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.LabelField("Entity ID:", Ui.WidthLine(60));
                 if (provider.EntityIsActual()) {
-                    EditorGUILayout.LabelField(Ui.IntToStringD6(provider.Entity.GetId()).d6, Ui.LabelStyleWhiteBold);
+                    EditorGUILayout.LabelField(Ui.IntToStringD6((int) provider.Entity.GetId()).d6, Ui.LabelStyleWhiteBold);
                 } else {
                     EditorGUILayout.LabelField("---", Ui.LabelStyleWhiteBold);
                     if (Application.isPlaying && provider.HasComponents() && GUILayout.Button("Build", Ui.ButtonStyleYellow, Ui.WidthLine(60))) {

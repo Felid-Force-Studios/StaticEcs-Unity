@@ -46,32 +46,32 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class AbstractWorldData {
         public IWorld World;
         public Type WorldTypeType;
-        public int Count;
-        public int CountWithoutDestroyed;
-        public int Capacity;
-        public int Destroyed;
-        public int DestroyedCapacity;
+        public uint Count;
+        public uint CountWithoutDestroyed;
+        public uint Capacity;
+        public uint Destroyed;
+        public uint DestroyedCapacity;
         public EventData[] Events;
         public int EventsCount;
         public int EventsStart;
         public string worldEditorName;
         public string WorldTypeTypeFullName;
 
-        public abstract bool IsActual(int idx);
+        public abstract bool IsActual(uint idx);
 
         public abstract void ForAll<T>(T with, IForAll action) where T : struct, IPrimaryQueryMethod;
 
-        public abstract IEntity GetEntity(int entIdx);
+        public abstract IEntity GetEntity(uint entIdx);
 
-        public abstract void DestroyEntity(int entIdx);
+        public abstract void DestroyEntity(uint entIdx);
     }
 
     public interface IForAll {
-        public bool ForAll(int entityId);
+        public bool ForAll(uint entityId);
     }
 
     internal class WorldData<WorldType> : AbstractWorldData where WorldType : struct, IWorldType {
-        public override bool IsActual(int idx) {
+        public override bool IsActual(uint idx) {
             return Ecs<WorldType>.Entity.FromIdx(idx).IsActual();
         }
 
@@ -83,11 +83,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
         }
 
-        public override IEntity GetEntity(int entIdx) {
+        public override IEntity GetEntity(uint entIdx) {
             return Ecs<WorldType>.Entity.FromIdx(entIdx);
         }
 
-        public override void DestroyEntity(int entIdx) {
+        public override void DestroyEntity(uint entIdx) {
             Ecs<WorldType>.Entity.FromIdx(entIdx).Destroy();
         }
         
@@ -171,7 +171,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 CountWithoutDestroyed = Ecs<WorldType>.World.EntitiesCountWithoutDestroyed(),
                 Capacity = Ecs<WorldType>.World.EntitiesCapacity(),
                 Destroyed = Ecs<WorldType>.World._deletedEntitiesCount,
-                DestroyedCapacity = Ecs<WorldType>.World._deletedEntities.Length,
+                DestroyedCapacity = (uint) Ecs<WorldType>.World._deletedEntities.Length,
                 WorldTypeType = typeof(WorldType),
                 Events = new EventData[_maxDeletedEventHistoryCount * 3]
             };
@@ -192,10 +192,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
             _worldData.CountWithoutDestroyed = Ecs<WorldType>.World.EntitiesCountWithoutDestroyed();
             _worldData.Capacity = Ecs<WorldType>.World.EntitiesCapacity();
             _worldData.Destroyed = Ecs<WorldType>.World._deletedEntitiesCount;
-            _worldData.DestroyedCapacity = Ecs<WorldType>.World._deletedEntities.Length;
+            _worldData.DestroyedCapacity = (uint) Ecs<WorldType>.World._deletedEntities.Length;
         }
 
-        public void OnWorldResized(int capacity) {
+        public void OnWorldResized(uint capacity) {
             UpdateWorldCounts();
         }
 

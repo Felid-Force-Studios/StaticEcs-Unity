@@ -67,8 +67,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         #endif
 
         private EditorEntityDataMetaByWorld _sortIdx;
-        private readonly List<int> _tempEntities = new();
-        private readonly List<int> _pinedEntities = new();
+        private readonly List<uint> _tempEntities = new();
+        private readonly List<uint> _pinedEntities = new();
 
         private readonly StaticEcsEntityProvider _entityBuilder;
         private bool _entityBuilderShowLeftTab = true;
@@ -86,7 +86,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             
             foreach (var val in MetaData.StandardComponents) {
                 if (worldData.World.TryGetStandardComponentsRawPool(val.Type, out var pool)) {
-                    _standardComponents.Add(new EditorEntityDataMetaByWorld(val, pool, i => true));
+                    _standardComponents.Add(new EditorEntityDataMetaByWorld(val, pool, _ => true));
                 }
             }
             
@@ -252,8 +252,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (IsFilterValid()) {
                 _worldData.ForAll(MakeEcsWithFilter(), this);
             } else {
-                for (var entIdx = _worldData.Count - 1; entIdx >= 0; entIdx--) {
-                    if (!DrawEntityRow(entIdx, true, false)) {
+                for (var entIdx = _worldData.Count; entIdx > 0; entIdx--) {
+                    if (!DrawEntityRow(entIdx - 1, true, false)) {
                         break;
                     }
                 }
@@ -271,7 +271,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             GUILayout.EndScrollView();
         }
 
-        public bool ForAll(int entityId) {
+        public bool ForAll(uint entityId) {
             return DrawEntityRow(entityId, true, false);
         }
 
@@ -377,7 +377,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private bool DrawEntityRow(int entIdx, bool sorted, bool pined) {
+        private bool DrawEntityRow(uint entIdx, bool sorted, bool pined) {
             if (_currentEntityCount >= _maxEntityResult && !pined) {
                 return false;
             }
@@ -419,7 +419,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return true;
         }
 
-        private void DrawComponents(int entIdx) {
+        private void DrawComponents(uint entIdx) {
             _maxWidth = 180f;
             #if !FFS_ECS_DISABLE_TAGS
             DrawComponents(entIdx, _tagsColumns, 46f + 16f);
@@ -431,12 +431,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawComponents(entIdx, _componentsColumns, 70f + 16f);
         }
 
-        private static void DrawEntityId(int entIdx) {
-            EditorGUILayout.SelectableLabel(Ui.IntToStringD6(entIdx).d6, Ui.LabelStyleWhiteCenter, Ui.WidthLine(60));
+        private static void DrawEntityId(uint entIdx) {
+            EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) entIdx).d6, Ui.LabelStyleWhiteCenter, Ui.WidthLine(60));
             Ui.DrawSeparator();
         }
 
-        private bool DrawDeleteEntityButton(int entIdx) {
+        private bool DrawDeleteEntityButton(uint entIdx) {
             if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
                 _worldData.DestroyEntity(entIdx);
                 return true;
@@ -445,7 +445,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return false;
         }
 
-        private void DrawPinEntityButton(int entIdx, bool pinned) {
+        private void DrawPinEntityButton(uint entIdx, bool pinned) {
             var pinedIcon = pinned
                 ? Ui.IconLockOn
                 : Ui.IconLockOff;
@@ -459,7 +459,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private void DrawViewEntityButton(int entIdx) {
+        private void DrawViewEntityButton(uint entIdx) {
             if (GUILayout.Button(Ui.IconView, Ui.WidthLine(30))) {
                 var menu = new GenericMenu();
                 menu.AddItem(new GUIContent("Left tab"), false, () => {
@@ -478,7 +478,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private void DrawComponents(int entIdx, List<EditorEntityDataMetaByWorld> types, float widthAdd) {
+        private void DrawComponents(uint entIdx, List<EditorEntityDataMetaByWorld> types, float widthAdd) {
             const string HasComponent = "✔";
 
             foreach (var idx in types) {
@@ -502,16 +502,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public class EditorEntityDataMetaByWorld : EditorEntityDataMeta {
         public readonly IStandardRawPool Pool;
-        private readonly Func<int, bool> _hasComponentFunc;
+        private readonly Func<uint, bool> _hasComponentFunc;
         public bool ShowTableData;
 
-        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IStandardRawPool pool, Func<int, bool> hasComponentFunc)
+        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IStandardRawPool pool, Func<uint, bool> hasComponentFunc)
             : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
             _hasComponentFunc = hasComponentFunc;
             ShowTableData = false;
             Pool = pool;
         }
 
-        public bool HasComponent(int entIdx) => _hasComponentFunc(entIdx);
+        public bool HasComponent(uint entIdx) => _hasComponentFunc(entIdx);
     }
 }

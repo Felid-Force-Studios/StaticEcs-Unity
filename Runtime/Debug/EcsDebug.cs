@@ -10,7 +10,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     
     public sealed class StaticEcsDebugData {
         public static readonly Dictionary<Type, AbstractWorldData> Worlds = new();
-        public static readonly Dictionary<Type, ((ISystem system, short order)[] systems, int count, Type worldType)> Systems = new();
+        public static readonly Dictionary<Type, ((ISystem system, short order, int idx)[] systems, int count, Type worldType)> Systems = new();
     }
     
     public abstract class EcsDebug<WorldType> where WorldType : struct, IWorldType {
