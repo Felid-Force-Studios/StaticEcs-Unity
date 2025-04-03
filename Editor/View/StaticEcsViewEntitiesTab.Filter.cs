@@ -12,8 +12,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private bool _filterActive;
 
         private readonly List<EditorEntityDataMetaByWorld> _all = new();
+        private readonly List<EditorEntityDataMetaByWorld> _allOnlyDisabled = new();
+        private readonly List<EditorEntityDataMetaByWorld> _allWithDisabled = new();
         private readonly List<EditorEntityDataMetaByWorld> _none = new();
+        private readonly List<EditorEntityDataMetaByWorld> _noneOnlyDisabled = new();
+        private readonly List<EditorEntityDataMetaByWorld> _noneWithDisabled = new();
         private readonly List<EditorEntityDataMetaByWorld> _any = new();
+        private readonly List<EditorEntityDataMetaByWorld> _anyOnlyDisabled = new();
+        private readonly List<EditorEntityDataMetaByWorld> _anyWithDisabled = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagAll = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagNone = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagAny = new();
@@ -51,6 +57,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawFilterLabels(_all);
                 }
                 EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                        DrawShowFilterMenu(_components, _allOnlyDisabled);
+                    }
+                    EditorGUILayout.LabelField("All only disabled:", Ui.WidthLine(90));
+                    DrawFilterLabels(_allOnlyDisabled);
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                        DrawShowFilterMenu(_components, _allWithDisabled);
+                    }
+                    EditorGUILayout.LabelField("All with disabled:", Ui.WidthLine(90));
+                    DrawFilterLabels(_allWithDisabled);
+                }
+                EditorGUILayout.EndHorizontal();
 
                 EditorGUILayout.BeginHorizontal();
                 {
@@ -61,6 +87,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawFilterLabels(_none);
                 }
                 EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                        DrawShowFilterMenu(_components, _noneOnlyDisabled);
+                    }
+                    EditorGUILayout.LabelField("None only disabled:", Ui.WidthLine(90));
+                    DrawFilterLabels(_noneOnlyDisabled);
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                        DrawShowFilterMenu(_components, _noneWithDisabled);
+                    }
+                    EditorGUILayout.LabelField("None with disabled:", Ui.WidthLine(90));
+                    DrawFilterLabels(_noneWithDisabled);
+                }
+                EditorGUILayout.EndHorizontal();
 
                 EditorGUILayout.BeginHorizontal();
                 {
@@ -69,6 +115,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
                     EditorGUILayout.LabelField("Any:", Ui.WidthLine(90));
                     DrawFilterLabels(_any);
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                        DrawShowFilterMenu(_components, _anyOnlyDisabled);
+                    }
+                    EditorGUILayout.LabelField("Any only disabled:", Ui.WidthLine(90));
+                    DrawFilterLabels(_anyOnlyDisabled);
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                        DrawShowFilterMenu(_components, _anyWithDisabled);
+                    }
+                    EditorGUILayout.LabelField("Any with disabled:", Ui.WidthLine(90));
+                    DrawFilterLabels(_anyWithDisabled);
                 }
                 EditorGUILayout.EndHorizontal();
                 
@@ -156,7 +222,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private bool IsFilterValid() {
-            return _filterActive && (_all.Count > 0 || _tagAll.Count > 0);
+            return _filterActive && (_all.Count > 0 || _tagAll.Count > 0 || _allWithDisabled.Count > 0 || _allOnlyDisabled.Count > 0);
         }
 
         private void ColumnsFilter() {
@@ -260,8 +326,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             methods.Clear();
             
             if (_all.Count > 0) methods.Add(new TypesArray(_all).All());
+            if (_allOnlyDisabled.Count > 0) methods.Add(new AllOnlyDisabledTypes<TypesArray>(new TypesArray(_allOnlyDisabled)));
+            if (_allWithDisabled.Count > 0) methods.Add(new AllWithDisabledTypes<TypesArray>(new TypesArray(_allWithDisabled)));
             if (_none.Count > 0) methods.Add(new TypesArray(_none).None());
+            if (_noneOnlyDisabled.Count > 0) methods.Add(new NoneOnlyDisabledTypes<TypesArray>(new TypesArray(_noneOnlyDisabled)));
+            if (_noneWithDisabled.Count > 0) methods.Add(new NoneWithDisabledTypes<TypesArray>(new TypesArray(_noneWithDisabled)));
             if (_any.Count > 1) methods.Add(new TypesArray(_any).Any());
+            if (_anyOnlyDisabled.Count > 1) methods.Add(new AnyOnlyDisabledTypes<TypesArray>(new TypesArray(_anyOnlyDisabled)));
+            if (_anyWithDisabled.Count > 1) methods.Add(new AnyWithDisabledTypes<TypesArray>(new TypesArray(_anyWithDisabled)));
             #if !FFS_ECS_DISABLE_TAGS
             if (_tagAll.Count > 0) methods.Add(new TagArray(_tagAll).All());
             if (_tagNone.Count > 0) methods.Add(new TagArray(_tagNone).None());

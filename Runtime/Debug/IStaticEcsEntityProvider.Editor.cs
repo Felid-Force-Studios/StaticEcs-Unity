@@ -15,6 +15,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
         void DeleteAllBrokenStandardComponents();
 
         bool HasComponents();
+        bool IsDisabled(Type componentType);
+        void Disable(Type componentType);
+        void Enable(Type componentType);
         void Components(List<IComponent> result);
         void OnSelectComponent(IComponent component);
         void OnChangeComponent(IComponent component, Type componentType);

@@ -227,13 +227,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             } else {
                                 e = pool.GetRaw(val.InternalIdx);
                             }
-                        
-                            if (meta.TryGetTableField(out var field)) {
-                                Drawer.DrawField(e, field, style, Ui.WidthLine(600));
-                            } else if (meta.TryGetTableProperty(out var property)) {
-                                Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
+                            
+                            if (MetaData.Inspectors.TryGetValue(meta.Type, out var inspector)) {
+                                inspector.DrawTableValue(e, Ui.LabelStyleWhiteCenter, Ui.WidthLine(600));
                             } else {
-                                EditorGUILayout.LabelField("✔", style, Ui.WidthLine(600));
+                                if (meta.TryGetTableField(out var field)) {
+                                    Drawer.DrawField(e, field, style, Ui.WidthLine(600));
+                                } else if (meta.TryGetTableProperty(out var property)) {
+                                    Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
+                                } else {
+                                    EditorGUILayout.LabelField("✔", style, Ui.WidthLine(600));
+                                }
                             }
                         } else {
                             EditorGUILayout.LabelField("Hidden", style, Ui.WidthLine(600));

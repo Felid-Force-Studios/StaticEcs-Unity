@@ -158,6 +158,27 @@ namespace FFS.Libraries.StaticEcs.Unity {
             return components.Count > 0;
         }
 
+        public bool IsDisabled(Type componentType) {
+            if (!EntityIsActual()) return false;
+            return World.TryGetComponentsRawPool(componentType, out var pool) && pool.HasDisabled(Entity.GetId());
+        }
+
+        public void Disable(Type componentType) {
+            if (!EntityIsActual()) return;
+
+            if (World.TryGetComponentsRawPool(componentType, out var pool)) {
+                pool.Disable(Entity.GetId());
+            }
+        }
+
+        public void Enable(Type componentType) {
+            if (!EntityIsActual()) return;
+
+            if (World.TryGetComponentsRawPool(componentType, out var pool)) {
+                pool.Enable(Entity.GetId());
+            }
+        }
+
         public void Components(List<IComponent> result) {
             if (EntityIsActual()) {
                 Entity.GetAllComponents(result);

@@ -483,12 +483,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             foreach (var idx in types) {
                 if (idx.HasComponent(entIdx)) {
-                    if (idx.ShowTableData && idx.TryGetTableField(out var field)) {
-                        Drawer.DrawField(idx.Pool.GetRaw(entIdx), field, Ui.LabelStyleWhiteCenter, idx.LayoutWithOffset);
-                    } else if (idx.ShowTableData && idx.TryGetTableProperty(out var property)) {
-                        Drawer.DrawProperty(idx.Pool.GetRaw(entIdx), property, Ui.LabelStyleWhiteCenter, idx.LayoutWithOffset);
+                    var style = idx.CopmponentsPool != null && idx.CopmponentsPool.HasDisabled(entIdx) 
+                        ? Ui.LabelStyleGreyCenter 
+                        : Ui.LabelStyleWhiteCenter;
+                    if (idx.ShowTableData) {
+                        if (MetaData.Inspectors.TryGetValue(idx.Type, out var inspector)) {
+                            inspector.DrawTableValue(idx.Pool.GetRaw(entIdx), style, idx.LayoutWithOffset);
+                        } else {
+                            if (idx.TryGetTableField(out var field)) {
+                                Drawer.DrawField(idx.Pool.GetRaw(entIdx), field, style, idx.LayoutWithOffset);
+                            } else if (idx.TryGetTableProperty(out var property)) {
+                                Drawer.DrawProperty(idx.Pool.GetRaw(entIdx), property, style, idx.LayoutWithOffset);
+                            } else {
+                                EditorGUILayout.LabelField(HasComponent, style, idx.LayoutWithOffset);
+                            }
+                        }
                     } else {
-                        EditorGUILayout.LabelField(HasComponent, Ui.LabelStyleWhiteCenter, idx.LayoutWithOffset);
+                        EditorGUILayout.LabelField(HasComponent, style, idx.LayoutWithOffset);
                     }
                 } else {
                     EditorGUILayout.LabelField(GUIContent.none, Ui.LabelStyleGreyCenter, idx.LayoutWithOffset);
@@ -502,6 +513,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public class EditorEntityDataMetaByWorld : EditorEntityDataMeta {
         public readonly IStandardRawPool Pool;
+        public readonly IRawComponentPool CopmponentsPool;
         private readonly Func<uint, bool> _hasComponentFunc;
         public bool ShowTableData;
 
@@ -510,6 +522,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _hasComponentFunc = hasComponentFunc;
             ShowTableData = false;
             Pool = pool;
+            if (Pool is IRawComponentPool componentPool) {
+                CopmponentsPool = componentPool;
+            }
         }
 
         public bool HasComponent(uint entIdx) => _hasComponentFunc(entIdx);

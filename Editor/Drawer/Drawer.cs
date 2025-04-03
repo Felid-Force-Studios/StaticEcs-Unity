@@ -433,6 +433,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 
                 var type = component.GetType();
                 var typeName = type.EditorTypeName();
+                var disabled = provider.IsDisabled(type);
+                if (disabled) {
+                    typeName += " [Disabled]";
+                }
 
                 GUILayout.BeginHorizontal(GUI.skin.box, maxWidth);
                 {
@@ -458,11 +462,29 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         }
                     }
                     GUILayout.EndVertical();
-
+                    
+                    GUILayout.BeginVertical(Ui.Width(30));
                     if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
                         provider.OnDeleteComponent(type);
                         EditorUtility.SetDirty(provider);
                     }
+                    const string DataOn = "☑";
+                    const string DataOff = "☐";
+                    if (provider.EntityIsActual()) {
+                        if (disabled) {
+                            if (GUILayout.Button(DataOff, Ui.WidthLine(30))) {
+                                provider.Enable(type);
+                                EditorUtility.SetDirty(provider);
+                            }
+                        } else {
+                            if (GUILayout.Button(DataOn, Ui.WidthLine(30))) {
+                                provider.Disable(type);
+                                EditorUtility.SetDirty(provider);
+                            } 
+                        }
+                    }
+         
+                    GUILayout.EndVertical();
                 }
                 GUILayout.EndHorizontal();
                 EditorGUILayout.Space(2);
@@ -668,7 +690,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.LabelField(strVal, style, layout);
         }
 
-        private static bool TryDrawField(object component, FieldInfo field, out object newValue) {
+        internal static bool TryDrawField(object component, FieldInfo field, out object newValue) {
             var fieldValue = field.GetValue(component);
             var fieldType = field.FieldType;
             if (TryDrawValueByCustomDrawer(field.Name, fieldType, fieldValue, out var changed, out newValue)) {
@@ -697,9 +719,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return false;
         }
 
-        private static bool TryDrawValueByCustomDrawer(string label, Type type, object value, out bool changed, out object newValue) {
+        internal static bool TryDrawValueByCustomDrawer(string label, Type type, object value, out bool changed, out object newValue) {
             if (MetaData.Inspectors.TryGetValue(type, out var inspector)) {
                 changed = inspector.DrawValue(label, value, out newValue);
+                return true;
+            }
+            
+            if (type.IsGenericType && MetaData.InspectorsGeneric.TryGetValue(type.GetGenericTypeDefinition(), out var inspectorType)) {
+                var ins = (IStaticEcsValueDrawer) Activator.CreateInstance(inspectorType.MakeGenericType(type.GetGenericArguments()));
+                MetaData.Inspectors[type] = ins;
+                changed = ins.DrawValue(label, value, out newValue);
+                return true;
+            }
+            
+            if (type.IsArray && MetaData.InspectorsGeneric.TryGetValue(type.BaseType, out var inspectorTypeArray)) {
+                var ins = (IStaticEcsValueDrawer) Activator.CreateInstance(inspectorTypeArray.MakeGenericType(type.GetElementType()));
+                MetaData.Inspectors[type] = ins;
+                changed = ins.DrawValue(label, value, out newValue);
                 return true;
             }
 
@@ -708,9 +744,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return false;
         }
 
-        private static bool TryDrawTableValueByCustomDrawer(Type type, object value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+        internal static bool TryDrawTableValueByCustomDrawer(Type type, object value, GUIStyle style, GUILayoutOption[] layoutOptions) {
             if (MetaData.Inspectors.TryGetValue(type, out var inspector)) {
                 inspector.DrawTableValue(value, style, layoutOptions);
+                return true;
+            }
+            
+            if (type.IsGenericType && MetaData.InspectorsGeneric.TryGetValue(type.GetGenericTypeDefinition(), out var inspectorType)) {
+                var ins = (IStaticEcsValueDrawer) Activator.CreateInstance(inspectorType.MakeGenericType(type.GetGenericArguments()));
+                MetaData.Inspectors[type] = ins;
+                ins.DrawTableValue(value, style, layoutOptions);
                 return true;
             }
 

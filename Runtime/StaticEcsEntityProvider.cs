@@ -67,6 +67,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             
             for (var i = 0; i < standardComponents.Count; i++) {
                 var standardComponent = standardComponents[i];
+                if (standardComponent is EntityVersion) {
+                    continue;
+                }
                 #if DEBUG
                 if (standardComponent == null) {
                     throw new Exception("[StaticEcsEntityProvider] NULL standardComponent");

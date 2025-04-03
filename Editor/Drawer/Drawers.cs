@@ -1,8 +1,229 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
+    
+    internal sealed class EntityStatusDrawer : IStaticEcsValueDrawer<EntityStatus> {
+        public override bool DrawValue(string label, ref EntityStatus value) {
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            var newValue = EditorGUILayout.Toggle("Enabled", value.Value == EntityStatusType.Enabled);
+            EditorGUI.indentLevel--;
+            if (newValue == (value.Value == EntityStatusType.Enabled)) {
+                return false;
+            }
+
+            value.Value = newValue 
+                ? EntityStatusType.Enabled 
+                : EntityStatusType.Disabled;
+            return true;
+        }
+
+        public override void DrawTableValue(ref EntityStatus value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel(value.Value.ToString(), style, layoutOptions);
+        }
+    }
+
+    internal sealed class MultiComponentDrawer<T> : IStaticEcsValueDrawer<Multi<T>> where T : struct {
+        public override bool DrawValue(string label, ref Multi<T> value) {
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            if (value.data == null) {
+                EditorGUILayout.LabelField("Data is empty, it will be created when the entity is active", EditorStyles.boldLabel);
+                return false;
+            }
+            EditorGUILayout.LabelField("Elements:", EditorStyles.boldLabel);
+
+            EditorGUI.indentLevel++;
+            var type = typeof(T);
+            var typeName = type.EditorTypeName();
+            for (ushort i = 0; i < value.Count; i++) {
+                var val = value[i];
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("X", Ui.Width(20))) {
+                    value.DeleteAt(i);
+                    return true;
+                }
+                EditorGUILayout.EndHorizontal();
+       
+                if (Drawer.TryDrawValueByCustomDrawer(typeName, type, val, out var changed, out var newValue)) {
+                    if (changed) {
+                        value[i] = (T) newValue;
+                    }
+                } else {
+                    EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
+                    EditorGUI.indentLevel++;
+                    foreach (var field in MetaData.GetCachedType(type)) {
+                        if (Drawer.TryDrawField(val, field, out newValue)) {
+                            field.SetValue(val, newValue);
+                            changed = true;
+                            value[i] = val;
+                        }
+                    }
+
+                    EditorGUI.indentLevel--;
+                }
+
+                if (changed) {
+                    return true;
+                }
+            }
+
+            if (GUILayout.Button("Add Element")) {
+                value.Add(default(T));
+                return true;
+            }
+
+            EditorGUI.indentLevel--;
+            return false;
+        }
+
+        public override void DrawTableValue(ref Multi<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel($"Count: {value.Count}, Cap: {value.Capacity}", style, layoutOptions);
+        }
+    }
+    
+    internal sealed class ListDrawer<T> : IStaticEcsValueDrawer<List<T>> where T : struct {
+        
+        public override bool IsNullAllowed() => true;
+        
+        public override bool DrawValue(string label, ref List<T> value) {
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            if (value == null) {
+                EditorGUILayout.LabelField("Data is empty", EditorStyles.boldLabel);
+                if (GUILayout.Button("Create new")) {
+                    value = new List<T>();
+                    return true;
+                }
+                return false;
+            }
+            EditorGUILayout.LabelField("Elements:", EditorStyles.boldLabel);
+
+            EditorGUI.indentLevel++;
+            var type = typeof(T);
+            var typeName = type.EditorTypeName();
+            for (ushort i = 0; i < value.Count; i++) {
+                var val = value[i];
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("X", Ui.Width(20))) {
+                    value.RemoveAt(i);
+                    return true;
+                }
+                EditorGUILayout.EndHorizontal();
+       
+                if (Drawer.TryDrawValueByCustomDrawer(typeName, type, val, out var changed, out var newValue)) {
+                    if (changed) {
+                        value[i] = (T) newValue;
+                    }
+                } else {
+                    EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
+                    EditorGUI.indentLevel++;
+                    foreach (var field in MetaData.GetCachedType(type)) {
+                        if (Drawer.TryDrawField(val, field, out newValue)) {
+                            field.SetValue(val, newValue);
+                            changed = true;
+                            value[i] = val;
+                        }
+                    }
+
+                    EditorGUI.indentLevel--;
+                }
+
+                if (changed) {
+                    return true;
+                }
+            }
+
+            if (GUILayout.Button("Add Element")) {
+                value.Add(default(T));
+                return true;
+            }
+
+            EditorGUI.indentLevel--;
+            return false;
+        }
+
+        public override void DrawTableValue(ref List<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel($"Count: {value.Count}, Cap: {value.Capacity}", style, layoutOptions);
+        }
+    }
+    
+    internal sealed class ArrayDrawer<T> : IStaticEcsValueDrawer<T[]> {
+        public override bool IsNullAllowed() => true;
+
+        public override bool DrawValue(string label, ref T[] value) {
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            if (value == null) {
+                EditorGUILayout.LabelField("Data is null", EditorStyles.boldLabel);
+                if (GUILayout.Button("Create new")) {
+                    value = new T[4];
+                    return true;
+                }
+                return false;
+            }
+            EditorGUILayout.LabelField("Elements:", EditorStyles.boldLabel);
+
+            EditorGUI.indentLevel++;
+            var type = typeof(T);
+            var typeName = type.EditorTypeName();
+            for (ushort i = 0; i < value.Length; i++) {
+                var val = value[i];
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("X", Ui.Width(20))) {
+                    if (i == value.Length - 1) {
+                        value[i] = default;
+                    } else {
+                        Utils.LoopFallbackCopy(value, (uint) (i + 1), value, i, (uint) (value.Length - 1 - i));
+                        value[value.Length - 1] = default;
+                    }
+                    return true;
+                }
+                EditorGUILayout.EndHorizontal();
+       
+                if (Drawer.TryDrawValueByCustomDrawer(typeName, type, val, out var changed, out var newValue)) {
+                    if (changed) {
+                        value[i] = (T) newValue;
+                    }
+                } else {
+                    EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
+                    EditorGUI.indentLevel++;
+                    foreach (var field in MetaData.GetCachedType(type)) {
+                        if (Drawer.TryDrawField(val, field, out newValue)) {
+                            field.SetValue(val, newValue);
+                            changed = true;
+                            value[i] = val;
+                        }
+                    }
+
+                    EditorGUI.indentLevel--;
+                }
+
+                if (changed) {
+                    return true;
+                }
+            }
+            
+            if (GUILayout.Button("Resize")) {
+                var arr = new T[value.Length << 1];
+                Array.Copy(value, arr, value.Length);
+                value = arr;
+                return true;
+            }
+
+            EditorGUI.indentLevel--;
+            return false;
+        }
+
+        public override void DrawTableValue(ref T[] value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel($"Length: {value.Length}", style, layoutOptions);
+        }
+    }
+    
     public sealed class BoolDrawer : IStaticEcsValueDrawer<bool> {
         public override bool DrawValue(string label, ref bool value) {
             var newValue = EditorGUILayout.Toggle(label, value);

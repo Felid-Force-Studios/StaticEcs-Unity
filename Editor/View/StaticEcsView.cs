@@ -141,6 +141,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 data.worldEditorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == type).EditorName;
                 data.WorldTypeTypeFullName = type.FullName;
                 _WorldTypeTypeToData[type] = data;
+                MetaData.EnrichByWorld(data.World);
             }
             
             _currentWorldData =  _WorldTypeTypeToData[type];
