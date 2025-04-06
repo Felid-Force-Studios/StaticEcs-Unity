@@ -314,23 +314,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var methods = _ecsWithFilter._methods;
             methods.Clear();
             
-            if (_all.Count > 0) methods.Add(new TypesArray(_all).All());
+            if (_all.Count > 0) methods.Add(new AllTypes<TypesArray>(new TypesArray(_all)));
             if (_allOnlyDisabled.Count > 0) methods.Add(new AllOnlyDisabledTypes<TypesArray>(new TypesArray(_allOnlyDisabled)));
             if (_allWithDisabled.Count > 0) methods.Add(new AllWithDisabledTypes<TypesArray>(new TypesArray(_allWithDisabled)));
-            if (_none.Count > 0) methods.Add(new TypesArray(_none).None());
+            if (_none.Count > 0) methods.Add(new NoneTypes<TypesArray>(new TypesArray(_none)));
             if (_noneWithDisabled.Count > 0) methods.Add(new NoneWithDisabledTypes<TypesArray>(new TypesArray(_noneWithDisabled)));
-            if (_any.Count > 1) methods.Add(new TypesArray(_any).Any());
+            if (_any.Count > 1) methods.Add(new AnyTypes<TypesArray>(new TypesArray(_any)));
             if (_anyOnlyDisabled.Count > 1) methods.Add(new AnyOnlyDisabledTypes<TypesArray>(new TypesArray(_anyOnlyDisabled)));
             if (_anyWithDisabled.Count > 1) methods.Add(new AnyWithDisabledTypes<TypesArray>(new TypesArray(_anyWithDisabled)));
             #if !FFS_ECS_DISABLE_TAGS
-            if (_tagAll.Count > 0) methods.Add(new TagArray(_tagAll).All());
-            if (_tagNone.Count > 0) methods.Add(new TagArray(_tagNone).None());
-            if (_tagAny.Count > 1) methods.Add(new TagArray(_tagAny).Any());
+            if (_tagAll.Count > 0) methods.Add(new TagAllTypes<TagArray>(new TagArray(_tagAll)));
+            if (_tagNone.Count > 0) methods.Add(new TagNoneTypes<TagArray>(new TagArray(_tagNone)));
+            if (_tagAny.Count > 1) methods.Add(new TagAnyTypes<TagArray>(new TagArray(_tagAny)));
             #endif
             #if !FFS_ECS_DISABLE_MASKS
-            if (_maskAll.Count > 0) methods.Add(new MaskArray(_maskAll).All());
-            if (_maskNone.Count > 0) methods.Add(new MaskArray(_maskNone).None());
-            if (_maskAny.Count > 1) methods.Add(new MaskArray(_maskAny).Any());
+            if (_maskAll.Count > 0) methods.Add(new MaskAllTypes<MaskArray>(new MaskArray(_maskAll)));
+            if (_maskNone.Count > 0) methods.Add(new MaskNoneTypes<MaskArray>(new MaskArray(_maskNone)));
+            if (_maskAny.Count > 1) methods.Add(new MaskAnyTypes<MaskArray>(new MaskArray(_maskAny)));
             #endif
 
             return _ecsWithFilter;
@@ -376,28 +376,24 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetAllData<WorldType>(ref uint minCount, ref uint[] entities, byte bufId) where WorldType : struct, IWorldType {
+        public void SetMinData<WorldType>(ref uint minCount, ref uint[] entities) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
                 Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
             }
-            SetBitMask<WorldType>(bufId);
         }
 
         [MethodImpl(AggressiveInlining)]
         public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
-                Ecs<WorldType>.ModuleComponents.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).DynamicId().Value);
-                #if DEBUG || FFS_ECS_ENABLE_DEBUG
-                Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).AddBlocker(1);
-                #endif
+                Ecs<WorldType>.ModuleComponents.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).DynamicId());
             }
         }
 
         #if DEBUG || FFS_ECS_ENABLE_DEBUG
         [MethodImpl(AggressiveInlining)]
-        public void Dispose<WorldType>() where WorldType : struct, IWorldType {
+        public void Block<WorldType>(int val) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
-                Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).AddBlocker(-1);
+                Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).AddBlocker(val);
             }
         }
         #endif
@@ -413,9 +409,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
+        public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
             for (var i = 0; i < Mask.Count; i++) {
-                Ecs<WorldType>.ModuleMasks.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleMasks.Value.GetPool(Mask[i].Type).DynamicId().Value);
+                Ecs<WorldType>.ModuleMasks.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleMasks.Value.GetPool(Mask[i].Type).DynamicId());
             }
         }
     }
@@ -435,28 +431,24 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetAllData<WorldType>(ref uint minCount, ref uint[] entities, byte bufId) where WorldType : struct, IWorldType {
+        public void SetMinData<WorldType>(ref uint minCount, ref uint[] entities) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
                 Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
             }
-            SetMask<WorldType>(bufId);
         }
 
         [MethodImpl(AggressiveInlining)]
-        public void SetMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
+        public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
-                Ecs<WorldType>.ModuleTags.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).DynamicId().Value);
-                #if DEBUG || FFS_ECS_ENABLE_DEBUG
-                Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).AddBlocker(1);
-                #endif
+                Ecs<WorldType>.ModuleTags.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).DynamicId());
             }
         }
 
         #if DEBUG || FFS_ECS_ENABLE_DEBUG
         [MethodImpl(AggressiveInlining)]
-        public void Dispose<WorldType>() where WorldType : struct, IWorldType {
+        public void Block<WorldType>(int val) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
-                Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).AddBlocker(-1);
+                Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).AddBlocker(val);
             }
         }
         #endif
