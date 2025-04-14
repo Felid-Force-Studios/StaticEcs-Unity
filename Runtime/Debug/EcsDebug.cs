@@ -16,7 +16,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class EcsDebug<WorldType> where WorldType : struct, IWorldType {
         public static void AddSystem<SystemsType>() where SystemsType : struct, ISystemsType {
             #if UNITY_EDITOR
-            StaticEcsDebugData.Systems[typeof(SystemsType)] = (Ecs<WorldType>.Systems<SystemsType>._allSystems, Ecs<WorldType>.Systems<SystemsType>._allSystemsCount, typeof(WorldType));
+            StaticEcsDebugData.Systems[typeof(SystemsType)] = (World<WorldType>.Systems<SystemsType>._allSystems, World<WorldType>.Systems<SystemsType>._allSystemsCount, typeof(WorldType));
             #endif
         }
         

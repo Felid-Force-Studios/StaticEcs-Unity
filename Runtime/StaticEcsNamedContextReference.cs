@@ -19,25 +19,25 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         void Awake() {
             if (_registrationType == RegistrationType.OnAwake) {
-                Ecs<WorldType>.NamedContext.Set(_key, gameObject);
+                World<WorldType>.NamedContext.Set(_key, gameObject);
             }
         }
 
         void OnEnable() {
             if (_registrationType == RegistrationType.OnEnable) {
-                Ecs<WorldType>.NamedContext.Set(_key, gameObject);
+                World<WorldType>.NamedContext.Set(_key, gameObject);
             }
         }
 
         void OnDisable() {
             if (_registrationType == RegistrationType.OnEnable) {
-                Ecs<WorldType>.NamedContext.Remove(_key);
+                World<WorldType>.NamedContext.Remove(_key);
             }
         }
 
         void OnDestroy() {
             if (_registrationType == RegistrationType.OnAwake) {
-                Ecs<WorldType>.NamedContext.Remove(_key);
+                World<WorldType>.NamedContext.Remove(_key);
             }
         }
 

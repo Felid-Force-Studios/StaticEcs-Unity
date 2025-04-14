@@ -44,7 +44,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("X", Ui.Width(20))) {
-                    value.DeleteAt(i);
+                    value.RemoveAt(i);
                     return true;
                 }
                 EditorGUILayout.EndHorizontal();

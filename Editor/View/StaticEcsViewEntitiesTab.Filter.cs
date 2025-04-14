@@ -378,14 +378,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         [MethodImpl(AggressiveInlining)]
         public void SetMinData<WorldType>(ref uint minCount, ref uint[] entities) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
-                Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
+                World<WorldType>.ModuleComponents.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
             }
         }
 
         [MethodImpl(AggressiveInlining)]
         public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
-                Ecs<WorldType>.ModuleComponents.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).DynamicId());
+                World<WorldType>.ModuleComponents.Value.BitMask.SetInBuffer(bufId, World<WorldType>.ModuleComponents.Value.GetPool(type.Type).DynamicId());
             }
         }
 
@@ -393,7 +393,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         [MethodImpl(AggressiveInlining)]
         public void Block<WorldType>(int val) where WorldType : struct, IWorldType {
             foreach (var type in Types) {
-                Ecs<WorldType>.ModuleComponents.Value.GetPool(type.Type).AddBlocker(val);
+                World<WorldType>.ModuleComponents.Value.GetPool(type.Type).AddBlocker(val);
             }
         }
         #endif
@@ -411,7 +411,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         [MethodImpl(AggressiveInlining)]
         public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
             for (var i = 0; i < Mask.Count; i++) {
-                Ecs<WorldType>.ModuleMasks.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleMasks.Value.GetPool(Mask[i].Type).DynamicId());
+                World<WorldType>.ModuleMasks.Value.BitMask.SetInBuffer(bufId, World<WorldType>.ModuleMasks.Value.GetPool(Mask[i].Type).DynamicId());
             }
         }
     }
@@ -433,14 +433,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         [MethodImpl(AggressiveInlining)]
         public void SetMinData<WorldType>(ref uint minCount, ref uint[] entities) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
-                Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
+                World<WorldType>.ModuleTags.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
             }
         }
 
         [MethodImpl(AggressiveInlining)]
         public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
-                Ecs<WorldType>.ModuleTags.Value.BitMask.SetInBuffer(bufId, Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).DynamicId());
+                World<WorldType>.ModuleTags.Value.BitMask.SetInBuffer(bufId, World<WorldType>.ModuleTags.Value.GetPool(type.Type).DynamicId());
             }
         }
 
@@ -448,7 +448,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         [MethodImpl(AggressiveInlining)]
         public void Block<WorldType>(int val) where WorldType : struct, IWorldType {
             foreach (var type in Tags) {
-                Ecs<WorldType>.ModuleTags.Value.GetPool(type.Type).AddBlocker(val);
+                World<WorldType>.ModuleTags.Value.GetPool(type.Type).AddBlocker(val);
             }
         }
         #endif
