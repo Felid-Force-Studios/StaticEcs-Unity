@@ -16,6 +16,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class EcsDebug<WorldType> where WorldType : struct, IWorldType {
         public static void AddSystem<SystemsType>() where SystemsType : struct, ISystemsType {
             #if UNITY_EDITOR
+            if (!World<WorldType>.Systems<SystemsType>.IsInitialized()) {
+                throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only when systems initialized");
+            }
             StaticEcsDebugData.Systems[typeof(SystemsType)] = (World<WorldType>.Systems<SystemsType>._allSystems, World<WorldType>.Systems<SystemsType>._allSystemsCount, typeof(WorldType));
             #endif
         }

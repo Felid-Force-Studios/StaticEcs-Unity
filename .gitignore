@@ -7,3 +7,5 @@ Temp
 .vscode
 .idea
 .DS_Store
+obj.meta
+bin.meta

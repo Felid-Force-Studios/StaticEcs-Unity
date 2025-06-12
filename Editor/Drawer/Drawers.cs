@@ -6,8 +6,26 @@ using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     
+    internal sealed class EntityGIDDrawer : IStaticEcsValueDrawer<EntityGID> {
+        public override bool DrawValue(IWorld world, string label, ref EntityGID value) {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField($"[{label}] {value.ToString()}", EditorStyles.boldLabel);
+            if (GUILayout.Button("Show", Ui.Width(60))) {
+                if (!EntityInspectorWindow.ShowWindowForEntity(world, value)) {
+                    Debug.LogWarning($"Entity with EntityGID {value} is not available");
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+            return false;
+        }
+
+        public override void DrawTableValue(ref EntityGID value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel(value.ToString(), style, layoutOptions);
+        }
+    }
+    
     internal sealed class EntityStatusDrawer : IStaticEcsValueDrawer<EntityStatus> {
-        public override bool DrawValue(string label, ref EntityStatus value) {
+        public override bool DrawValue(IWorld world, string label, ref EntityStatus value) {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             var newValue = EditorGUILayout.Toggle("Enabled", value.Value == EntityStatusType.Enabled);
@@ -28,7 +46,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     internal sealed class MultiComponentDrawer<T> : IStaticEcsValueDrawer<Multi<T>> where T : struct {
-        public override bool DrawValue(string label, ref Multi<T> value) {
+        public override bool DrawValue(IWorld world, string label, ref Multi<T> value) {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             if (value.data == null) {
                 EditorGUILayout.LabelField("Data is empty, it will be created when the entity is active", EditorStyles.boldLabel);
@@ -39,17 +57,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
             EditorGUI.indentLevel++;
             var type = typeof(T);
             var typeName = type.EditorTypeName();
+            var changed = false;
             for (ushort i = 0; i < value.Count; i++) {
                 var val = value[i];
+                changed = false;
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("X", Ui.Width(20))) {
                     value.RemoveAt(i);
-                    return true;
+                    changed = true;
                 }
                 EditorGUILayout.EndHorizontal();
+                
+                if (changed) {
+                    break;
+                }
        
-                if (Drawer.TryDrawValueByCustomDrawer(typeName, type, val, out var changed, out var newValue)) {
+                if (Drawer.TryDrawValueByCustomDrawer(world, typeName, type, val, out changed, out var newValue)) {
                     if (changed) {
                         value[i] = (T) newValue;
                     }
@@ -57,7 +81,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                     EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
                     EditorGUI.indentLevel++;
                     foreach (var field in MetaData.GetCachedType(type)) {
-                        if (Drawer.TryDrawField(val, field, out newValue)) {
+                        if (Drawer.TryDrawField(world, val, field, out newValue)) {
                             field.SetValue(val, newValue);
                             changed = true;
                             value[i] = val;
@@ -66,22 +90,121 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
 
                     EditorGUI.indentLevel--;
                 }
-
-                if (changed) {
-                    return true;
-                }
             }
 
             if (GUILayout.Button("Add Element")) {
                 value.Add(default(T));
+                changed = true;
+            }
+
+            EditorGUI.indentLevel--;
+            return changed;
+        }
+
+        public override void DrawTableValue(ref Multi<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel($"Count: {value.Count}, Cap: {value.Capacity}", style, layoutOptions);
+        }
+    }
+
+    internal sealed class NullableDrawer<T> : IStaticEcsValueDrawer<Nullable<T>> where T : struct {
+        public override bool IsNullAllowed() => true;
+
+        public override bool DrawValue(IWorld world, string label, ref Nullable<T> value) {
+            var changed = false;
+
+            GUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            if (!value.HasValue) {
+                if (GUILayout.Button("Create", Ui.Width(60))) {
+                    value = default(T);
+                    changed = true;
+                }
+            } else {
+                if (GUILayout.Button("Remove", Ui.Width(60))) {
+                    value = null;
+                    changed = true;
+                }
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (changed) {
                 return true;
+            }
+
+            if (!value.HasValue) {
+                EditorGUILayout.LabelField("null", EditorStyles.boldLabel);
+                return false;
+            }
+
+            EditorGUI.indentLevel++;
+            var type = typeof(T);
+            var typeName = type.EditorTypeName();
+            object val = value.Value;
+            if (Drawer.TryDrawValueByCustomDrawer(world, typeName, type, val, out changed, out var newValue)) {
+                if (changed) {
+                    value = (T) newValue;
+                }
+            } else {
+                EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                foreach (var field in MetaData.GetCachedType(type)) {
+                    if (Drawer.TryDrawField(world, val, field, out newValue)) {
+                        field.SetValue(val, newValue);
+                        changed = true;
+                        value = (T) val;
+                    }
+                }
+
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUI.indentLevel--;
+
+
+            return changed;
+        }
+
+        public override void DrawTableValue(ref Nullable<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            EditorGUILayout.SelectableLabel(value.HasValue ? value.Value.ToString() : "null", style, layoutOptions);
+        }
+    }
+
+    internal sealed class RoMultiComponentDrawer<T> : IStaticEcsValueDrawer<ROMulti<T>> where T : struct {
+        public override bool DrawValue(IWorld world, string label, ref ROMulti<T> value) {
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            if (value.multi.data == null) {
+                EditorGUILayout.LabelField("Data is empty, it will be created when the entity is active", EditorStyles.boldLabel);
+                return false;
+            }
+            EditorGUILayout.LabelField("Elements:", EditorStyles.boldLabel);
+
+            EditorGUI.indentLevel++;
+            var type = typeof(T);
+            var typeName = type.EditorTypeName();
+            for (ushort i = 0; i < value.Count; i++) {
+                var val = value[i];
+                if (Drawer.TryDrawValueByCustomDrawer(world, typeName, type, val, out var changed, out var _)) {
+                    
+                } else {
+                    EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
+                    EditorGUI.indentLevel++;
+                    foreach (var field in MetaData.GetCachedType(type)) {
+                        if (Drawer.TryDrawField(world, val, field, out var _)) {
+                            
+                        }
+                    }
+
+                    EditorGUI.indentLevel--;
+                }
             }
 
             EditorGUI.indentLevel--;
             return false;
         }
 
-        public override void DrawTableValue(ref Multi<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+        public override void DrawTableValue(ref ROMulti<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
             EditorGUILayout.SelectableLabel($"Count: {value.Count}, Cap: {value.Capacity}", style, layoutOptions);
         }
     }
@@ -90,7 +213,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
         
         public override bool IsNullAllowed() => true;
         
-        public override bool DrawValue(string label, ref List<T> value) {
+        public override bool DrawValue(IWorld world, string label, ref List<T> value) {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             if (value == null) {
                 EditorGUILayout.LabelField("Data is empty", EditorStyles.boldLabel);
@@ -105,17 +228,24 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
             EditorGUI.indentLevel++;
             var type = typeof(T);
             var typeName = type.EditorTypeName();
+            var changed = false;
+
             for (ushort i = 0; i < value.Count; i++) {
                 var val = value[i];
+                changed = false;
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("X", Ui.Width(20))) {
                     value.RemoveAt(i);
-                    return true;
+                    changed = true;
                 }
                 EditorGUILayout.EndHorizontal();
+                
+                if (changed) {
+                    break;
+                }
        
-                if (Drawer.TryDrawValueByCustomDrawer(typeName, type, val, out var changed, out var newValue)) {
+                if (Drawer.TryDrawValueByCustomDrawer(world, typeName, type, val, out changed, out var newValue)) {
                     if (changed) {
                         value[i] = (T) newValue;
                     }
@@ -123,7 +253,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                     EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
                     EditorGUI.indentLevel++;
                     foreach (var field in MetaData.GetCachedType(type)) {
-                        if (Drawer.TryDrawField(val, field, out newValue)) {
+                        if (Drawer.TryDrawField(world, val, field, out newValue)) {
                             field.SetValue(val, newValue);
                             changed = true;
                             value[i] = val;
@@ -132,19 +262,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
 
                     EditorGUI.indentLevel--;
                 }
-
-                if (changed) {
-                    return true;
-                }
             }
 
             if (GUILayout.Button("Add Element")) {
                 value.Add(default(T));
-                return true;
+                changed = true;
             }
 
             EditorGUI.indentLevel--;
-            return false;
+            return changed;
         }
 
         public override void DrawTableValue(ref List<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
@@ -155,7 +281,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     internal sealed class ArrayDrawer<T> : IStaticEcsValueDrawer<T[]> {
         public override bool IsNullAllowed() => true;
 
-        public override bool DrawValue(string label, ref T[] value) {
+        public override bool DrawValue(IWorld world, string label, ref T[] value) {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             if (value == null) {
                 EditorGUILayout.LabelField("Data is null", EditorStyles.boldLabel);
@@ -170,8 +296,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
             EditorGUI.indentLevel++;
             var type = typeof(T);
             var typeName = type.EditorTypeName();
+            var changed = false;
             for (ushort i = 0; i < value.Length; i++) {
                 var val = value[i];
+                changed = false;
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("X", Ui.Width(20))) {
@@ -181,11 +309,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                         Utils.LoopFallbackCopy(value, (uint) (i + 1), value, i, (uint) (value.Length - 1 - i));
                         value[value.Length - 1] = default;
                     }
-                    return true;
+                    changed = true;
                 }
                 EditorGUILayout.EndHorizontal();
+
+                if (changed) {
+                    break;
+                }
        
-                if (Drawer.TryDrawValueByCustomDrawer(typeName, type, val, out var changed, out var newValue)) {
+                if (Drawer.TryDrawValueByCustomDrawer(world, typeName, type, val, out changed, out var newValue)) {
                     if (changed) {
                         value[i] = (T) newValue;
                     }
@@ -193,7 +325,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                     EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
                     EditorGUI.indentLevel++;
                     foreach (var field in MetaData.GetCachedType(type)) {
-                        if (Drawer.TryDrawField(val, field, out newValue)) {
+                        if (Drawer.TryDrawField(world, val, field, out newValue)) {
                             field.SetValue(val, newValue);
                             changed = true;
                             value[i] = val;
@@ -202,21 +334,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
 
                     EditorGUI.indentLevel--;
                 }
-
-                if (changed) {
-                    return true;
-                }
             }
             
             if (GUILayout.Button("Resize")) {
                 var arr = new T[value.Length << 1];
                 Array.Copy(value, arr, value.Length);
                 value = arr;
-                return true;
+                changed = true;
             }
 
             EditorGUI.indentLevel--;
-            return false;
+            return changed;
         }
 
         public override void DrawTableValue(ref T[] value, GUIStyle style, GUILayoutOption[] layoutOptions) {
@@ -225,7 +353,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class BoolDrawer : IStaticEcsValueDrawer<bool> {
-        public override bool DrawValue(string label, ref bool value) {
+        public override bool DrawValue(IWorld world, string label, ref bool value) {
             var newValue = EditorGUILayout.Toggle(label, value);
             if (newValue == value) {
                 return false;
@@ -241,7 +369,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class DoubleDrawer : IStaticEcsValueDrawer<double> {
-        public override bool DrawValue(string label, ref double value) {
+        public override bool DrawValue(IWorld world, string label, ref double value) {
             var newValue = EditorGUILayout.DoubleField(label, value);
             if (System.Math.Abs(newValue - value) < double.Epsilon) {
                 return false;
@@ -257,7 +385,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class FloatDrawer : IStaticEcsValueDrawer<float> {
-        public override bool DrawValue(string label, ref float value) {
+        public override bool DrawValue(IWorld world, string label, ref float value) {
             var newValue = EditorGUILayout.FloatField(label, value);
             if (System.Math.Abs(newValue - value) < float.Epsilon) {
                 return false;
@@ -273,7 +401,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class ULongDrawer : IStaticEcsValueDrawer<ulong> {
-        public override bool DrawValue(string label, ref ulong value) {
+        public override bool DrawValue(IWorld world, string label, ref ulong value) {
             var newValue = (long) value;
             newValue = EditorGUILayout.LongField(label, newValue);
             if (newValue < 0) {
@@ -294,7 +422,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class LongDrawer : IStaticEcsValueDrawer<long> {
-        public override bool DrawValue(string label, ref long value) {
+        public override bool DrawValue(IWorld world, string label, ref long value) {
             var newValue = EditorGUILayout.LongField(label, value);
             if (newValue == value) {
                 return false;
@@ -310,7 +438,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class UIntDrawer : IStaticEcsValueDrawer<uint> {
-        public override bool DrawValue(string label, ref uint value) {
+        public override bool DrawValue(IWorld world, string label, ref uint value) {
             var newValue = EditorGUILayout.LongField(label, value);
             if (newValue < 0) {
                 newValue = 0;
@@ -332,7 +460,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class IntDrawer : IStaticEcsValueDrawer<int> {
-        public override bool DrawValue(string label, ref int value) {
+        public override bool DrawValue(IWorld world, string label, ref int value) {
             var newValue = EditorGUILayout.IntField(label, value);
             if (newValue == value) {
                 return false;
@@ -348,7 +476,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class UShortDrawer : IStaticEcsValueDrawer<ushort> {
-        public override bool DrawValue(string label, ref ushort value) {
+        public override bool DrawValue(IWorld world, string label, ref ushort value) {
             var newValue = EditorGUILayout.IntField(label, value);
             if (newValue < 0) {
                 newValue = 0;
@@ -370,7 +498,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class ShortDrawer : IStaticEcsValueDrawer<short> {
-        public override bool DrawValue(string label, ref short value) {
+        public override bool DrawValue(IWorld world, string label, ref short value) {
             var newValue = EditorGUILayout.IntField(label, value);
             if (newValue < short.MinValue) {
                 newValue = short.MinValue;
@@ -392,7 +520,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class ByteDrawer : IStaticEcsValueDrawer<byte> {
-        public override bool DrawValue(string label, ref byte value) {
+        public override bool DrawValue(IWorld world, string label, ref byte value) {
             var newValue = EditorGUILayout.IntField(label, value);
             if (newValue < byte.MinValue) {
                 newValue = byte.MinValue;
@@ -414,7 +542,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
     
     public sealed class SByteDrawer : IStaticEcsValueDrawer<sbyte> {
-        public override bool DrawValue(string label, ref sbyte value) {
+        public override bool DrawValue(IWorld world, string label, ref sbyte value) {
             var newValue = EditorGUILayout.IntField(label, value);
             if (newValue < sbyte.MinValue) {
                 newValue = sbyte.MinValue;
@@ -440,7 +568,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
             return true;
         }
 
-        public override bool DrawValue(string label, ref string value) {
+        public override bool DrawValue(IWorld world, string label, ref string value) {
             var newValue = EditorGUILayout.TextField(label, value);
             if (newValue == value) {
                 return false;
@@ -457,7 +585,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
 
 
     public sealed class AnimationCurveDrawer : IStaticEcsValueDrawer<AnimationCurve> {
-        public override bool DrawValue(string label, ref AnimationCurve value) {
+        public override bool DrawValue(IWorld world, string label, ref AnimationCurve value) {
             var newValue = EditorGUILayout.CurveField(label, value);
             if (newValue.Equals(value)) {
                 return false;
@@ -473,7 +601,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class BoundsDrawer : IStaticEcsValueDrawer<Bounds> {
-        public override bool DrawValue(string label, ref Bounds value) {
+        public override bool DrawValue(IWorld world, string label, ref Bounds value) {
             var newValue = EditorGUILayout.BoundsField(label, value);
             if (newValue == value) {
                 return false;
@@ -489,7 +617,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class BoundsIntDrawer : IStaticEcsValueDrawer<BoundsInt> {
-        public override bool DrawValue(string label, ref BoundsInt value) {
+        public override bool DrawValue(IWorld world, string label, ref BoundsInt value) {
             var newValue = EditorGUILayout.BoundsIntField(label, value);
             if (newValue == value) {
                 return false;
@@ -505,7 +633,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class ColorDrawer : IStaticEcsValueDrawer<Color> {
-        public override bool DrawValue(string label, ref Color value) {
+        public override bool DrawValue(IWorld world, string label, ref Color value) {
             var newValue = EditorGUILayout.ColorField(label, value);
             if (newValue == value) {
                 return false;
@@ -521,7 +649,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class Color32Drawer : IStaticEcsValueDrawer<Color32> {
-        public override bool DrawValue(string label, ref Color32 value) {
+        public override bool DrawValue(IWorld world, string label, ref Color32 value) {
             var newValue = EditorGUILayout.ColorField(label, value);
             if (newValue == value) {
                 return false;
@@ -537,7 +665,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class GradientDrawer : IStaticEcsValueDrawer<Gradient> {
-        public override bool DrawValue(string label, ref Gradient value) {
+        public override bool DrawValue(IWorld world, string label, ref Gradient value) {
             var newValue = EditorGUILayout.GradientField(label, value);
             if (newValue.Equals(value)) {
                 return false;
@@ -576,7 +704,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
             return _layerNames;
         }
 
-        public override bool DrawValue(string label, ref LayerMask value) {
+        public override bool DrawValue(IWorld world, string label, ref LayerMask value) {
             var newValue = EditorGUILayout.MaskField(label, value, GetLayerNames());
             if (newValue == value) {
                 return false;
@@ -592,7 +720,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class QuaternionDrawer : IStaticEcsValueDrawer<Quaternion> {
-        public override bool DrawValue(string label, ref Quaternion value) {
+        public override bool DrawValue(IWorld world, string label, ref Quaternion value) {
             var eulerAngles = value.eulerAngles;
             var newValue = EditorGUILayout.Vector3Field(label, eulerAngles);
             if (newValue == eulerAngles) {
@@ -609,7 +737,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class RectDrawer : IStaticEcsValueDrawer<Rect> {
-        public override bool DrawValue(string label, ref Rect value) {
+        public override bool DrawValue(IWorld world, string label, ref Rect value) {
             var newValue = EditorGUILayout.RectField(label, value);
             if (newValue == value) {
                 return false;
@@ -625,7 +753,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class Vector2Drawer : IStaticEcsValueDrawer<Vector2> {
-        public override bool DrawValue(string label, ref Vector2 value) {
+        public override bool DrawValue(IWorld world, string label, ref Vector2 value) {
             var newValue = EditorGUILayout.Vector2Field(label, value);
             if (newValue == value) {
                 return false;
@@ -641,7 +769,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class Vector2IntDrawer : IStaticEcsValueDrawer<Vector2Int> {
-        public override bool DrawValue(string label, ref Vector2Int value) {
+        public override bool DrawValue(IWorld world, string label, ref Vector2Int value) {
             var newValue = EditorGUILayout.Vector2IntField(label, value);
             if (newValue == value) {
                 return false;
@@ -657,7 +785,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class Vector3Drawer : IStaticEcsValueDrawer<Vector3> {
-        public override bool DrawValue(string label, ref Vector3 value) {
+        public override bool DrawValue(IWorld world, string label, ref Vector3 value) {
             var newValue = EditorGUILayout.Vector3Field(label, value);
             if (newValue == value) {
                 return false;
@@ -673,7 +801,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class Vector3IntDrawer : IStaticEcsValueDrawer<Vector3Int> {
-        public override bool DrawValue(string label, ref Vector3Int value) {
+        public override bool DrawValue(IWorld world, string label, ref Vector3Int value) {
             var newValue = EditorGUILayout.Vector3IntField(label, value);
             if (newValue == value) {
                 return false;
@@ -689,7 +817,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     }
 
     public sealed class Vector4Drawer : IStaticEcsValueDrawer<Vector4> {
-        public override bool DrawValue(string label, ref Vector4 value) {
+        public override bool DrawValue(IWorld world, string label, ref Vector4 value) {
             var newValue = EditorGUILayout.Vector4Field(label, value);
             if (newValue == value) {
                 return false;

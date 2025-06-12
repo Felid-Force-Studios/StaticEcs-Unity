@@ -56,7 +56,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         continue;
                     }
 
-                    if (type.IsValueType && type.GetInterfaces().Contains(typeof(IStandardComponent)) && type != typeof(EntityVersion) && !type.IsGenericType) {
+                    if (type.IsValueType && type.GetInterfaces().Contains(typeof(IStandardComponent)) && type != typeof(EntityGID) && !type.IsGenericType) {
                         if (HandleStandardComponentMeta(type)) {
                             continue;
                         }
@@ -390,7 +390,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public interface IStaticEcsValueDrawer {
         Type ItemType();
         int Priority();
-        bool DrawValue(string label, object value, out object newValue);
+        bool DrawValue(IWorld world, string label, object value, out object newValue);
         void DrawTableValue(object value, GUIStyle style, GUILayoutOption[] layoutOptions);
     }
 
@@ -399,7 +399,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public virtual bool IsNullAllowed() => false;
         public virtual int Priority() => 0;
 
-        public bool DrawValue(string label, object value, out object newValue) {
+        public bool DrawValue(IWorld world, string label, object value, out object newValue) {
             if (value == null && !IsNullAllowed()) {
                 Drawer.DrawSelectableText(label, "null");
                 newValue = default;
@@ -407,7 +407,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             var typedValue = (T) value;
-            if (DrawValue(label, ref typedValue)) {
+            if (DrawValue(world, label, ref typedValue)) {
                 newValue = typedValue;
                 return true;
             }
@@ -428,6 +428,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         public abstract void DrawTableValue(ref T value, GUIStyle style, GUILayoutOption[] layoutOptions);
 
-        public abstract bool DrawValue(string label, ref T value);
+        public abstract bool DrawValue(IWorld world, string label, ref T value);
     }
 }

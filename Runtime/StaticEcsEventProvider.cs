@@ -46,7 +46,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 };
                 EventCache = pool.GetRaw(pool.Last());
             } else {
-                throw new Exception("Event pool not registered");
+                throw new StaticEcsException("Event pool not registered");
             }
 
             if (onCreateEvent) {

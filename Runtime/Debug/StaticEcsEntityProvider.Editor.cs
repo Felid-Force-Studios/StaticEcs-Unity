@@ -64,7 +64,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         
         public virtual void OnSelectMask(Type maskType) {
             if (EntityIsActual()) {
-                Entity.SetMask(maskType);
+                Entity.SetMaskByType(maskType);
             } else {
                 foreach (var val in masks) {
                     if (val.GetType() == maskType) {
@@ -78,7 +78,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         
         public virtual void OnDeleteMask(Type maskType) {
             if (EntityIsActual()) {
-                Entity.DeleteMask(maskType);
+                Entity.DeleteMaskByType(maskType);
             } else {
                 masks.RemoveAll(mask => mask.GetType() == maskType);
             }
@@ -90,7 +90,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         #endif
         
         public bool EntityIsActual() {
-            return Entity != null && Entity.Version() == PackedEntity._version && Entity.IsActual();
+            return Entity != null && Entity.Gid() == EntityGid && Entity.IsActual();
         }
         
         public bool HasStandardComponents() {

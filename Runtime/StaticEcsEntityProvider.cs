@@ -32,13 +32,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
             set {
                 _entity = value;
                 if (value != null) {
-                    PackedEntity = value.Pack();
+                    EntityGid = value.Gid();
                 }
             }
         }
         private IEntity _entity;
         
-        [HideInInspector] public PackedEntity PackedEntity;
+        [HideInInspector] public EntityGID EntityGid;
 
         protected virtual void Start() {
             if (UsageType == UsageType.OnStart) {
@@ -63,16 +63,16 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
             
             Entity = World.NewEntity(value);
-            PackedEntity = Entity.Pack();
+            EntityGid = Entity.Gid();
             
             for (var i = 0; i < standardComponents.Count; i++) {
                 var standardComponent = standardComponents[i];
-                if (standardComponent is EntityVersion) {
+                if (standardComponent is EntityGID) {
                     continue;
                 }
                 #if DEBUG
                 if (standardComponent == null) {
-                    throw new Exception("[StaticEcsEntityProvider] NULL standardComponent");
+                    throw new StaticEcsException("[StaticEcsEntityProvider] NULL standardComponent");
                 }
                 #endif
                 if (standardComponent is IOnProvideComponent e) {
@@ -86,7 +86,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 value = components[i];
                 #if DEBUG
                 if (value == null) {
-                    throw new Exception("[StaticEcsEntityProvider] NULL component");
+                    throw new StaticEcsException("[StaticEcsEntityProvider] NULL component");
                 }
                 #endif
                 if (value is IOnProvideComponent e) {
@@ -101,7 +101,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 foreach (var t in tags) {
                     #if DEBUG
                     if (t == null) {
-                        throw new Exception("[StaticEcsEntityProvider] NULL tag");
+                        throw new StaticEcsException("[StaticEcsEntityProvider] NULL tag");
                     }
                     #endif
                     Entity.SetTag(t.GetType());
@@ -114,10 +114,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 foreach (var m in masks) {
                     #if DEBUG
                     if (m == null) {
-                        throw new Exception("[StaticEcsEntityProvider] NULL mask");
+                        throw new StaticEcsException("[StaticEcsEntityProvider] NULL mask");
                     }
                     #endif
-                    Entity.SetMask(m.GetType());
+                    Entity.SetMaskByType(m.GetType());
                 }
             }
             #endif

@@ -24,7 +24,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 return EventCache;
             }
             
-            throw new Exception("Event pool not registered");
+            throw new StaticEcsException("Event pool not registered");
         }
 
         public bool IsCached() {
@@ -51,7 +51,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
                 pool.Del(RuntimeEvent.InternalIdx);
             } else {
-                throw new Exception("Event pool not registered");
+                throw new StaticEcsException("Event pool not registered");
             }
         }
 
@@ -62,7 +62,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
                     pool.PutRaw(RuntimeEvent.InternalIdx, newValue);
                 } else {
-                    throw new Exception("Event pool not registered");
+                    throw new StaticEcsException("Event pool not registered");
                 }
 
                 EventCache = newValue;

@@ -8,12 +8,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class StaticEcsViewEntitiesTab : IStaticEcsViewTab {
         internal enum TabType: byte {
             Table,
-            Viewer,
             EntityBuilder
         }
         
-        private static readonly TabType[] _tabs = { TabType.Table, TabType.Viewer, TabType.EntityBuilder };
-        private static readonly string[] _tabsNames = { "Table", "Viewer", "Entity builder" };
+        private static readonly TabType[] _tabs = { TabType.Table, TabType.EntityBuilder };
+        private static readonly string[] _tabsNames = { "Table", "Entity builder" };
         internal TabType SelectedTab;
         
         private readonly Dictionary<Type, EntitiesDrawer> _drawersByWorldTypeType = new();
@@ -71,10 +70,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly List<uint> _pinedEntities = new();
 
         private readonly StaticEcsEntityProvider _entityBuilder;
-        private bool _entityBuilderShowLeftTab = true;
-        private bool _entityBuilderShowRightTab;
-        private static StaticEcsEntityProvider _entityViewWindowLeft;
-        private static StaticEcsEntityProvider _entityViewWindowRight;
         
         private readonly StaticEcsViewEntitiesTab _parent;
         private readonly AbstractWorldData _worldData;
@@ -114,9 +109,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             
             ShowAllColumns();
 
-            _entityViewWindowLeft ??= CreateStaticEcsEntityDebugView();
-            _entityViewWindowRight ??= CreateStaticEcsEntityDebugView();
-            _entityBuilder = CreateStaticEcsEntityDebugView();
+            var go = new GameObject("StaticEcsEntityBuider") {
+                hideFlags = HideFlags.NotEditable,
+            };
+            Object.DontDestroyOnLoad(go);
+            _entityBuilder = go.AddComponent<StaticEcsEntityProvider>();
+            _entityBuilder.UsageType = UsageType.Manual;
+            _entityBuilder.OnCreateType = OnCreateType.None;
+            _entityBuilder.WorldTypeName = _worldData.WorldTypeTypeFullName;
+            _entityBuilder.WorldEditorName = _worldData.worldEditorName;
         }
 
         internal void DrawEntitiesData() {
@@ -126,32 +127,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawEntitiesFilter();
                     DrawEntitiesTable();
                     break;
-                case StaticEcsViewEntitiesTab.TabType.Viewer:
-                    GUILayout.BeginHorizontal(Ui.MaxWidth1200);
-                    if (!_entityViewWindowLeft.EntityIsActual()) {
-                        GUILayout.BeginVertical(Ui.MaxWidth600);
-                        EditorGUILayout.HelpBox("Select an entity from the [Table] or build from [Entity builder]", MessageType.Info, true);
-                        GUILayout.EndVertical();
-                    } else {
-                        Drawer.DrawEntity(_entityViewWindowLeft, true, _ => { }, false);
-                    }
-
-                    if (_entityViewWindowRight.EntityIsActual()) {
-                        Ui.DrawVerticalSeparator();
-                        Drawer.DrawEntity(_entityViewWindowRight, true, _ => { }, false);
-                    }
-
-                    GUILayout.EndHorizontal();
-                    break;
                 case StaticEcsViewEntitiesTab.TabType.EntityBuilder:
                     StaticEcsView.DrawWorldSelector();
-                    GUILayout.BeginVertical(Ui.MaxWidth600);
-                    EditorGUILayout.LabelField("Build settings:", Ui.WidthLine(90));
-                    _entityBuilderShowLeftTab = EditorGUILayout.Toggle("Show at left tab", _entityBuilderShowLeftTab, Ui.WidthLine(90));
-                    if (_entityBuilderShowLeftTab) _entityBuilderShowRightTab = false;
-                    _entityBuilderShowRightTab = EditorGUILayout.Toggle("Show at right tab", _entityBuilderShowRightTab, Ui.WidthLine(90));
-                    if (_entityBuilderShowRightTab) _entityBuilderShowLeftTab = false;
-                    GUILayout.EndVertical();
                     EditorGUILayout.Space(10);
 
                     if (!_entityBuilder.HasStandardComponents()) {
@@ -162,37 +139,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                     Drawer.DrawEntity(_entityBuilder, true, provider => {
                         provider.CreateEntity();
-                        if (_entityBuilderShowLeftTab) {
-                            _parent.SelectedTab = StaticEcsViewEntitiesTab.TabType.Viewer;
-                            _entityViewWindowLeft.Entity = provider.Entity;
-                            _entityViewWindowLeft.WorldTypeName = _worldData.WorldTypeTypeFullName;
-                            _entityViewWindowLeft.WorldEditorName = _worldData.worldEditorName;
-                        }
-
-                        if (_entityBuilderShowRightTab) {
-                            _parent.SelectedTab = StaticEcsViewEntitiesTab.TabType.Viewer;
-                            _entityViewWindowRight.Entity = provider.Entity;
-                            _entityViewWindowRight.WorldTypeName = _worldData.WorldTypeTypeFullName;
-                            _entityViewWindowRight.WorldEditorName = _worldData.worldEditorName;
-                        }
-
+                        EntityInspectorWindow.ShowWindowForEntity(provider.World, provider.Entity);
                         provider.Entity = null;
                     }, false);
                     break;
             }
-        }
-
-        private StaticEcsEntityProvider CreateStaticEcsEntityDebugView() {
-            var viewLeft = new GameObject("StaticEcsEntityDebugView") {
-                hideFlags = HideFlags.NotEditable,
-            };
-            Object.DontDestroyOnLoad(viewLeft);
-            var entityDebugViewLeft = viewLeft.AddComponent<StaticEcsEntityProvider>();
-            entityDebugViewLeft.UsageType = UsageType.Manual;
-            entityDebugViewLeft.OnCreateType = OnCreateType.None;
-            entityDebugViewLeft.WorldTypeName = _worldData.WorldTypeTypeFullName;
-            entityDebugViewLeft.WorldEditorName = _worldData.worldEditorName;
-            return entityDebugViewLeft;
         }
 
         private void ShowAllColumns() {
@@ -234,11 +185,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         internal void Destroy() {
             if (Application.isPlaying) {
-                Object.Destroy(_entityViewWindowLeft);
-                Object.Destroy(_entityViewWindowRight);
+                Object.Destroy(_entityBuilder);
             } else {
-                Object.DestroyImmediate(_entityViewWindowLeft);
-                Object.DestroyImmediate(_entityViewWindowRight);
+                Object.DestroyImmediate(_entityBuilder);
             }
         }
 
@@ -461,20 +410,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private void DrawViewEntityButton(uint entIdx) {
             if (GUILayout.Button(Ui.IconView, Ui.WidthLine(30))) {
-                var menu = new GenericMenu();
-                menu.AddItem(new GUIContent("Left tab"), false, () => {
-                    _entityViewWindowLeft.Entity = _worldData.GetEntity(entIdx);
-                    _entityViewWindowLeft.WorldTypeName = _worldData.WorldTypeTypeFullName;
-                    _entityViewWindowLeft.WorldEditorName = _worldData.worldEditorName;
-                    _parent.SelectedTab = StaticEcsViewEntitiesTab.TabType.Viewer;
-                });
-                menu.AddItem(new GUIContent("Right tab"), false, () => {
-                    _entityViewWindowRight.Entity = _worldData.GetEntity(entIdx);
-                    _entityViewWindowRight.WorldTypeName = _worldData.WorldTypeTypeFullName;
-                    _entityViewWindowRight.WorldEditorName = _worldData.worldEditorName;
-                    _parent.SelectedTab = StaticEcsViewEntitiesTab.TabType.Viewer;
-                });
-                menu.ShowAsContext();
+                EntityInspectorWindow.ShowWindowForEntity(_worldData.World, _worldData.GetEntity(entIdx));
             }
         }
 

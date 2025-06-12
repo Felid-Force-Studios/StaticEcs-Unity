@@ -114,13 +114,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             if (provider.EventIsActual(Application.isPlaying)) {
                 EditorGUILayout.Space(10);
-                DrawEvent(provider, Ui.MaxWidth600);
+                DrawEvent(provider.World, provider, Ui.MaxWidth600);
             }
 
             EditorGUILayout.EndScrollView();
         }
 
-        private static void DrawEvent(StaticEcsEventProvider provider, GUILayoutOption[] maxWidth) {
+        private static void DrawEvent(IWorld world, StaticEcsEventProvider provider, GUILayoutOption[] maxWidth) {
             var eventValue = provider.GetActualEvent(out var cached);
             var type = eventValue.GetType();
             var typeName = type.EditorTypeName();
@@ -131,7 +131,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             {
                 GUILayout.BeginVertical(GUI.skin.box);
                 {
-                    if (TryDrawValueByCustomDrawer(typeName, type, eventValue, out var changed, out var newValue)) {
+                    if (TryDrawValueByCustomDrawer(world, typeName, type, eventValue, out var changed, out var newValue)) {
                         if (changed) {
                             provider.OnChangeEvent((IEvent) newValue);
                             EditorUtility.SetDirty(provider);
@@ -140,7 +140,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
                         EditorGUI.indentLevel++;
                         foreach (var field in MetaData.GetCachedType(type)) {
-                            if (TryDrawField(eventValue, field, out newValue)) {
+                            if (TryDrawField(world, eventValue, field, out newValue)) {
                                 field.SetValue(eventValue, newValue);
                                 provider.OnChangeEvent(eventValue);
                                 EditorUtility.SetDirty(provider);
@@ -246,21 +246,21 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.HelpBox("Please, provide at least one component", MessageType.Warning, true);
             }
 
-            DrawEntity(provider, allowStandardComponentsAddDelete);
+            DrawEntity(provider.World, provider, allowStandardComponentsAddDelete);
             EditorGUILayout.EndScrollView();
         }
 
-        public static void DrawEntity<TProvider>(TProvider provider, bool allowStandardComponentsAddDelete = true) where TProvider : Object, IStaticEcsEntityProvider {
+        public static void DrawEntity<TProvider>(IWorld world, TProvider provider, bool allowStandardComponentsAddDelete = true) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.Space(10);
 
             provider.StandardComponents(_standardComponentsCache);
             EditorGUILayout.Space(10);
-            DrawStandardComponents(_standardComponentsCache, provider, Ui.MaxWidth600, allowStandardComponentsAddDelete);
+            DrawStandardComponents(world, _standardComponentsCache, provider, Ui.MaxWidth600, allowStandardComponentsAddDelete);
             _standardComponentsCache.Clear();
 
             provider.Components(_componentsCache);
             EditorGUILayout.Space(10);
-            DrawComponents(_componentsCache, provider, Ui.MaxWidth600);
+            DrawComponents(world, _componentsCache, provider, Ui.MaxWidth600);
             _componentsCache.Clear();
 
             #if !FFS_ECS_DISABLE_TAGS
@@ -300,7 +300,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             menu.ShowAsContext();
         }
 
-        private static void DrawStandardComponents<TProvider>(List<IStandardComponent> components, TProvider provider, GUILayoutOption[] maxWidth, bool allowAddDelete) where TProvider : Object, IStaticEcsEntityProvider {
+        private static void DrawStandardComponents<TProvider>(IWorld world, List<IStandardComponent> components, TProvider provider, GUILayoutOption[] maxWidth, bool allowAddDelete) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.StandardComponents.Count == components.Count;
@@ -314,18 +314,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
             EditorGUILayout.EndHorizontal();
 
-            var versionIndex = components.FindIndex(component => component is EntityVersion);
-            if (versionIndex >= 0) {
-                DrawStandardComponent(components[versionIndex], provider, maxWidth, true, allowAddDelete);
-            }
-
             for (int i = 0, iMax = components.Count; i < iMax; i++) {
-                if (i == versionIndex) continue;
-                DrawStandardComponent(components[i], provider, maxWidth, false, allowAddDelete);
+                DrawStandardComponent(world, components[i], provider, maxWidth, false, allowAddDelete);
             }
         }
 
-        private static void DrawStandardComponent<TProvider>(IStandardComponent component, TProvider provider, GUILayoutOption[] maxWidth, bool readOnly, bool allowAddDelete) where TProvider : Object, IStaticEcsEntityProvider {
+        private static void DrawStandardComponent<TProvider>(IWorld world, IStandardComponent component, TProvider provider, GUILayoutOption[] maxWidth, bool readOnly, bool allowAddDelete) where TProvider : Object, IStaticEcsEntityProvider {
             if (component == null) {
                 EditorGUILayout.LabelField("Broken standard component - is null", EditorStyles.boldLabel);
                 if (GUILayout.Button("Delete all broken standard components", Ui.ButtonStyleWhite, Ui.WidthLine(240))) {
@@ -344,7 +338,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             {
                 GUILayout.BeginVertical(GUI.skin.box);
                 {
-                    if (TryDrawValueByCustomDrawer(typeName, type, component, out var changed, out var newValue)) {
+                    if (TryDrawValueByCustomDrawer(world, typeName, type, component, out var changed, out var newValue)) {
                         if (changed) {
                             provider.OnChangeStandardComponent((IStandardComponent) newValue, type);
                             EditorUtility.SetDirty(provider);
@@ -353,7 +347,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
                         EditorGUI.indentLevel++;
                         foreach (var field in MetaData.GetCachedType(type)) {
-                            if (TryDrawField(component, field, out newValue)) {
+                            if (TryDrawField(world, component, field, out newValue)) {
                                 field.SetValue(component, newValue);
                                 provider.OnChangeStandardComponent(component, type);
                                 EditorUtility.SetDirty(provider);
@@ -406,7 +400,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             menu.ShowAsContext();
         }
 
-        private static void DrawComponents<TProvider>(List<IComponent> components, TProvider provider, GUILayoutOption[] maxWidth) where TProvider : Object, IStaticEcsEntityProvider {
+        private static void DrawComponents<TProvider>(IWorld world, List<IComponent> components, TProvider provider, GUILayoutOption[] maxWidth) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.Components.Count == components.Count;
@@ -442,7 +436,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 {
                     GUILayout.BeginVertical(GUI.skin.box);
                     {
-                        if (TryDrawValueByCustomDrawer(typeName, type, component, out var changed, out var newValue)) {
+                        if (TryDrawValueByCustomDrawer(world, typeName, type, component, out var changed, out var newValue)) {
                             if (changed) {
                                 provider.OnChangeComponent((IComponent) newValue, type);
                                 EditorUtility.SetDirty(provider);
@@ -451,7 +445,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
                             EditorGUI.indentLevel++;
                             foreach (var field in MetaData.GetCachedType(type)) {
-                                if (TryDrawField(component, field, out newValue)) {
+                                if (TryDrawField(world, component, field, out newValue)) {
                                     field.SetValue(component, newValue);
                                     provider.OnChangeComponent(component, type);
                                     EditorUtility.SetDirty(provider);
@@ -690,10 +684,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.LabelField(strVal, style, layout);
         }
 
-        internal static bool TryDrawField(object component, FieldInfo field, out object newValue) {
+        internal static bool TryDrawField(IWorld world, object component, FieldInfo field, out object newValue) {
             var fieldValue = field.GetValue(component);
             var fieldType = field.FieldType;
-            if (TryDrawValueByCustomDrawer(field.Name, fieldType, fieldValue, out var changed, out newValue)) {
+            if (TryDrawValueByCustomDrawer(world, field.Name, fieldType, fieldValue, out var changed, out newValue)) {
                 return changed;
             }
 
@@ -719,23 +713,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return false;
         }
 
-        internal static bool TryDrawValueByCustomDrawer(string label, Type type, object value, out bool changed, out object newValue) {
+        internal static bool TryDrawValueByCustomDrawer(IWorld world, string label, Type type, object value, out bool changed, out object newValue) {
             if (MetaData.Inspectors.TryGetValue(type, out var inspector)) {
-                changed = inspector.DrawValue(label, value, out newValue);
+                changed = inspector.DrawValue(world, label, value, out newValue);
                 return true;
             }
             
             if (type.IsGenericType && MetaData.InspectorsGeneric.TryGetValue(type.GetGenericTypeDefinition(), out var inspectorType)) {
                 var ins = (IStaticEcsValueDrawer) Activator.CreateInstance(inspectorType.MakeGenericType(type.GetGenericArguments()));
                 MetaData.Inspectors[type] = ins;
-                changed = ins.DrawValue(label, value, out newValue);
+                changed = ins.DrawValue(world, label, value, out newValue);
                 return true;
             }
             
             if (type.IsArray && MetaData.InspectorsGeneric.TryGetValue(type.BaseType, out var inspectorTypeArray)) {
                 var ins = (IStaticEcsValueDrawer) Activator.CreateInstance(inspectorTypeArray.MakeGenericType(type.GetElementType()));
                 MetaData.Inspectors[type] = ins;
-                changed = ins.DrawValue(label, value, out newValue);
+                changed = ins.DrawValue(world, label, value, out newValue);
                 return true;
             }
 

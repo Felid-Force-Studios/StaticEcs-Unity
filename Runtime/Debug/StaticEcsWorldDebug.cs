@@ -154,7 +154,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public static void Create(int maxDeletedEventHistoryCount = 128) {
             if (World<WorldType>.Status != WorldStatus.Created) {
-                throw new Exception("StaticEcsWorldDebug Debug mode connection is possible only between world creation and initialization");
+                throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only between world creation and initialization");
             }
 
             Instance = new StaticEcsWorldDebug<WorldType>(maxDeletedEventHistoryCount);
