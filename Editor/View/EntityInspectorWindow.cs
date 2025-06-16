@@ -9,11 +9,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly Dictionary<Type, Dictionary<uint, EntityInspectorWindow>> data = new();
         private static EntityInspectorWindow lastFocused;
 
-        public static Func<IEntity, string> WindowNameFunction;
-
         private IWorld _world;
         private StaticEcsEntityProvider _provider;
         private IEntity _entity;
+        
+        internal float drawRate = 0.5f;
+        internal float drawFrames = 2;
+        private float _acc;
 
         static EntityInspectorWindow() {
             EditorApplication.playModeStateChanged += state => {
@@ -35,6 +37,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 lastFocused = null;
             };
+        }
+
+        private void Draw() {
+            _acc += Time.deltaTime;
+            if (_acc >= drawRate) {
+                Repaint();
+                _acc = 0f;
+            }
         }
 
         public static bool ShowWindowForEntity(IWorld world, EntityGID gid) {
@@ -59,8 +69,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             var window = CreateInstance<EntityInspectorWindow>();
             entities[entity.GetId()] = window;
-
-            window.titleContent = new GUIContent(WindowNameFunction?.Invoke(entity) ?? $"Entity {entity.GetId()}");
+            var nameFunction = StaticEcsDebugData.Worlds[world.GetWorldType()].WindowNameFunction;
+            window.titleContent = new GUIContent(nameFunction?.Invoke(entity) ?? $"Entity {entity.GetId()}");
             window._entity = entity;
             window._world = world;
             window._provider = CreateStaticEcsEntityDebugView(world, entity);
@@ -105,7 +115,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void OnFocus() {
+            EditorApplication.update += Draw;
             lastFocused = this;
+        }
+        
+        private void OnLostFocus() {
+            EditorApplication.update -= Draw;
         }
 
         private void OnDestroy() {
@@ -119,7 +134,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private void OnGUI() {
             if (Application.isPlaying) {
-                Drawer.DrawEntity(_provider, true, _ => { }, false);
+                Drawer.DrawEntity(_provider, true, _ => { }, false, provider => Close());
             } else {
                 EditorGUILayout.HelpBox("Data is only available in play mode", MessageType.Info, true);
             }

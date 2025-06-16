@@ -180,7 +180,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
         #endif
 
-        public static void DrawEntity(StaticEcsEntityProvider provider, bool viewer, Action<StaticEcsEntityProvider> onClickBuild, bool allowStandardComponentsAddDelete) {
+        public static void DrawEntity(StaticEcsEntityProvider provider, bool viewer, Action<StaticEcsEntityProvider> onClickBuild, bool allowStandardComponentsAddDelete, Action<StaticEcsEntityProvider> onClose) {
             provider.Scroll = EditorGUILayout.BeginScrollView(provider.Scroll, Ui.MaxWidth600);
             EditorGUILayout.Space(10);
 
@@ -212,7 +212,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                     if (provider.EntityIsActual()) {
                         if (viewer) {
-                            menu.AddItem(new GUIContent("Close"), false, () => { provider.Entity = null; });
+                            menu.AddItem(new GUIContent("Close"), false, () => onClose(provider));
                             // menu.AddItem(new GUIContent("Copy as new entity"), false, () => { });
                             // menu.AddItem(new GUIContent("Copy as builder template"), false, () => { });
                         }
@@ -230,12 +230,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.LabelField("Entity ID:", Ui.WidthLine(60));
                 if (provider.EntityIsActual()) {
-                    EditorGUILayout.LabelField(Ui.IntToStringD6((int) provider.Entity.GetId()).d6, Ui.LabelStyleWhiteBold);
+                    EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) provider.Entity.GetId()).d6, Ui.LabelStyleWhiteBold, Ui.WidthLine(120));
                 } else {
                     EditorGUILayout.LabelField("---", Ui.LabelStyleWhiteBold);
                     if (Application.isPlaying && provider.HasComponents() && GUILayout.Button("Build", Ui.ButtonStyleYellow, Ui.WidthLine(60))) {
                         onClickBuild(provider);
                     }
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.BeginHorizontal(Ui.MaxWidth600);
+            {
+                if (GUILayout.Button(Ui.IconMenu, Ui.WidthLine(20))) {
+   
+                }
+
+                EditorGUILayout.LabelField("Entity GID:", Ui.WidthLine(60));
+                if (provider.EntityIsActual()) {
+                    EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) provider.Entity.Gid().Id()).d6, Ui.LabelStyleWhiteBold, Ui.WidthLine(120));
+                } else {
+                    EditorGUILayout.LabelField("---", Ui.LabelStyleWhiteBold);
                 }
             }
             EditorGUILayout.EndHorizontal();

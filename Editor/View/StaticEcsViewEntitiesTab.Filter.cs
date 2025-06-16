@@ -32,6 +32,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private void DrawEntitiesFilter() {
             ComponentsFilter();
+            GidFilter();
             ColumnsFilter();
             DataShowFilter();
             EntityResultCountFilter();
@@ -212,6 +213,21 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private bool IsFilterValid() {
             return _filterActive && (_all.Count > 0 || _tagAll.Count > 0 || _allWithDisabled.Count > 0 || _allOnlyDisabled.Count > 0);
+        }
+
+        private void GidFilter() {
+            EditorGUILayout.BeginHorizontal();
+            {
+                EditorGUILayout.LabelField("Entity GID:", Ui.WidthLine(120));
+                _gidFilterActive = EditorGUILayout.Toggle(_gidFilterActive);
+            }
+            EditorGUILayout.EndHorizontal();
+            if (_gidFilterActive) {
+                EditorGUI.indentLevel++;
+                _gidFilterValue = EditorGUILayout.IntField("Value", _gidFilterValue, Ui.WidthLine(300));
+                if (_gidFilterValue < 0) _gidFilterValue = 0;
+                EditorGUI.indentLevel--;
+            }
         }
 
         private void ColumnsFilter() {

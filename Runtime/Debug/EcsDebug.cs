@@ -23,9 +23,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             #endif
         }
         
-        public static void AddWorld(int maxDeletedEventHistoryCount = 200) {
+        public static void AddWorld(int maxDeletedEventHistoryCount = 200, Func<IEntity, string> windowEntityNameFunction = null) {
             #if UNITY_EDITOR
-            StaticEcsWorldDebug<WorldType>.Create(maxDeletedEventHistoryCount);
+            StaticEcsWorldDebug<WorldType>.Create(maxDeletedEventHistoryCount, windowEntityNameFunction);
             #endif
         }
     }

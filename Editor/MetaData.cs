@@ -83,9 +83,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     if (type.IsValueType && type.GetInterfaces().Contains(typeof(IWorldType))) {
                         var name = type.FullName!;
                         
-                        if (Attribute.IsDefined(type, nameAttr)) {
-                            name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
-                        }
+                        var (n, fn) = NameAttribute(type);
+                        name = n ?? name;
                         
                         if (WorldsMetaData.Find(tuple => tuple.WorldTypeType == type).WorldTypeType != null) {
                             Debug.LogError($"World id `{name}` already registered, type `{type}` ignored");
@@ -102,13 +101,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
+        private static (string name, string fullName) NameAttribute(Type type) {
+            foreach (var atr in type.GetCustomAttributesData()) {
+                if (atr.AttributeType.Namespace + atr.AttributeType.FullName == nameAttr.Namespace + nameAttr.FullName) {
+                    return (atr.ConstructorArguments[0].Value as string, atr.ConstructorArguments[1].Value as string);
+                }
+            }
+
+            return (null, null);
+        }
+
         private static void HandleEventMeta(Type type) {
             var fullName = "";
             var name = "";
-            if (Attribute.IsDefined(type, nameAttr)) {
-                fullName = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).FullName;
-                name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
-            }
+            
+            var (n, fn) = NameAttribute(type);
+            fullName = fn ?? fullName;
+            name = n ?? name;
 
             if (string.IsNullOrEmpty(fullName)) {
                 fullName = type.EditorFullTypeName();
@@ -135,10 +144,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var fullName = "";
             var name = "";
 
-            if (Attribute.IsDefined(type, nameAttr)) {
-                fullName = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).FullName;
-                name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
-            }
+            var (n, fn) = NameAttribute(type);
+            fullName = fn ?? fullName;
+            name = n ?? name;
 
             if (string.IsNullOrEmpty(fullName)) {
                 fullName = type.EditorFullTypeName();
@@ -162,10 +170,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static bool HandleTagMeta(Type type) {
             var fullName = "";
             var name = "";
-            if (Attribute.IsDefined(type, nameAttr)) {
-                fullName = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).FullName;
-                name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
-            }
+            var (n, fn) = NameAttribute(type);
+            fullName = fn ?? fullName;
+            name = n ?? name;
 
             if (string.IsNullOrEmpty(fullName)) {
                 fullName = type.EditorFullTypeName();
@@ -189,10 +196,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static bool HandleComponentMeta(Type type) {
             var fullName = "";
             var name = "";
-            if (Attribute.IsDefined(type, nameAttr)) {
-                fullName = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).FullName;
-                name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
-            }
+            var (n, fn) = NameAttribute(type);
+            fullName = fn ?? fullName;
+            name = n ?? name;
 
             if (string.IsNullOrEmpty(fullName)) {
                 fullName = type.EditorFullTypeName();
@@ -218,10 +224,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static bool HandleStandardComponentMeta(Type type) {
             var fullName = "";
             var name = "";
-            if (Attribute.IsDefined(type, nameAttr)) {
-                fullName = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).FullName;
-                name = ((StaticEcsEditorNameAttribute) Attribute.GetCustomAttribute(type, nameAttr)).Name;
-            }
+            var (n, fn) = NameAttribute(type);
+            fullName = fn ?? fullName;
+            name = n ?? name;
 
             if (string.IsNullOrEmpty(fullName)) {
                 fullName = type.EditorFullTypeName();

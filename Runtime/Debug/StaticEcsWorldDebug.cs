@@ -56,12 +56,15 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public int EventsStart;
         public string worldEditorName;
         public string WorldTypeTypeFullName;
+        public Func<IEntity, string> WindowNameFunction;
 
         public abstract bool IsActual(uint idx);
 
         public abstract void ForAll<T>(T with, IForAll action) where T : struct, IPrimaryQueryMethod;
 
         public abstract IEntity GetEntity(uint entIdx);
+
+        public abstract bool FindEntityByGid(uint gid, out IEntity entity);
 
         public abstract void DestroyEntity(uint entIdx);
     }
@@ -85,6 +88,16 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public override IEntity GetEntity(uint entIdx) {
             return World<WorldType>.Entity.FromIdx(entIdx);
+        }
+
+        public override bool FindEntityByGid(uint gid, out IEntity entity) {
+            if (World<WorldType>.GIDStore.Value.TryGetEntity(gid, out var e)) {
+                entity = e;
+                return true;
+            }
+
+            entity = default;
+            return false;
         }
 
         public override void DestroyEntity(uint entIdx) {
@@ -146,18 +159,21 @@ namespace FFS.Libraries.StaticEcs.Unity {
         where WorldType : struct, IWorldType {
         private WorldData<WorldType> _worldData;
         internal static StaticEcsWorldDebug<WorldType> Instance;
+        internal Func<IEntity, string> windowEntityNameFunction;
         private int _maxDeletedEventHistoryCount;
 
         private StaticEcsWorldDebug(int maxDeletedEventHistoryCount) {
             _maxDeletedEventHistoryCount = Math.Max(maxDeletedEventHistoryCount, 128);
         }
 
-        public static void Create(int maxDeletedEventHistoryCount = 128) {
+        public static void Create(int maxDeletedEventHistoryCount = 128, Func<IEntity, string> windowEntityNameFunction = null) {
             if (World<WorldType>.Status != WorldStatus.Created) {
                 throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only between world creation and initialization");
             }
 
-            Instance = new StaticEcsWorldDebug<WorldType>(maxDeletedEventHistoryCount);
+            Instance = new StaticEcsWorldDebug<WorldType>(maxDeletedEventHistoryCount) {
+                windowEntityNameFunction = windowEntityNameFunction,
+            };
             World<WorldType>.AddWorldDebugEventListener(Instance);
             #if !FFS_ECS_DISABLE_EVENTS
             World<WorldType>.Events.AddEventsDebugEventListener(Instance);
@@ -173,7 +189,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 Destroyed = World<WorldType>.Entity.deletedEntitiesCount,
                 DestroyedCapacity = (uint) World<WorldType>.Entity.deletedEntities.Length,
                 WorldTypeType = typeof(WorldType),
-                Events = new EventData[_maxDeletedEventHistoryCount * 3]
+                Events = new EventData[_maxDeletedEventHistoryCount * 3],
+                WindowNameFunction = windowEntityNameFunction
             };
 
             StaticEcsDebugData.Worlds[typeof(WorldType)] = _worldData;

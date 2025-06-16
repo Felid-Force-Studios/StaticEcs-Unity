@@ -5,12 +5,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public sealed class StaticEcsEditorNameAttribute : Attribute {
         public readonly string Name;
         public readonly string FullName;
-
-        public StaticEcsEditorNameAttribute(string name) {
-            Name = name;
-        }
         
-        public StaticEcsEditorNameAttribute(string name, string fullName) {
+        public StaticEcsEditorNameAttribute(string name, string fullName = null) {
             Name = name;
             FullName = fullName;
         }

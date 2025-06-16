@@ -68,6 +68,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private EditorEntityDataMetaByWorld _sortIdx;
         private readonly List<uint> _tempEntities = new();
         private readonly List<uint> _pinedEntities = new();
+        
+        private bool _gidFilterActive;
+        private int _gidFilterValue;
 
         private readonly StaticEcsEntityProvider _entityBuilder;
         
@@ -141,7 +144,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         provider.CreateEntity();
                         EntityInspectorWindow.ShowWindowForEntity(provider.World, provider.Entity);
                         provider.Entity = null;
-                    }, false);
+                    }, false, provider => provider.Entity = null);
                     break;
             }
         }
@@ -198,7 +201,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             verticalScrollEntitiesPosition = GUILayout.BeginScrollView(verticalScrollEntitiesPosition, Ui.Width(_maxWidth + 10f));
             _currentEntityCount = 0;
-            if (IsFilterValid()) {
+            if (_gidFilterActive) {
+                if (_worldData.FindEntityByGid((uint) _gidFilterValue, out var entity)) {
+                    DrawEntityRow(entity.GetId(), false, false);
+                }
+            } else if (IsFilterValid()) {
                 _worldData.ForAll(MakeEcsWithFilter(), this);
             } else {
                 for (var entIdx = _worldData.Count; entIdx > 0; entIdx--) {
