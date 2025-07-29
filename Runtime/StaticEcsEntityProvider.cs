@@ -16,6 +16,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #endif
     [DefaultExecutionOrder(short.MaxValue)]
     public partial class StaticEcsEntityProvider : AbstractStaticEcsProvider, IStaticEcsEntityProvider {
+        [SerializeField] public OnDestroyType OnDestroyType = OnDestroyType.None;
+        
         [SerializeReference, HideInInspector] private List<IComponent> components = new();
         [SerializeReference, HideInInspector] private List<IStandardComponent> standardComponents = new();
 
@@ -39,6 +41,12 @@ namespace FFS.Libraries.StaticEcs.Unity {
         private IEntity _entity;
         
         [HideInInspector] public EntityGID EntityGid;
+
+        protected virtual void Awake() {
+            if (UsageType == UsageType.OnAwake) {
+                CreateEntity();
+            }
+        }
 
         protected virtual void Start() {
             if (UsageType == UsageType.OnStart) {
@@ -128,5 +136,17 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
             return true;
         }
+        
+        
+        protected virtual void OnDestroy() {
+            if (OnDestroyType == OnDestroyType.DestroyEntity) {
+                _entity?.TryDestroy();
+            }
+        }
+    }
+        
+    public enum OnDestroyType {
+        None,
+        DestroyEntity
     }
 }

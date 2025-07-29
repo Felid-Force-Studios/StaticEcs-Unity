@@ -18,6 +18,12 @@ namespace FFS.Libraries.StaticEcs.Unity {
         [HideInInspector] public RuntimeEvent RuntimeEvent = RuntimeEvent.Empty;
         [HideInInspector] public IEvent EventCache;
 
+        protected virtual void Awake() {
+            if (UsageType == UsageType.OnAwake) {
+                SendEvent();
+            }
+        }
+
         protected virtual void Start() {
             if (UsageType == UsageType.OnStart) {
                 SendEvent();

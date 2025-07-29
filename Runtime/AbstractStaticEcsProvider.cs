@@ -56,6 +56,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     
     public enum UsageType {
         OnStart,
+        OnAwake,
         Manual,
     }
 
