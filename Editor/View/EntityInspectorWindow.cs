@@ -40,6 +40,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void Draw() {
+            if (lastFocused != this) {
+                EditorApplication.update -= Draw;
+                return;
+            }
+            
             _acc += Time.deltaTime;
             if (_acc >= drawRate) {
                 Repaint();
@@ -119,7 +124,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             lastFocused = this;
         }
         
-        private void OnLostFocus() {
+        private void OnDisable() {
             EditorApplication.update -= Draw;
         }
 

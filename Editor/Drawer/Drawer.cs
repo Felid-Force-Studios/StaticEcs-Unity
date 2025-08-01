@@ -699,6 +699,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         internal static bool TryDrawField(IWorld world, object component, FieldInfo field, out object newValue) {
+            if (component == null) {
+                newValue = null;
+                return false;
+            }
+            
             var fieldValue = field.GetValue(component);
             var fieldType = field.FieldType;
             if (TryDrawValueByCustomDrawer(world, field.Name, fieldType, fieldValue, out var changed, out newValue)) {
