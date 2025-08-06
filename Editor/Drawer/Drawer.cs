@@ -698,7 +698,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.LabelField(strVal, style, layout);
         }
 
-        internal static bool TryDrawField(IWorld world, object component, FieldInfo field, out object newValue) {
+        internal static bool TryDrawField(IWorld world, object component, FieldInfo field, out object newValue, int level = 10) {
             if (component == null) {
                 newValue = null;
                 return false;
@@ -723,6 +723,25 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 return DrawEnum(field.Name, fieldValue, isFlags, out newValue);
             }
 
+            if (fieldType != typeof(string) && level >= 0) {
+                EditorGUILayout.LabelField(field.Name, EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                foreach (var innerField in MetaData.GetCachedType(fieldType)) {
+                    if (TryDrawField(world, fieldValue, innerField, out newValue, level - 1)) {
+                        innerField.SetValue(fieldValue, newValue);
+                        changed =  true;
+                    }
+                }
+
+                EditorGUI.indentLevel--;
+
+                if (changed) {
+                    newValue = fieldValue;
+                }
+                
+                return changed;
+            }
+            
             var strVal = fieldValue != null ? string.Format(CultureInfo.InvariantCulture, "{0}", fieldValue) : "null";
             if (strVal.Length > MaxFieldToStringLength) {
                 strVal = strVal.Substring(0, MaxFieldToStringLength);
