@@ -8,7 +8,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
             using (new HorizontalScope()) {
                 PrefixLabel(label);
                 var empty = value.IsEmpty();
-                if (ctx.World.TryGetEntity(value, out var entity)) {
+                if (!empty && ctx.World != null && ctx.World.TryGetEntity(value, out var entity)) {
                     LabelField(empty ? "Empty" : value.ToString(), Ui.MinWidth());
                 } else {
                     LabelField(empty ? "Empty" : value.ToString() + " (Not actual)", Ui.MinWidth());
