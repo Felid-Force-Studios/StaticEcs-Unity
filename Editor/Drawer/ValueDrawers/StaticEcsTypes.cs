@@ -7,8 +7,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
         public override bool DrawValue(ref DrawContext ctx, string label, ref EntityGID value) {
             using (new HorizontalScope()) {
                 PrefixLabel(label);
-                LabelField(value.IsEmpty() ? "Empty" : value.ToString(), Ui.MinWidth());
-                using (Ui.EnabledScope) {
+                var empty = value.IsEmpty();
+                if (ctx.World.TryGetEntity(value, out var entity)) {
+                    LabelField(empty ? "Empty" : value.ToString(), Ui.MinWidth());
+                } else {
+                    LabelField(empty ? "Empty" : value.ToString() + " (Not actual)", Ui.MinWidth());
+                    empty = true;
+                }
+                
+                using (Ui.EnabledScopeVal(!empty)) {
                     if (Application.isPlaying && !value.IsEmpty() && Ui.ViewButton) {
                         if (!EntityInspectorWindow.ShowWindowForEntity(ctx.World, value)) {
                             Debug.LogWarning($"Entity with EntityGID {value} is not available");

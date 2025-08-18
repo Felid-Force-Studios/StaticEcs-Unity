@@ -4,14 +4,15 @@ using System.Collections.Generic;
 using Unity.IL2CPP.CompilerServices;
 #endif
 
-#if UNITY_EDITOR
 namespace FFS.Libraries.StaticEcs.Unity {
     
+    #if UNITY_EDITOR
     public sealed class StaticEcsDebugData {
         public static readonly Dictionary<Type, AbstractWorldData> Worlds = new();
         public static readonly Dictionary<Type, ((ISystem system, short order, int idx)[] systems, int count, Type worldType)> Systems = new();
     }
-    
+    #endif
+
     public abstract class EcsDebug<WorldType> where WorldType : struct, IWorldType {
         public static void AddSystem<SystemsType>() where SystemsType : struct, ISystemsType {
             #if UNITY_EDITOR
@@ -29,4 +30,3 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
     }
 }
-#endif

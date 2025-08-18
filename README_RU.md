@@ -24,23 +24,50 @@ ___
 # Контакты
 * [Telegram](https://t.me/felid_force_studios)
 # Установка
+Должен быть так же установлен [StaticEcs](https://github.com/Felid-Force-Studios/StaticEcs)
 * ### В виде исходников
-  Со страцины релизов или как архив из нужной ветки. В ветке `master` стабильная проверенная версия
+  Со страницы релизов или как архив из нужной ветки. В ветке `master` стабильная проверенная версия
 * ### Установка для Unity
-  Как git модуль `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git` в Unity PackageManager или добавления в `Packages/manifest.json`:
+  - Как git модуль в Unity PackageManager     
+    `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git`  
+  - Или добавление в манифест `Packages/manifest.json`  
+    `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs.git-Unity"`  
 
 
 # Руководство
 Модуль предоставляет дополнительные возможности интеграции с Unity engine:  
+
+### Подключение:
+Окно мониторинга и управления данными ECS во время выполнения  
+Для подключения миров и систем к окну редактора необходимо вызвать специальный метод при инициализации мира и систем  
+с указанием требуемого мира или систем
+```csharp
+        ClientEcs.Create(EcsConfig.Default());
+        //...
+        EcsDebug<ClientWorldType>.AddWorld(); // Между созданием и инициализацией
+        //...
+        ClientEcs.Initialize();
+        
+        ClientSystems.Create();
+        //...
+        ClientSystems.Initialize();
+        EcsDebug<ClientWorldType>.AddSystem<ClientSystemsType>(); // После инициализации
+```
+
 ### Провайдеры сущностей:  
 Скрипт добавляющий возможность конфигурировать сущность в редакторе Unity и автоматически создавать ее в мире ECS  
 Добавьте скрипт `StaticEcsEntityProvider` на объект в сцене:
 
 ![EntityProvider.png](Readme%2FEntityProvider.png)  
 
-`Usage type` - тип создания, автоматически при вызове Start() MonoBehaviour или вручную  
-`On create type` - действие после создания, удалить компонент `StaticEcsEntityProvider` с объекта, удалить весь объект или ничего  
+`Usage type` - тип создания, автоматически при вызове `Start()`, `Awake()` или вручную  
+`On create type` - действие после создания провайдера, удалить компонент `StaticEcsEntityProvider` с объекта, удалить весь объект или ничего  
+`On destroy type` - действие при уничтожении провайдера, уничтожить сущность или ничего  
+`Prefab` - позволяет ссылаться на префаб провайдера, при этом изменение данных компонентов будет заблокировано  
 `Wotld` - тип мира в котором будет создана сущность  
+`Entity ID` - идентификатор сущности в рантайме  
+`Entity GID` - глобальный идентификатор сущности в рантайме  
+`Standard components` - данные компонентов 
 `Components` - данные компонентов 
 `Tags` - теги сущности  
 `Masks` - маски сущности 
@@ -51,8 +78,8 @@ ___
 
 ![EventProvider.png](Readme%2FEventProvider.png)  
 
-`Usage type` - тип создания, автоматически при вызове Start() MonoBehaviour или вручную  
-`On create type` - действие после создания, удалить компонент `StaticEcsEntityProvider` с объекта, удалить весь объект или ничего  
+`Usage type` - тип создания, автоматически при вызове `Start()`, `Awake()` или вручную  
+`On create type` - действие после создания, удалить компонент `StaticEcsEventProvider` с объекта, удалить весь объект или ничего  
 `Wotld` - тип мира в котором будет отправлено событие  
 `Type` - тип события
 
@@ -60,35 +87,18 @@ ___
 Генераторы классов доступны по выбору в меню создания ассетов `Assets/Create/Static ECS/`
 
 ## Окно просмотра Static ECS:
-Окно мониторинга и управления данными ECS во время выполнения  
-Для подключения миров и систем к окну редактора необходимо вызвать специальный метод при инициализации мира и систем  
-с указанием требуемого мира или систем
-```csharp
-        ClientEcs.Create(EcsConfig.Default());
-        //...
-        EcsDebug<ClientWorldType>.AddWorld();
-        //...
-        ClientEcs.Initialize();
-        
-        ClientSystems.Create();
-        //...
-        EcsDebug<ClientWorldType>.AddSystem<ClientSystemsType>();
-        //...
-        ClientSystems.Initialize();
-```
-
 ![WindowMenu.png](Readme%2FWindowMenu.png)  
 
-### Entities - вкладка просмотра/изменения сущностей в мире  
-#### Table - таблица просмотра сущностей 
+### Entities/Table - таблица просмотра сущностей 
 
 ![EntitiesTable.png](Readme%2FEntitiesTable.png)  
  - `Filter` позволяет отобрать необходимые сущности
+ - `Entity GID` позволяет найти сущность по глобальному идентификатору
  - `Select` позволяет выбрать отображаемые колонки
  - `Show data` позволяет выбрать отображаемые данные в колонках
  - `Max entities result` максимальное количество отображаемых сущностей
 
-Для отображения данных компонентов в таблице необходимо установить аттрибут `StaticEcsEditorTableValue` в компоненте для field или property
+Для отображения данных компонентов в таблице необходимо: установить аттрибут `StaticEcsEditorTableValue` в компоненте для field или property
 ```csharp
 public struct Position : IComponent {
     [StaticEcsEditorTableValue]
@@ -103,20 +113,41 @@ public struct Velocity : IComponent {
     public float Val;
 }
 ```
+Для установки цвета компонента необходимо установить аттрибут `StaticEcsEditorColor` в компоненте (можно установить RGB или HEX color)
+```csharp
+[StaticEcsEditorColor("f7796a")]
+public struct Velocity : IComponent {
+    [StaticEcsEditorTableValue]
+    public float Val;
+}
+```
 
 так же доступны кнопки управления сущностью  
-- значок глаза - открыть сущность в просмотрщике
-- замок - сделать пин сущности вверху таблицы
-- удаление - удалть сущность из мира
+- значок глаза - открыть сущность на просмотр
+- замок - зафиксировать сущность в таблице
+- удаление - уничтожить сущность в мире
 
 
-#### Viewer -  просмотрщик сущности  
+### Viewer -  окно просмотра сущности  
 Отображает все данные о сущности с возможностью изменения, добавления и удаления компонентов
 
 ![EntitiesViewer.png](Readme%2FEntitiesViewer.png)  
 
-#### Entity builder -  конструктор сущности  
-Позволяет настроить и создать новую сущность во время выполнения
+По умолчанию отображаются только **публичные** поля объектов помеченные аттрибутом `[Serializable]`  
+- Чтобы отобразить приватное поле, необходимо пометить его аттрибутом `[StaticEcsEditorShow]`
+- Чтобы скрыть публичное поле, необходимо пометить его аттрибутом `[StaticEcsEditorHide]`
+```csharp
+public struct SomeComponent : IComponent {
+    [StaticEcsEditorShow]
+    private int _showData;
+    
+    [StaticEcsEditorHide]
+    public int HideData;
+}
+```
+
+### Entities/Builder -  конструктор сущности  
+Позволяет настроить и создать новую сущность во время выполнения (Аналогичен провайдеру сущностей)
 
 ![EntitiesBuilder.png](Readme%2FEntitiesBuilder.png)  
 
@@ -125,10 +156,8 @@ public struct Velocity : IComponent {
 
 ![Stats.png](Readme%2FStats.png)  
 
-### Events - окно просмотра событий 
-
-#### Table -  таблица событий  
-Отображает последние события, их данные и количество подписчиков непрочитавших событие
+### Events/Table -  таблица событий  
+Отображает последние события, их данные и количество подписчиков не прочитавших событие
 
 ![EventsTable.png](Readme%2FEventsTable.png)  
 
@@ -144,13 +173,27 @@ public struct DamageEvent : IEvent {
     public string ShowData => $"Damage {Val}";
 }
 ```
+Для установки цвета событий необходимо установить аттрибут `StaticEcsEditorColor` (можно установить RGB или HEX color)
+```csharp
+[StaticEcsEditorColor("f7796a")]
+public struct DamageEvent : IEvent {
 
-#### Viewer -  просмотрщик события
+}
+```
+Для игнорирования события в редакторе необходимо установить аттрибут `StaticEcsIgnoreEvent`
+```csharp
+[StaticEcsIgnoreEvent]
+public struct DamageEvent : IEvent {
+
+}
+```
+
+### Viewer - окно просмотра событий
 Позволяет просматривать и изменять (только для непрочитанных) данные события
 
 ![EventsViewer.png](Readme%2FEventsViewer.png)  
 
-#### Events builder -  конструктор события
+### Events/Builder -  конструктор события
 Позволяет настроить и создать новое событие во время выполнения  
 
 ![EventsBuilder.png](Readme%2FEventsBuilder.png)  
@@ -170,6 +213,7 @@ public struct DamageEvent : IEvent {
 `Update per second` - позволяет определить сколько раз в секунду требуется обновлять данные открытой вкладки
 
 # Вопросы
+### Как создать свой метод отрисовки для типа?  
 Для реализации своего редактора для конкретного типа или компонента, необходимо в папке Editor вашего проекта  
 Создать класс реализующий `IStaticEcsValueDrawer` или `IStaticEcsValueDrawer<T>`  
 метод `DrawValue` отображает информацию на вкладках `Entity viever`, `Event viever` и `StaticEcsEntityProvider`, `StaticEcsEventProvider`  
@@ -177,22 +221,29 @@ public struct DamageEvent : IEvent {
 
 Пример:
 ```csharp
-    sealed class IntDrawer : IStaticEcsValueDrawer<int> {
-        protected override bool DrawValue(string label, ref int value) {
-            var newValue = EditorGUILayout.IntField(label, value);
-            if (newValue == value) {
-                return false;
-            }
-
-            value = newValue;
-            return true;
+public sealed class IntDrawer : IStaticEcsValueDrawer<int> {
+    public override bool DrawValue(ref DrawContext ctx, string label, ref int value) {
+        BeginHorizontal();
+        PrefixLabel(label);
+        var newValue = IntField(GUIContent.none, value);
+        EndHorizontal();
+        if (newValue == value) {
+            return false;
         }
 
-        protected override void DrawTableValue(ref int value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            EditorGUILayout.SelectableLabel(value.ToString(CultureInfo.InvariantCulture), style, layoutOptions);
-        }
+        value = newValue;
+        return true;
     }
+
+    public override void DrawTableValue(ref int value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+        SelectableLabel(value.ToString(CultureInfo.InvariantCulture), style, layoutOptions);
+    }
+}
 ```
+
+### Как использовать аттрибуты не имея зависимости на данный модуль?
+Необходимо скопировать аттрибуты сохранив неймспейс из `\Runtime\Attributes.cs`, после этого аттрибуты будут корректно обнаружены редактором.
+
 
 # Лицензия
 [MIT license](./LICENSE.md)

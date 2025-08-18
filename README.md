@@ -23,71 +23,81 @@ ___
 # Contacts
 * [Telegram](https://t.me/felid_force_studios)
 # Installation
+Must also be installed [StaticEcs](https://github.com/Felid-Force-Studios/StaticEcs)
 * ### As source code
   From the release page or as an archive from the branch. In the `master` branch there is a stable tested version
 * ### Installation for Unity
-  git module `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git` in Unity PackageManager or adding it to `Packages/manifest.json`
+  - Как git модуль в Unity PackageManager     
+    `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git`
+  - Or adding to the manifest `Packages/manifest.json`  
+    `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs.git-Unity"`
 
 
-# Guide
+# Guid
 The module provides additional integration options with the Unity engine:
-### Entity Providers:
-A script that adds the option to configure an entity in the Unity editor and automatically create it in the ECS world  
-Add the `StaticEcsEntityProvider` script to an object in the scene:
 
-![EntityProvider.png](Readme%2FEntityProvider.png)
-
-`Usage type` - type of creation, automatically when calling Start() MonoBehaviour or manually  
-`On create type` - action after creation, delete the `StaticEcsEntityProvider` component from the object, delete the entire object, or nothing   
-`Wotld` - the type of world in which the entity will be created  
-`Components` - component data
-`Tags` - entity tags  
-`Masks` - entity masks
-
-### Event providers:
-A script that adds the ability to configure an event in the Unity editor and automatically send it to the ECS world    
-Add the `StaticEcsEventProvider` script to an object in the scene:
-
-![EventProvider.png](Readme%2FEventProvider.png)
-
-`Usage type` - type of creation, automatically when calling Start() MonoBehaviour or manually    
-`On create type` - action after creation, delete the `StaticEcsEntityProvider` component from the object, delete the entire object, or nothing    
-`Wotld` - type of world in which the event will be sent  
-`Type` - event type
-
-### Templates:
-Class generators are optionally available in the Asset Creation menu `Assets/Create/Static ECS/`
-
-## Static ECS view window:
-ECS runtime data monitoring and management window    
-To connect worlds and systems to the editor window, you must call a special method when initializing the world and systems    
+### Connection:
+ECS runtime data monitoring and management window  
+To connect worlds and systems to the editor window it is necessary to call a special method when initializing the world and systems  
 specifying the world or systems required
 ```csharp
         ClientEcs.Create(EcsConfig.Default());
         //...
-        EcsDebug<ClientWorldType>.AddWorld();
+        EcsDebug<ClientWorldType>.AddWorld(); // Between creation and initialization
         //...
         ClientEcs.Initialize();
         
         ClientSystems.Create();
         //...
-        EcsDebug<ClientWorldType>.AddSystem<ClientSystemsType>();
-        //...
         ClientSystems.Initialize();
+        EcsDebug<ClientWorldType>.AddSystem<ClientSystemsType>(); // After initialization
 ```
 
+### Entity providers:
+A script that adds the ability to configure an entity in the Unity editor and automatically create it in the ECS world  
+Add the `StaticEcsEntityProvider` script to an object in the scene:
+
+![EntityProvider.png](Readme%2FEntityProvider.png)
+
+`Usage type` - creation type, automatically when `Start()`, `Awake()` is called, or manually  
+`On create type` - action after creating the provider, delete the `StaticEcsEntityProvider` component from the object, delete the entire object, or nothing  
+`On destroy type` - action when destroying the provider, destroy the entity or nothing  
+`Prefab` - allows referring to the provider prefab, while changing component data will be blocked  
+`Wotld` - the type of world in which the entity will be created  
+`Entity ID` - entity identifier in runtime  
+`Entity GID` - global entity identifier in runtime  
+`Standard components` - standard component data
+`Components` - component data
+`Tags` - entity tags  
+`Masks` - entity masks
+
+### Event providers:
+A script that adds the ability to configure an event in the Unity editor and automatically send it to the ECS world  
+Add the `StaticEcsEventProvider` script to an object in the scene:
+
+![EventProvider.png](Readme%2FEventProvider.png)
+
+`Usage type` - creation type, automatically when `Start()`, `Awake()` is called, or manually  
+`On create type` - action after creation, delete the `StaticEcsEventProvider` component from the object, delete the entire object, or nothing  
+`Wotld` - type of world in which the event will be sent  
+`Type` - event type
+
+### Templates:
+Class generators are optionally available in the `Assets/Create/Static ECS/` asset creation menu
+
+## Static ECS view window:
 ![WindowMenu.png](Readme%2FWindowMenu.png)
 
-### Entities - tab for viewing/modifying entities in the world
-#### Table
+### Entities/Table - entity view table
 
 ![EntitiesTable.png](Readme%2FEntitiesTable.png)
-- `Filter` allows to select the necessary entities
-- `Select` allows you to select the columns to display
-- `Show data` allows to select the displayed data in the columns
+- `Filter` allows select the necessary entities
+- `Entity GID` allows to find an entity by its global identifier
+- `Select` allows to select the columns to be displayed
+- `Show data` allows to select the data to be displayed in the columns
 - `Max entities result` maximum number of displayed entities
 
-To display component data in a table, you must set the `StaticEcsEditorTableValue` attribute in the component to field or property
+To display component data in a table, you must: set the `StaticEcsEditorTableValue` attribute in the component for field or property
 ```csharp
 public struct Position : IComponent {
     [StaticEcsEditorTableValue]
@@ -102,32 +112,51 @@ public struct Velocity : IComponent {
     public float Val;
 }
 ```
+To set the color of the component, you must set the `StaticEcsEditorColor` attribute in the component (you can set RGB or HEX color)
+```csharp
+[StaticEcsEditorColor("f7796a")]
+public struct Velocity : IComponent {
+    [StaticEcsEditorTableValue]
+    public float Val;
+}
+```
 
-entity control buttons are also available
-- eye icon - open the entity in the viewer
-- lock - pin the entity to the top of the table
-- trash - destroy the entity from the world
+entity control buttons are also available  
+- eye icon - open the entity for viewing
+- lock - lock the entity in the table
+- trash - destroy the entity in the world
 
 
-#### Entity viewer
-Displays all entity data with the option to modify, add and delete components
+### Viewer - entity view window
+Displays all entity data with the ability to modify, add and delete components
 
 ![EntitiesViewer.png](Readme%2FEntitiesViewer.png)
 
-#### Entity builder
-Allows customization and creation of a new entity at runtime
+By default, only **public** object fields marked with the attribute `[Serializable]`
+- To display a private field, you must mark it with the attribute `[StaticEcsEditorShow]`
+- To hide a public field, you must mark it with the attribute `[StaticEcsEditorHide]`
+```csharp
+public struct SomeComponent : IComponent {
+    [StaticEcsEditorShow]
+    private int _showData;
+    
+    [StaticEcsEditorHide]
+    public int HideData;
+}
+```
+
+### Entities/Builder - entity constructor
+Allows you to customize and create a new entity at runtime (Similar to entity provider)
 
 ![EntitiesBuilder.png](Readme%2FEntitiesBuilder.png)
 
-### Stats
+### Stats - statistics window
 Displays all world, component and event data
 
 ![Stats.png](Readme%2FStats.png)
 
-### Events
-
-#### Table
-Displays recent events, their details and the number of subscribers who have unread the event
+### Events/Table - event table
+Displays recent events, their details and the number of subscribers who have not read the event
 
 ![EventsTable.png](Readme%2FEventsTable.png)
 
@@ -143,14 +172,28 @@ public struct DamageEvent : IEvent {
     public string ShowData => $"Damage {Val}";
 }
 ```
+The `StaticEcsEditorColor` attribute must be set to set the event color (can be set to RGB or HEX color)
+```csharp
+[StaticEcsEditorColor("f7796a")]
+public struct DamageEvent : IEvent {
 
-#### Event viewer
-Allow the viewing and modification (for unread only) of event data
+}
+```
+The `StaticEcsIgnoreEvent` attribute must be set to ignore the event in the editor
+```csharp
+[StaticEcsIgnoreEvent]
+public struct DamageEvent : IEvent {
+
+}
+```
+
+### Viewer - event viewer
+Allows you to view and modify (unread only) event data
 
 ![EventsViewer.png](Readme%2FEventsViewer.png)
 
-#### Events builder
-Allows to configure and create a new event at runtime
+### Events/Builder - event constructor
+Allows you to configure and create a new event at runtime
 
 ![EventsBuilder.png](Readme%2FEventsBuilder.png)
 
@@ -162,13 +205,14 @@ Displays the average execution time of each system
 
 ![Systems.png](Readme%2FSystems.png)
 
-### Settings
+### Settings - editor settings
 
 ![Settings.png](Readme%2FSettings.png)
 
 `Update per second` - allows to define how many times per second the data of an open tab should be updated
 
 # Questions
+### How to create a custom drawing method for a type?
 To implement your own editor for a specific type or component, you need in the Editor folder of your project  
 Create a class that implements `IStaticEcsValueDrawer` or `IStaticEcsValueDrawer<T>`  
 method `DrawValue` displays information on tabs `Entity viever`, `Event viever` и `StaticEcsEntityProvider`, `StaticEcsEventProvider`  
@@ -176,22 +220,29 @@ method `DrawTableValue` displays information on tabs `Entity table`, `Event tabl
 
 Example:
 ```csharp
-    sealed class IntDrawer : IStaticEcsValueDrawer<int> {
-        protected override bool DrawValue(string label, ref int value) {
-            var newValue = EditorGUILayout.IntField(label, value);
-            if (newValue == value) {
-                return false;
-            }
-
-            value = newValue;
-            return true;
+public sealed class IntDrawer : IStaticEcsValueDrawer<int> {
+    public override bool DrawValue(ref DrawContext ctx, string label, ref int value) {
+        BeginHorizontal();
+        PrefixLabel(label);
+        var newValue = IntField(GUIContent.none, value);
+        EndHorizontal();
+        if (newValue == value) {
+            return false;
         }
 
-        protected override void DrawTableValue(ref int value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            EditorGUILayout.SelectableLabel(value.ToString(CultureInfo.InvariantCulture), style, layoutOptions);
-        }
+        value = newValue;
+        return true;
     }
+
+    public override void DrawTableValue(ref int value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+        SelectableLabel(value.ToString(CultureInfo.InvariantCulture), style, layoutOptions);
+    }
+}
 ```
 
-# License
+### How to use attributes without having a dependency on this module?
+It is necessary to copy the attributes by saving the namespace from `\Runtime\Attributes.cs`, after that the attributes will be correctly detected by the editor.
+
+
+# Лицензия
 [MIT license](./LICENSE.md)

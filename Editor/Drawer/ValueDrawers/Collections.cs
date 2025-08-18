@@ -6,7 +6,7 @@ using static UnityEditor.EditorGUILayout;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
     
-    internal sealed class ListDrawer<T> : IStaticEcsValueDrawer<List<T>> where T : struct {
+    internal sealed class ListDrawer<T> : IStaticEcsValueDrawer<List<T>> {
         public override bool IsNullAllowed() => true;
 
         public override bool DrawValue(ref DrawContext ctx, string label, ref List<T> value) {
