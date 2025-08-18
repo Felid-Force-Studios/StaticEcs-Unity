@@ -255,7 +255,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
         public override bool DrawValue(ref DrawContext ctx, string label, ref string value) {
             BeginHorizontal();
             PrefixLabel(label);
-            var newValue = TextField(value);
+            var newValue = value.Contains("\n") ? TextArea(value) : TextField(value);
             EndHorizontal();
             if (newValue == value) {
                 return false;
