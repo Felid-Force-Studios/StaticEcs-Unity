@@ -27,7 +27,7 @@ Must also be installed [StaticEcs](https://github.com/Felid-Force-Studios/Static
 * ### As source code
   From the release page or as an archive from the branch. In the `master` branch there is a stable tested version
 * ### Installation for Unity
-  - Как git модуль в Unity PackageManager     
+  - As a git module in Unity PackageManager     
     `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git`
   - Or adding to the manifest `Packages/manifest.json`  
     `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs.git-Unity"`
@@ -244,5 +244,5 @@ public sealed class IntDrawer : IStaticEcsValueDrawer<int> {
 It is necessary to copy the attributes by saving the namespace from `\Runtime\Attributes.cs`, after that the attributes will be correctly detected by the editor.
 
 
-# Лицензия
+# License
 [MIT license](./LICENSE.md)
