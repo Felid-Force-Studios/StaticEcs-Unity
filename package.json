@@ -1,22 +1,21 @@
 {
-    "name": "com.felid-force-studios.static-ecs-unity",
-    "author":
-    {
-        "name": "Felid-Force-Studios",
-        "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"
-    },
-    "displayName": "Static ECS - Unity module",
-    "version": "1.0.23",
-    "unity": "2020.3",
-    "description": "Static ECS - Unity module",
-    "keywords":
-    [
-        "ecs",
-        "performance",
-        "staticecs"
-    ]
+  "name": "com.felid-force-studios.static-ecs-unity",
+  "author": {
+    "name": "Felid-Force-Studios",
+    "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"
+  },
+  "displayName": "Static ECS - Unity module",
+  "version": "1.0.25",
+  "unity": "2020.3",
+  "description": "Static ECS - Unity module",
+  "keywords": [
+    "ecs",
+    "performance",
+    "staticecs"
+  ],
+  "_fingerprint": "0de3b3e7060d3d32f9269e460c995aa84e070d42"
 }

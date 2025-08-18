@@ -10,7 +10,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #endif
     public abstract class AbstractStaticEcsProvider : MonoBehaviour {
         [SerializeField] public UsageType UsageType = UsageType.OnStart;
-        [SerializeField] public OnCreateType OnCreateType = OnCreateType.DestroyGameObject;
+        [SerializeField] public OnCreateType OnCreateType = OnCreateType.None;
         
         [SerializeField, HideInInspector] public string WorldEditorName;
         
@@ -21,10 +21,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 _world = null;
             }
         }
-        [SerializeField, HideInInspector] private string _worldTypeName;
+        [SerializeField, HideInInspector] internal string _worldTypeName;
         
         public IWorld World {
-            
             get {
                 if (_world == null) {
                     foreach (var typeToWorld in Worlds._worlds) {
@@ -37,8 +36,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
                 return _world;
             }
+            set => _world = value;
         }
-        private IWorld _world;
+        internal IWorld _world;
         
         [HideInInspector] public Vector2 Scroll;
         

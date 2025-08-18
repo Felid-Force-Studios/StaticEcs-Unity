@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using static UnityEditor.EditorGUILayout;
 using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
@@ -10,12 +11,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class StaticEcsViewEventsTab : IStaticEcsViewTab {
         internal enum TabType: byte {
             Table,
-            Viewer,
             EventBuilder
         }
         
-        private static readonly TabType[] _tabs = { TabType.Table, TabType.Viewer, TabType.EventBuilder };
-        private static readonly string[] _tabsNames = { "Table", "Viewer", "Event builder" };
+        private static readonly TabType[] _tabs = { TabType.Table, TabType.EventBuilder };
+        private static readonly string[] _tabsNames = { "Table", "Event builder" };
         internal TabType SelectedTab;
         
         private readonly Dictionary<Type, EventsDrawer> _drawersByWorldTypeType = new();
@@ -41,7 +41,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class EventsDrawer {
-        private const float _maxWidth = 980;
+        private const float _maxWidth = 1056f;
         
         private Vector2 horizontalScroll = Vector2.zero;
         private Vector2 verticalScroll = Vector2.zero;
@@ -51,16 +51,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly EditorEventDataMetaByWorld[] _eventsMeta;
         private readonly Dictionary<Type, EditorEventDataMetaByWorld> _eventsByType = new();
 
-        private readonly StaticEcsEventProvider _viewer;
-        
         private readonly StaticEcsEventProvider _builder;
         private bool _showAfterBuild;
 
-        private int _lastCount;
+        private PageRingBuffer<EventData> events;
+        private PageRingBuffer<EventData> filteredEvents;
+        private PageView<EventData> currentPage;
+        private PageView<EventData> currentFilteredPage;
+        private bool Latest;
         
         // filter
         private readonly List<EditorEventDataMetaByWorld> _filterTypes = new();
-        private bool _filterActive;
 
         internal EventsDrawer(StaticEcsViewEventsTab parent, AbstractWorldData worldData) {
             _parent = parent;
@@ -70,44 +71,47 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 _eventsMeta[i] = new EditorEventDataMetaByWorld(MetaData.Events[i]);
                 _eventsByType[_eventsMeta[i].Type] = _eventsMeta[i];
             }
-            _viewer = CreateEventView();
             _builder = CreateEventView();
-            _lastCount = _worldData.EventsCount;
+            events = _worldData.Events;
+            filteredEvents = new PageRingBuffer<EventData>(events.PageCount, events.PageSize);
+            currentPage = events.GetPageView(0);
+            currentFilteredPage = filteredEvents.GetPageView(0);
+            Latest = true;
+            events.SetOnPush((ref EventData item) => {
+                if (_filterTypes.Count > 0 && _filterTypes.Contains(_eventsByType[item.TypeIdx.Type])) {
+                    filteredEvents.Push(item);
+                }
+            });
+            events.SetOnChange((ref EventData item) => {
+                if (_filterTypes.Count > 0 && _filterTypes.Contains(_eventsByType[item.TypeIdx.Type])) {
+                    filteredEvents.Change(item, (EventData template, ref EventData data) => {
+                        data = template;
+                    });
+                }
+            });
         }
 
         internal void Draw() {
             switch (_parent.SelectedTab) {
                 case StaticEcsViewEventsTab.TabType.Table:
-                    StaticEcsView.DrawWorldSelector();
-                    DrawFilter();
+                    if (_filterTypes.Count > 0) {
+                        DrawFilter(ref currentFilteredPage);
+                    } else {
+                        DrawFilter(ref currentPage);
+                    }
                     DrawTable();
                     break;
-                case StaticEcsViewEventsTab.TabType.Viewer:
-                    GUILayout.BeginHorizontal(Ui.MaxWidth600);
-                    if (_viewer.RuntimeEvent.IsEmpty()) {
-                        EditorGUILayout.HelpBox("Select an event from the [Table] or send from [Event builder]", MessageType.Info, true);
-                    } else {
-                        Drawer.DrawEvent(_viewer, true, _ => { }, provider => {
-                            _builder.EventTemplate = provider.GetActualEvent(out var _);
-                            _parent.SelectedTab = StaticEcsViewEventsTab.TabType.EventBuilder;
-                        });
-                    }
-                    GUILayout.EndHorizontal();
-                    break;
                 case StaticEcsViewEventsTab.TabType.EventBuilder:
-                    StaticEcsView.DrawWorldSelector();
                     GUILayout.BeginVertical(Ui.MaxWidth600);
-                    EditorGUILayout.LabelField("Build settings:", Ui.WidthLine(90));
-                    _showAfterBuild = EditorGUILayout.Toggle("Show after build", _showAfterBuild, Ui.WidthLine(90));
+                    LabelField("Build settings:", Ui.WidthLine(90));
+                    _showAfterBuild = Toggle("Show after build", _showAfterBuild, Ui.WidthLine(90));
                     GUILayout.EndVertical();
-                    EditorGUILayout.Space(10);
+                    Space(10);
 
-                    Drawer.DrawEvent(_builder, true, provider => {
+                    Drawer.DrawEvent(_builder, DrawMode.Builder, provider => {
                         provider.SendEvent();
                         if (_showAfterBuild) {
-                            _parent.SelectedTab = StaticEcsViewEventsTab.TabType.Viewer;
-                            _viewer.RuntimeEvent = _builder.RuntimeEvent;
-                            _viewer.EventCache = _builder.EventCache;
+                            EventInspectorWindow.ShowWindowForEvent(_worldData.World, in _builder.RuntimeEvent, _builder.EventCache);
                         }
                         _builder.RuntimeEvent = RuntimeEvent.Empty;
                         _builder.EventCache = null;
@@ -116,152 +120,211 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private void DrawFilter() {
-            EditorGUILayout.BeginHorizontal();
+        private void DrawFilter<T>(ref PageView<T> pageView) where T : IEquatable<T> {
+            Space(10);
+            
+            BeginHorizontal();
             {
-                EditorGUILayout.LabelField("Filter:", Ui.WidthLine(90));
-                _filterActive = EditorGUILayout.Toggle(_filterActive);
-            }
-            EditorGUILayout.EndHorizontal();
-            if (_filterActive) {
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
-                        var menu = new GenericMenu();
-                        foreach (var meta in _eventsMeta) {
-                            if (_filterTypes.Contains(meta)) {
-                                continue;
-                            }
+                if (!pageView.IsActual) {
+                    pageView.MoveToNewer();
+                }
+                
+                Latest = GUILayout.Toggle(Latest, "| <<<", Ui.ButtonStyleTheme, Ui.Width(60));
+                while (Latest && pageView.HasNewer) {
+                    pageView.MoveToNewer();
+                }
 
-                            menu.AddItem(new GUIContent(meta.Name), false, () => { _filterTypes.Add(meta); });
-                        }
-
-                        menu.ShowAsContext();
+                using (Ui.EnabledScopeVal(pageView.HasNewer)) {
+                    if (GUILayout.Button("<-", Ui.ButtonStyleTheme, Ui.Width(60))) {
+                        pageView.MoveToNewer();
                     }
+                }
 
-                    EditorGUILayout.LabelField("Type:", Ui.WidthLine(90));
-
-                    for (var i = 0; i < _filterTypes.Count;) {
-                        var meta = _filterTypes[i];
-                        EditorGUILayout.SelectableLabel(meta.Name, Ui.LabelStyleWhiteCenter, meta.Layout);
-                        if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
-                            _filterTypes.RemoveAt(i);
-                        } else {
-                            i++;
+                using (Ui.EnabledScopeVal(pageView.HasOlder)) {
+                    if (GUILayout.Button("->", Ui.ButtonStyleTheme, Ui.Width(60))) {
+                        Latest = false;
+                        pageView.MoveToOlder();
+                    }
+                }
+                
+                using (Ui.EnabledScopeVal(pageView.HasOlder)) {
+                    if (GUILayout.Button(">>> |", Ui.ButtonStyleTheme, Ui.Width(60))) {
+                        Latest = false;
+                        while (pageView.HasOlder) {
+                            pageView.MoveToOlder();
                         }
                     }
                 }
-                EditorGUILayout.EndHorizontal();
-            }
-
-
-            EditorGUILayout.BeginHorizontal();
-            {
-                EditorGUILayout.LabelField("Show data:", Ui.WidthLine(90));
-
-                if (GUILayout.Button("All", Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
-                    foreach (var meta in _eventsMeta) {
-                        meta.ShowTableData = true;
-                    }
-                }
-
-                if (GUILayout.Button("None", Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
-                    foreach (var meta in _eventsMeta) {
-                        meta.ShowTableData = false;
-                    }
-                }
-
-                if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                
+                LabelField(GUIContent.none, Ui.WidthLine(20));
+                if (Ui.PlusButton) {
                     var menu = new GenericMenu();
                     foreach (var meta in _eventsMeta) {
-                        if (meta.ShowTableData) {
+                        if (_filterTypes.Contains(meta)) {
                             continue;
                         }
 
-                        menu.AddItem(new GUIContent(meta.Name), false, () => { meta.ShowTableData = true; });
+                        menu.AddItem(new GUIContent(meta.Name), false, () => {
+                            _filterTypes.Add(meta);
+                            UpdateFilteredPage();
+                        });
                     }
 
                     menu.ShowAsContext();
                 }
+
+                LabelField("Filter:", Ui.WidthLine(60));
+
+                var deleted = false;
+                for (var i = 0; i < _filterTypes.Count;) {
+                    var meta = _filterTypes[i];
+                    SelectableLabel(meta.Name, Ui.LabelStyleThemeCenter, meta.Layout);
+                    if (Ui.TrashButton) {
+                        _filterTypes.RemoveAt(i);
+                        deleted = true;
+                    } else {
+                        i++;
+                    }
+                }
+
+                if (deleted) {
+                    UpdateFilteredPage();
+                }
             }
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.Space(10);
+            EndHorizontal();
+            Space(20);
+        }
+
+        private void UpdateFilteredPage() {
+            filteredEvents.Reset();
+            var page = events.GetPageView(0);
+            Fill();
+            while (page.HasNewer) {
+                page.MoveToNewer();
+                Fill();
+            }
+            currentFilteredPage = filteredEvents.GetPageView(0);
+
+            return;
+
+            void Fill() {
+                for (var i = 0; i < page.Count; i++) {
+                    ref var item = ref page[i];
+                    if (_filterTypes.Count > 0 && _filterTypes.Contains(_eventsByType[item.TypeIdx.Type])) {
+                        filteredEvents.Push(item);
+                    }
+                }
+            }
         }
 
         private void DrawTable() {
-            EditorGUI.BeginChangeCheck();
             horizontalScroll = GUILayout.BeginScrollView(horizontalScroll);
             DrawHeaders();
-            EditorGUI.BeginChangeCheck();
-            var userScrollChanged = false;
             verticalScroll = GUILayout.BeginScrollView(verticalScroll);
-            if (EditorGUI.EndChangeCheck()) {
-                userScrollChanged = true;
+
+            var count = DrawPage();
+            while (currentPage.PageSize - count > 0) {
+                DrawFakeRow();
+                count++;
             }
 
-            for (var i = _worldData.EventsCount - 1; i >= _worldData.EventsStart; i--) {
-                ref var val = ref _worldData.Events[i];
-                var meta = _eventsByType[val.TypeIdx.Type];
+            GUILayout.EndScrollView();
+            GUILayout.EndScrollView();
+        }
 
-                if (!_filterActive || _filterTypes.Count == 0 || _filterTypes.Contains(meta)) {
-                    var style = val.Status switch {
-                        Status.Read       => Ui.LabelStyleGreyCenter,
-                        Status.Suppressed => Ui.LabelStyleYellowCenter,
-                        var _             => Ui.LabelStyleWhiteCenter
-                    };
-
-                    EditorGUILayout.BeginHorizontal();
-                    {
-                        DrawViewEventButton(ref val);
-                        DrawDeleteEventButton(ref val);
-                        Ui.DrawSeparator();
-                        
-                        _worldData.World.Events().TryGetPool(val.TypeIdx.Type, out var pool);
-                        
-                        EditorGUILayout.SelectableLabel(val.TypeIdx.Type.EditorTypeName(), style, Ui.WidthLine(200));
-                        Ui.DrawSeparator();
-                        if (meta.ShowTableData) {
-                            IEvent e;
-                            if (val.CachedData != null) {
-                                e = val.CachedData;
-                            } else {
-                                e = pool.GetRaw(val.InternalIdx);
-                            }
-                            
-                            if (MetaData.Inspectors.TryGetValue(meta.Type, out var inspector)) {
-                                inspector.DrawTableValue(e, Ui.LabelStyleWhiteCenter, Ui.WidthLine(600));
-                            } else {
-                                if (meta.TryGetTableField(out var field)) {
-                                    Drawer.DrawField(e, field, style, Ui.WidthLine(600));
-                                } else if (meta.TryGetTableProperty(out var property)) {
-                                    Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
-                                } else {
-                                    EditorGUILayout.LabelField("✔", style, Ui.WidthLine(600));
-                                }
-                            }
-                        } else {
-                            EditorGUILayout.LabelField("Hidden", style, Ui.WidthLine(600));
-                        }
-                        Ui.DrawSeparator();
-                        EditorGUILayout.SelectableLabel(Ui.IntToStringD6(val.Status is Status.Read or Status.Suppressed ? 0 : pool.UnreadCount(val.InternalIdx)).simple, style, Ui.WidthLine(60));
-                        Ui.DrawSeparator();
-                    }
-                    EditorGUILayout.EndHorizontal();
-                    Ui.DrawHorizontalSeparator(_maxWidth);
+        private int DrawPage() {
+            var count = 0;
+            if (_filterTypes.Count == 0) {
+                foreach (ref var val in currentPage) {
+                    count++;
+                    DrawRow(ref val);
+                }
+            } else {
+                foreach (ref var val in currentFilteredPage) {
+                    count++;
+                    DrawRow(ref val);
                 }
             }
 
-            GUILayout.EndScrollView();
-            GUILayout.EndScrollView();
+            return count;
+        }
 
-            if (verticalScroll.y > 0 && !userScrollChanged) {
-                verticalScroll.y += (EditorGUIUtility.singleLineHeight + 9f) * (_worldData.EventsCount - _lastCount);
+        private void DrawRow(ref EventData val) {
+            var meta = _eventsByType[val.TypeIdx.Type];
+
+            var style = val.Status switch {
+                Status.Read       => Ui.LabelStyleGreyCenter,
+                Status.Suppressed => Ui.LabelStyleYellowCenter,
+                var _             => Ui.LabelStyleThemeCenter
+            };
+
+            BeginHorizontal();
+            {
+                BeginHorizontal(Ui.WidthLine(50));
+                DrawViewEventButton(ref val);
+                DrawDeleteEventButton(ref val);
+                EndHorizontal();
+
+                Ui.DrawSeparator();
+                IntField(val.ReceivedIdx, style, Ui.WidthLine(60));
+                Ui.DrawSeparator();
+
+                _worldData.World.Events().TryGetPool(val.TypeIdx.Type, out var pool);
+
+                SelectableLabel(val.TypeIdx.Type.EditorTypeName(), val.TypeIdx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : style, Ui.WidthLine(200));
+                Ui.DrawSeparator();
+                var e = val.CachedData ?? pool.GetRaw(val.InternalIdx);
+
+                if (MetaData.Inspectors.TryGetValue(meta.Type, out var inspector)) {
+                    inspector.DrawTableValue(e, Ui.LabelStyleThemeCenter, Ui.WidthLine(600));
+                } else {
+                    if (meta.TryGetTableField(out var field)) {
+                        Drawer.DrawField(e, field, style, Ui.WidthLine(600));
+                    } else if (meta.TryGetTableProperty(out var property)) {
+                        Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
+                    } else {
+                        LabelField("✔", style, Ui.WidthLine(600));
+                    }
+                }
+
+                Ui.DrawSeparator();
+                SelectableLabel(Ui.IntToStringD6(val.Status is Status.Read or Status.Suppressed ? 0 : pool.UnreadCount(val.InternalIdx)).simple, style, Ui.WidthLine(60));
+                Ui.DrawSeparator();
             }
-            _lastCount = _worldData.EventsCount;
+            EndHorizontal();
+            Ui.DrawHorizontalSeparator(_maxWidth);
+        }
+
+        private void DrawFakeRow() {
+                var style = Ui.LabelStyleGreyCenter;
+
+                BeginHorizontal();
+                {
+                    using (Ui.DisabledScope) {
+                        BeginHorizontal(Ui.WidthLine(50));
+                        LabelField(GUIContent.none, Ui.Width(10));
+                        _ = Ui.ViewButtonExpand;
+                        LabelField(GUIContent.none, Ui.Width(10));
+                        _ = Ui.TrashButtonExpand;
+                        EndHorizontal();
+                    }
+                    Ui.DrawSeparator();
+                    LabelField("---", style, Ui.WidthLine(60));
+                    Ui.DrawSeparator();
+                    LabelField("---", style, Ui.WidthLine(200));
+                    Ui.DrawSeparator();
+                    LabelField("---", style, Ui.WidthLine(600));
+                    Ui.DrawSeparator();
+                    LabelField("---", style, Ui.WidthLine(60));
+                    Ui.DrawSeparator();
+                }
+                EndHorizontal();
+                Ui.DrawHorizontalSeparator(_maxWidth);
         }
 
         private void DrawDeleteEventButton(ref EventData data) {
-            if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
+            LabelField(GUIContent.none, Ui.Width(10));
+            if (Ui.TrashButtonExpand) {
                 if (_worldData.World.Events().TryGetPool(data.TypeIdx.Type, out var pool)) {
                     pool.Del(data.InternalIdx);
                 }
@@ -269,30 +332,27 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void DrawViewEventButton(ref EventData data) {
-            if (GUILayout.Button(Ui.IconView, Ui.WidthLine(30))) {
-                _viewer.RuntimeEvent = new RuntimeEvent {
-                    InternalIdx = data.InternalIdx,
-                    Type = data.TypeIdx.Type,
-                    Version = data.Version
-                };
-                _viewer.EventCache = data.CachedData;
-                _parent.SelectedTab = StaticEcsViewEventsTab.TabType.Viewer;
+            LabelField(GUIContent.none, Ui.Width(10));
+            if (Ui.ViewButtonExpand) {
+                EventInspectorWindow.ShowWindowForEvent(_worldData.World, in data);
             }
         }
 
         private void DrawHeaders() {
-            EditorGUILayout.BeginHorizontal();
+            BeginHorizontal();
             {
-                EditorGUILayout.LabelField(GUIContent.none, Ui.WidthLine(63));
+                LabelField(GUIContent.none, Ui.WidthLine(63));
                 Ui.DrawSeparator();
-                EditorGUILayout.SelectableLabel("Event type", Ui.LabelStyleWhiteCenter, Ui.WidthLine(200));
+                SelectableLabel("Counter", Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
                 Ui.DrawSeparator();
-                EditorGUILayout.SelectableLabel("Data", Ui.LabelStyleWhiteCenter, Ui.WidthLine(600));
+                SelectableLabel("Event type", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
                 Ui.DrawSeparator();
-                EditorGUILayout.SelectableLabel("Unread", Ui.LabelStyleWhiteCenter, Ui.WidthLine(60));
+                SelectableLabel("Data", Ui.LabelStyleThemeCenter, Ui.WidthLine(600));
+                Ui.DrawSeparator();
+                SelectableLabel("Unread", Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
                 Ui.DrawSeparator();
             }
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
             Ui.DrawHorizontalSeparator(_maxWidth);
         }
 
@@ -311,11 +371,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class EditorEventDataMetaByWorld : EditorEventDataMeta {
-        public bool ShowTableData;
 
         public EditorEventDataMetaByWorld(EditorEventDataMeta meta)
             : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
-            ShowTableData = false;
         }
     }
 }

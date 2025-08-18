@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
+using static UnityEditor.EditorGUILayout;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class StaticEcsViewStatsTab : IStaticEcsViewTab {
@@ -93,18 +93,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         internal void Draw() {
-            StaticEcsView.DrawWorldSelector();
-
-            EditorGUILayout.Space(10);
+            Space(10);
             DrawWorldStats();
 
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Show not registered", Ui.WidthLine(200));
-            _showNotRegistered = EditorGUILayout.Toggle(_showNotRegistered);
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.Space();
+            BeginHorizontal();
+            LabelField("Show not registered", Ui.WidthLine(200));
+            _showNotRegistered = Toggle(_showNotRegistered);
+            EndHorizontal();
+            Space();
 
-            verticalScrollStatsPosition = EditorGUILayout.BeginScrollView(verticalScrollStatsPosition);
+            verticalScrollStatsPosition = BeginScrollView(verticalScrollStatsPosition);
 
             DrawComponentPoolsStats("Standard components:", MetaData.StandardComponents, standardComponentPools, true);
             DrawComponentPoolsStats("Components:", MetaData.Components, componentPools, true);
@@ -118,127 +116,136 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawEventsPoolsStats();
             #endif
 
-            EditorGUILayout.EndScrollView();
+            EndScrollView();
         }
 
         private void DrawWorldStats() {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.SelectableLabel("World", Ui.LabelStyleWhiteCenter, Ui.WidthLine(200));
+            BeginHorizontal();
+            SelectableLabel("World", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Count", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Capacity", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Capacity", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Destroyed", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Destroyed", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Destroyed capacity", Ui.LabelStyleWhiteCenter, Ui.WidthLine(120));
+            SelectableLabel("Destroyed capacity", Ui.LabelStyleThemeCenter, Ui.WidthLine(120));
             Ui.DrawSeparator();
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
 
             Ui.DrawHorizontalSeparator(660f);
 
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(string.Empty, Ui.LabelStyleWhiteCenter, Ui.WidthLine(200));
+            BeginHorizontal();
+            LabelField(string.Empty, Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
-            EditorGUILayout.LabelField(_worldData.CountWithoutDestroyed.ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            LabelField(_worldData.CountWithoutDestroyed.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.LabelField(_worldData.Capacity.ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            LabelField(_worldData.Capacity.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.LabelField(_worldData.Destroyed.ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            LabelField(_worldData.Destroyed.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.LabelField(_worldData.DestroyedCapacity.ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(120));
+            LabelField(_worldData.DestroyedCapacity.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(120));
             Ui.DrawSeparator();
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
 
-            EditorGUILayout.Space(10);
+            Space(10);
         }
 
         private void DrawComponentPoolsStats(string type, List<EditorEntityDataMeta> indexes, IStandardRawPool[] pools, bool withCapacity) {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.SelectableLabel(type, Ui.LabelStyleWhiteCenter, Ui.WidthLine(200));
+            BeginHorizontal();
+            SelectableLabel(type, Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Count", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Capacity", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Capacity", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
             Ui.DrawHorizontalSeparator(420f);
 
             for (var i = 0; i < indexes.Count; i++) {
                 var idx = indexes[i];
                 var pool = pools[i];
                 if (pool != null) {
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
-                    Ui.DrawSeparator();
-                    EditorGUILayout.LabelField(pool.Count().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
-                    Ui.DrawSeparator();
-                    if (withCapacity) {
-                        EditorGUILayout.LabelField(pool.Capacity().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+                    BeginHorizontal();
+                    if (idx.Type.EditorTypeColor(out var color)) {
+                        SelectableLabel(idx.Name, Ui.LabelStyleThemeLeftColor(color), Ui.WidthLine(200));
                     } else {
-                        EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                        SelectableLabel(idx.Name, Ui.WidthLine(200));
                     }
 
                     Ui.DrawSeparator();
-                    EditorGUILayout.EndHorizontal();
+                    LabelField(pool.Count().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
+                    Ui.DrawSeparator();
+                    if (withCapacity) {
+                        LabelField(pool.Capacity().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
+                    } else {
+                        LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                    }
+
+                    Ui.DrawSeparator();
+                    EndHorizontal();
                 } else if (_showNotRegistered) {
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
+                    BeginHorizontal();
+                    SelectableLabel(idx.Name, Ui.WidthLine(200));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                    LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                    LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.EndHorizontal();
+                    EndHorizontal();
                 }
             }
 
-            EditorGUILayout.Space(20);
+            Space(20);
         }
         
         #if !FFS_ECS_DISABLE_EVENTS
         private void DrawEventsPoolsStats() {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.SelectableLabel("Events:", Ui.LabelStyleWhiteCenter, Ui.WidthLine(200));
+            BeginHorizontal();
+            SelectableLabel("Events:", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Count", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Capacity", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Capacity", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.SelectableLabel("Receivers", Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+            SelectableLabel("Receivers", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
             Ui.DrawHorizontalSeparator(525f);
 
             for (var i = 0; i < MetaData.Events.Count; i++) {
                 var idx = MetaData.Events[i];
                 var pool = eventPools[i];
                 if (pool != null) {
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
+                    BeginHorizontal();
+                    if (idx.Type.EditorTypeColor(out var color)) {
+                        SelectableLabel(idx.Name, Ui.LabelStyleThemeLeftColor(color), Ui.WidthLine(200));
+                    } else {
+                        SelectableLabel(idx.Name, Ui.WidthLine(200));
+                    }
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField(pool.NotDeletedCount().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+                    LabelField(pool.NotDeletedCount().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField(pool.Capacity().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+                    LabelField(pool.Capacity().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField(pool.ReceiversCount().ToString(), Ui.LabelStyleWhiteCenter, Ui.WidthLine(90));
+                    LabelField(pool.ReceiversCount().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.EndHorizontal();
+                    EndHorizontal();
                 } else if (_showNotRegistered) {
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.WidthLine(200));
+                    BeginHorizontal();
+                    SelectableLabel(idx.Name, Ui.WidthLine(200));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                    LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                    LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
+                    LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
-                    EditorGUILayout.EndHorizontal();
+                    EndHorizontal();
                 }
             }
 
-            EditorGUILayout.Space(20);
+            Space(20);
         }
         #endif
     }

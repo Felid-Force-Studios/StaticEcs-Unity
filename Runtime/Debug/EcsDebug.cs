@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 #if ENABLE_IL2CPP
-using System;
 using Unity.IL2CPP.CompilerServices;
 #endif
 
@@ -23,30 +22,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
             #endif
         }
         
-        public static void AddWorld(int maxDeletedEventHistoryCount = 200, Func<IEntity, string> windowEntityNameFunction = null) {
+        public static void AddWorld(int eventHistoryCount = 8192, Func<IEntity, string> windowEntityNameFunction = null) {
             #if UNITY_EDITOR
-            StaticEcsWorldDebug<WorldType>.Create(maxDeletedEventHistoryCount, windowEntityNameFunction);
+            StaticEcsWorldDebug<WorldType>.Create(eventHistoryCount, windowEntityNameFunction);
             #endif
-        }
-    }
-}
-#endif
-
-#if ENABLE_IL2CPP
-namespace Unity.IL2CPP.CompilerServices {
-    enum Option {
-        NullChecks = 1,
-        ArrayBoundsChecks = 2
-    }
-
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Property, Inherited = false, AllowMultiple = true)]
-    class Il2CppSetOptionAttribute : Attribute {
-        public Option Option { get; private set; }
-        public object Value { get; private set; }
-
-        public Il2CppSetOptionAttribute(Option option, object value) {
-            Option = option;
-            Value = value;
         }
     }
 }

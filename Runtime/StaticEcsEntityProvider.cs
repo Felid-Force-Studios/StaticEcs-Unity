@@ -16,7 +16,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #endif
     [DefaultExecutionOrder(short.MaxValue)]
     public partial class StaticEcsEntityProvider : AbstractStaticEcsProvider, IStaticEcsEntityProvider {
-        [SerializeField] public OnDestroyType OnDestroyType = OnDestroyType.None;
+        public OnDestroyType OnDestroyType = OnDestroyType.None;
+        public StaticEcsEntityProvider Prefab;
         
         [SerializeReference, HideInInspector] private List<IComponent> components = new();
         [SerializeReference, HideInInspector] private List<IStandardComponent> standardComponents = new();
@@ -38,23 +39,39 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 }
             }
         }
-        private IEntity _entity;
+        internal IEntity _entity;
         
         [HideInInspector] public EntityGID EntityGid;
 
         protected virtual void Awake() {
             if (UsageType == UsageType.OnAwake) {
                 CreateEntity();
+                Prefab = null;
             }
         }
 
         protected virtual void Start() {
             if (UsageType == UsageType.OnStart) {
                 CreateEntity();
+                Prefab = null;
             }
         }
 
         public bool CreateEntity(bool onCreateEntity = true) {
+            if (Prefab) {
+                if (Prefab.CreateEntity(onCreateEntity)) {
+                    EntityGid = Prefab.EntityGid;
+                    _entity = Prefab._entity;
+                    _world = Prefab._world;
+                    _worldTypeName = Prefab._worldTypeName;
+                    Prefab.EntityGid = default;
+                    Prefab._entity = default;
+                    Prefab._world = default;
+                    return true;
+                }
+                return false;
+            }
+            
             #if DEBUG
             if (components == null || components.Count == 0) {
                 return false;
@@ -75,9 +92,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
             
             for (var i = 0; i < standardComponents.Count; i++) {
                 var standardComponent = standardComponents[i];
-                if (standardComponent is EntityGID) {
-                    continue;
-                }
                 #if DEBUG
                 if (standardComponent == null) {
                     throw new StaticEcsException("[StaticEcsEntityProvider] NULL standardComponent");
@@ -142,6 +156,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (OnDestroyType == OnDestroyType.DestroyEntity) {
                 _entity?.TryDestroy();
             }
+
+            _entity = null;
+            EntityGid = default;
         }
     }
         

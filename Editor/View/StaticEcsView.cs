@@ -41,6 +41,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 #if !FFS_ECS_DISABLE_EVENTS
                 _tabs.Add(new StaticEcsViewEventsTab());
                 #endif
+                _tabs.Add(new StaticEcsViewContextTab());
                 _tabs.Add(new StaticEcsViewSystemsTab());
                 _tabs.Add(new StaticEcsViewSettingsTab());
                 
@@ -83,20 +84,33 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             if (_currentWorldData.World.Status() != WorldStatus.Initialized) {
                 EditorGUILayout.HelpBox("World not initialized", MessageType.Info);
+            GUILayout.BeginHorizontal();
+                
                 DrawWorldSelector();
+            GUILayout.EndHorizontal();
+                
                 return;
             }
+            
+            EditorGUILayout.Space(10);
+            EditorGUILayout.BeginHorizontal();
+            DrawWorldSelector();
+            _selectedTab.DrawHeader(this);
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(10);
             
             GUILayout.BeginHorizontal(EditorStyles.toolbar);
             {
                 foreach (var tab in _tabs) {
-                    if (GUILayout.Toggle(_selectedTab == tab, tab.Name(), Ui.ButtonStyleWhite, Ui.WidthLine(90))) {
+                    if (GUILayout.Toggle(_selectedTab == tab, tab.Name(), Ui.ButtonStyleTheme, Ui.WidthLine(90))) {
                         if (_selectedTab != tab) {
                             GUI.FocusControl("");
                             _selectedTab = tab;
                         }
                     }
                 }
+
+
             }
             GUILayout.EndHorizontal();
             EditorGUILayout.Space();
@@ -106,34 +120,31 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         internal static void DrawWorldSelector() {
             if (_instance == null) return;
-            
-            const string World = "World:";
-            const string Change = "Change";
 
-            GUILayout.BeginHorizontal();
-            {
-                EditorGUILayout.LabelField(World, Ui.WidthLine(120));
-                EditorGUILayout.SelectableLabel(_instance._currentWorldData.worldEditorName, Ui.LabelStyleWhiteBold, Ui.WidthLine(120));
-                if (GUILayout.Button(Change, Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
-                    var menu = new GenericMenu();
-                    foreach (var typeToWorld in StaticEcsDebugData.Worlds) {
-                        if (_instance._currentWorldData.WorldTypeTypeFullName != null && typeToWorld.Key.FullName == _instance._currentWorldData.WorldTypeTypeFullName) {
-                            continue;
+            // GUILayout.BeginHorizontal();
+            // {
+                using (Ui.EnabledScopeVal(MetaData.WorldsMetaData.Count > 1)) {
+                    if (GUILayout.Button(new GUIContent("World: ", EditorGUIUtility.IconContent("d_Preset.Context").image), Ui.IconButtonStretchedStyle, Ui.ExpandWidthFalse())) {
+                        var menu = new GenericMenu();
+                        foreach (var typeToWorld in StaticEcsDebugData.Worlds) {
+                            if (_instance._currentWorldData.WorldTypeTypeFullName != null && typeToWorld.Key.FullName == _instance._currentWorldData.WorldTypeTypeFullName) {
+                                continue;
+                            }
+
+                            var editorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == typeToWorld.Key).EditorName;
+                            menu.AddItem(
+                                new GUIContent(editorName),
+                                false,
+                                () => { _instance.SetWorldData(typeToWorld.Value, typeToWorld.Key); });
                         }
 
-                        var editorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == typeToWorld.Key).EditorName;
-                        menu.AddItem(
-                            new GUIContent(editorName),
-                            false,
-                            () => {
-                                _instance.SetWorldData(typeToWorld.Value, typeToWorld.Key);
-                            });
+                        menu.ShowAsContext();
                     }
-
-                    menu.ShowAsContext();
                 }
-            }
-            GUILayout.EndHorizontal();
+
+                GUILayout.Label(_instance._currentWorldData.worldEditorName, Ui.LabelStyleThemeBold2, Ui.ExpandWidthFalse());
+            // }
+            // GUILayout.EndHorizontal();
         }
 
         private void SetWorldData(AbstractWorldData data, Type type) {
@@ -168,6 +179,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public string Name();
         public void OnWorldChanged(AbstractWorldData newWorldData);
         public void Draw(StaticEcsView view);
+        public virtual void DrawHeader(StaticEcsView view) {}
         public void Init();
         public void Destroy();
     }

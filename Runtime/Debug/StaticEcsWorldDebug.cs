@@ -1,6 +1,8 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity {
     internal static class TypeDescriptorData {
@@ -29,12 +31,25 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Type Type => TypeDescriptorData.Types[Value];
     }
 
-    public struct EventData {
-        public TypeIdx TypeIdx;
+    public struct EventData: IEquatable<EventData> {
         public IEvent CachedData;
+        public int ReceivedIdx;
         public int InternalIdx;
+        public TypeIdx TypeIdx;
         public short Version;
         public Status Status;
+
+        public bool Equals(EventData other) {
+            return TypeIdx.Value.Equals(other.TypeIdx.Value) && InternalIdx == other.InternalIdx && Version == other.Version;
+        }
+
+        public override bool Equals(object obj) {
+            return obj is EventData other && Equals(other);
+        }
+
+        public override int GetHashCode() {
+            return HashCode.Combine(TypeIdx.Value, InternalIdx, Version);
+        }
     }
 
     public enum Status : byte {
@@ -51,9 +66,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public uint Capacity;
         public uint Destroyed;
         public uint DestroyedCapacity;
-        public EventData[] Events;
-        public int EventsCount;
-        public int EventsStart;
+        public PageRingBuffer<EventData> Events;
+        public Dictionary<Type, int> EventsReceived;
         public string worldEditorName;
         public string WorldTypeTypeFullName;
         public Func<IEntity, string> WindowNameFunction;
@@ -106,17 +120,25 @@ namespace FFS.Libraries.StaticEcs.Unity {
         
         #if !FFS_ECS_DISABLE_EVENTS
         public void OnEventSent<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
-            if (EventsCount == Events.Length) {
-                Array.Resize(ref Events, Events.Length << 1);
+            var typeIdx = TypeIdx.Create<T>();
+            
+            if (typeIdx.Type.IsIgnored()) {
+                return;
             }
 
-            Events[EventsCount++] = new EventData {
-                TypeIdx = TypeIdx.Create<T>(),
+            if (EventsReceived.TryGetValue(typeIdx.Type, out var index)) {
+                index++;
+            }
+            EventsReceived[typeIdx.Type] = index;
+            
+            Events.Push(new EventData {
+                TypeIdx = typeIdx,
                 CachedData = null,
+                ReceivedIdx = index,
                 Version = World<WorldType>.Events.Pool<T>.Value._versions[value._idx],
                 InternalIdx = value._idx,
                 Status = Status.Sent
-            };
+            });
         }
         
         public void OnEventReadAll<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
@@ -128,25 +150,22 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         private void OnEventDelete<T>(World<WorldType>.Event<T> value, Status status) where T : struct, IEvent {
-            var type = typeof(T);
-            for (var index = 0; index < EventsCount; index++) {
-                ref var val = ref Events[index];
-                if (val.Version == World<WorldType>.Events.Pool<T>.Value._versions[value._idx] && val.InternalIdx == value._idx && val.TypeIdx.Type == type) {
-                    val.CachedData = value.Value;
-                    val.Status = status;
-                    if ((EventsCount - EventsStart) >= 256 && Events[EventsStart].Status is Status.Read or Status.Suppressed) {
-                        EventsStart++;
-                    }
-
-                    if (EventsStart == 128) {
-                        EventsCount -= 128;
-                        EventsStart -= 128;
-                        Array.Copy(Events, 128, Events, 0, EventsCount);
-                    }
-
-                    break;
-                }
+            if (TypeIdx.Create<T>().Type.IsIgnored()) {
+                return;
             }
+            
+            var eventData = new EventData {
+                TypeIdx = TypeIdx.Create<T>(),
+                Version = World<WorldType>.Events.Pool<T>.Value._versions[value._idx],
+                InternalIdx = value._idx,
+                CachedData = value.Value,
+                Status = status,
+            };
+            
+            Events.Change(eventData, (EventData template, ref EventData item) => {
+                item.CachedData = template.CachedData;
+                item.Status = template.Status;
+            });
         }
         #endif
 
@@ -160,18 +179,18 @@ namespace FFS.Libraries.StaticEcs.Unity {
         private WorldData<WorldType> _worldData;
         internal static StaticEcsWorldDebug<WorldType> Instance;
         internal Func<IEntity, string> windowEntityNameFunction;
-        private int _maxDeletedEventHistoryCount;
+        private readonly int _eventHistoryPageCount;
 
-        private StaticEcsWorldDebug(int maxDeletedEventHistoryCount) {
-            _maxDeletedEventHistoryCount = Math.Max(maxDeletedEventHistoryCount, 128);
+        private StaticEcsWorldDebug(int eventHistoryCount) {
+            _eventHistoryPageCount = Math.Max(eventHistoryCount, 8);
         }
 
-        public static void Create(int maxDeletedEventHistoryCount = 128, Func<IEntity, string> windowEntityNameFunction = null) {
+        public static void Create(int eventHistoryPageCount, Func<IEntity, string> windowEntityNameFunction = null) {
             if (World<WorldType>.Status != WorldStatus.Created) {
                 throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only between world creation and initialization");
             }
 
-            Instance = new StaticEcsWorldDebug<WorldType>(maxDeletedEventHistoryCount) {
+            Instance = new StaticEcsWorldDebug<WorldType>(eventHistoryPageCount) {
                 windowEntityNameFunction = windowEntityNameFunction,
             };
             World<WorldType>.AddWorldDebugEventListener(Instance);
@@ -189,7 +208,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 Destroyed = World<WorldType>.Entity.deletedEntitiesCount,
                 DestroyedCapacity = (uint) World<WorldType>.Entity.deletedEntities.Length,
                 WorldTypeType = typeof(WorldType),
-                Events = new EventData[_maxDeletedEventHistoryCount * 3],
+                Events = new PageRingBuffer<EventData>(_eventHistoryPageCount),
+                EventsReceived = new Dictionary<Type, int>(),
                 WindowNameFunction = windowEntityNameFunction
             };
 

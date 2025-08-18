@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using static UnityEditor.EditorGUILayout;
 using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
@@ -126,25 +127,30 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         internal void DrawEntitiesData() {
             switch (_parent.SelectedTab) {
                 case StaticEcsViewEntitiesTab.TabType.Table:
-                    StaticEcsView.DrawWorldSelector();
                     DrawEntitiesFilter();
                     DrawEntitiesTable();
                     break;
                 case StaticEcsViewEntitiesTab.TabType.EntityBuilder:
-                    StaticEcsView.DrawWorldSelector();
-                    EditorGUILayout.Space(10);
-
                     if (!_entityBuilder.HasStandardComponents()) {
                         foreach (var idx in _standardComponents) {
                             _entityBuilder.OnSelectStandardComponent((IStandardComponent) Activator.CreateInstance(idx.Type, true));
                         }
                     }
 
-                    Drawer.DrawEntity(_entityBuilder, true, provider => {
+                    var prefab = ObjectField("Prefab", _entityBuilder.Prefab, typeof(StaticEcsEntityProvider), true);
+                    if (prefab != _entityBuilder.Prefab) {
+                        _entityBuilder.Prefab = (StaticEcsEntityProvider) prefab;
+                        EditorUtility.SetDirty(_entityBuilder);
+                    }
+                    Drawer.DrawEntity(_entityBuilder, DrawMode.Builder, provider => {
                         provider.CreateEntity();
                         EntityInspectorWindow.ShowWindowForEntity(provider.World, provider.Entity);
                         provider.Entity = null;
-                    }, false, provider => provider.Entity = null);
+                        EditorUtility.SetDirty(provider);
+                    }, false, provider => {
+                        provider.Entity = null;
+                        EditorUtility.SetDirty(provider);
+                    });
                     break;
             }
         }
@@ -199,7 +205,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawHeaders();
             DrawPined();
 
-            verticalScrollEntitiesPosition = GUILayout.BeginScrollView(verticalScrollEntitiesPosition, Ui.Width(_maxWidth + 10f));
+            verticalScrollEntitiesPosition = GUILayout.BeginScrollView(verticalScrollEntitiesPosition, Ui.Width(_maxWidth + 25f));
             _currentEntityCount = 0;
             if (_gidFilterActive) {
                 if (_worldData.FindEntityByGid((uint) _gidFilterValue, out var entity)) {
@@ -250,17 +256,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawHeaders() {
             const string EntityID = "Entity ID";
    
-            EditorGUILayout.BeginHorizontal();
+            BeginHorizontal();
             {
-                EditorGUILayout.LabelField(GUIContent.none, Ui.WidthLine(96));
+                LabelField(GUIContent.none, Ui.WidthLine(96));
                 Ui.DrawSeparator();
-                EditorGUILayout.SelectableLabel(EntityID, Ui.LabelStyleWhiteCenter, Ui.WidthLine(60));
+                SelectableLabel(EntityID, Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
                 Ui.DrawSeparator();
 
                 #if !FFS_ECS_DISABLE_TAGS
                 for (var i = 0; i < _tagsColumns.Count;) {
                     var idx = _tagsColumns[i];
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
+                    SelectableLabel(idx.Name, idx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : Ui.LabelStyleThemeCenter, idx.Layout);
                     DrawSortButton(idx);
                     DrawDeleteColumnButton(ref i, _tagsColumns);
                     Ui.DrawSeparator();
@@ -270,7 +276,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 #if !FFS_ECS_DISABLE_MASKS
                 for (var i = 0; i < _maskColumns.Count;) {
                     var idx = _maskColumns[i];
-                    EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
+                    SelectableLabel(idx.Name, idx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : Ui.LabelStyleThemeCenter, idx.Layout);
 
                     DrawSortButton(idx);
                     DrawDeleteColumnButton(ref i, _maskColumns);
@@ -281,7 +287,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 DrawComponents(_standardComponentsColumns);
                 DrawComponents(_componentsColumns);
             }
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
             Ui.DrawHorizontalSeparator(_maxWidth);
         }
 
@@ -291,14 +297,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             
             for (var i = 0; i < columns.Count;) {
                 var idx = columns[i];
-                EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
+                SelectableLabel(idx.Name, idx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : Ui.LabelStyleThemeCenter, idx.Layout);
 
                 if (idx.ShowTableData) {
-                    if (GUILayout.Button(DataOn, Ui.ButtonStyleGreen, Ui.WidthLine(21))) {
+                    if (GUILayout.Button(DataOn, Ui.ButtonIconStyleGreen, Ui.WidthLine(21))) {
                         idx.ShowTableData = false;
                     }
                 } else {
-                    if (GUILayout.Button(DataOff, Ui.ButtonStyleWhite, Ui.WidthLine(21))) {
+                    if (GUILayout.Button(DataOff, Ui.ButtonIconStyleTheme, Ui.WidthLine(21))) {
                         idx.ShowTableData = true;
                     }
                 }
@@ -313,11 +319,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             const string Label = "⇧";
 
             if (idx == _sortIdx) {
-                if (GUILayout.Button(Label, Ui.ButtonStyleGreen, Ui.WidthLine(20))) {
+                if (GUILayout.Button(Label, Ui.ButtonIconStyleGreen, Ui.WidthLine(20))) {
                     _sortIdx = null;
                 }
             } else {
-                if (GUILayout.Button(Label, Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                if (GUILayout.Button(Label, Ui.ButtonIconStyleTheme, Ui.WidthLine(20))) {
                     _sortIdx = idx;
                 }
             }
@@ -326,7 +332,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawDeleteColumnButton<T>(ref int i, List<T> values) {
             const string Label = "✖";
 
-            if (GUILayout.Button(Label, Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+            if (GUILayout.Button(Label, Ui.ButtonIconStyleTheme, Ui.WidthLine(20))) {
                 values.RemoveAt(i);
             } else {
                 i++;
@@ -357,43 +363,47 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             _currentEntityCount++;
-            EditorGUILayout.BeginHorizontal();
+            BeginHorizontal();
             {
+                BeginHorizontal(Ui.WidthLine(97));
                 DrawViewEntityButton(entIdx);
                 DrawPinEntityButton(entIdx, pined);
                 if (DrawDeleteEntityButton(entIdx)) {
-                    EditorGUILayout.EndHorizontal();
+                    EndHorizontal();
+                    EndHorizontal();
                     return true;
                 }
+                EndHorizontal();
 
                 Ui.DrawSeparator();
                 DrawEntityId(entIdx);
                 DrawComponents(entIdx);
             }
-            EditorGUILayout.EndHorizontal();
+            EndHorizontal();
             Ui.DrawHorizontalSeparator(_maxWidth);
             return true;
         }
 
         private void DrawComponents(uint entIdx) {
             _maxWidth = 180f;
+            const float baseWidth = 16f;
             #if !FFS_ECS_DISABLE_TAGS
-            DrawComponents(entIdx, _tagsColumns, 46f + 16f);
+            DrawComponents(entIdx, _tagsColumns, 46f + baseWidth);
             #endif
             #if !FFS_ECS_DISABLE_MASKS
-            DrawComponents(entIdx, _maskColumns, 46f + 16f);
+            DrawComponents(entIdx, _maskColumns, 46f + baseWidth);
             #endif
-            DrawComponents(entIdx, _standardComponentsColumns, 70f + 16f);
-            DrawComponents(entIdx, _componentsColumns, 70f + 16f);
+            DrawComponents(entIdx, _standardComponentsColumns, 68f + baseWidth);
+            DrawComponents(entIdx, _componentsColumns, 68f + baseWidth);
         }
 
         private static void DrawEntityId(uint entIdx) {
-            EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) entIdx).d6, Ui.LabelStyleWhiteCenter, Ui.WidthLine(60));
+            SelectableLabel(Ui.IntToStringD6((int) entIdx).d6, Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
             Ui.DrawSeparator();
         }
 
         private bool DrawDeleteEntityButton(uint entIdx) {
-            if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
+            if (Ui.TrashButtonExpand) {
                 _worldData.DestroyEntity(entIdx);
                 return true;
             }
@@ -402,11 +412,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void DrawPinEntityButton(uint entIdx, bool pinned) {
-            var pinedIcon = pinned
-                ? Ui.IconLockOn
-                : Ui.IconLockOff;
-
-            if (GUILayout.Button(pinedIcon, Ui.Width30Height20)) {
+            if (Ui.LockButtonExpand) {
                 if (pinned) {
                     _pinedEntities.Remove(entIdx);
                 } else {
@@ -416,7 +422,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void DrawViewEntityButton(uint entIdx) {
-            if (GUILayout.Button(Ui.IconView, Ui.WidthLine(30))) {
+            LabelField(GUIContent.none, Ui.Width(10));
+            if (Ui.ViewButtonExpand) {
                 EntityInspectorWindow.ShowWindowForEntity(_worldData.World, _worldData.GetEntity(entIdx));
             }
         }
@@ -428,7 +435,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 if (idx.HasComponent(entIdx)) {
                     var style = idx.CopmponentsPool != null && idx.CopmponentsPool.HasDisabled(entIdx) 
                         ? Ui.LabelStyleGreyCenter 
-                        : Ui.LabelStyleWhiteCenter;
+                        : Ui.LabelStyleThemeCenter;
                     if (idx.ShowTableData) {
                         if (MetaData.Inspectors.TryGetValue(idx.Type, out var inspector)) {
                             inspector.DrawTableValue(idx.Pool.GetRaw(entIdx), style, idx.LayoutWithOffset);
@@ -438,14 +445,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             } else if (idx.TryGetTableProperty(out var property)) {
                                 Drawer.DrawProperty(idx.Pool.GetRaw(entIdx), property, style, idx.LayoutWithOffset);
                             } else {
-                                EditorGUILayout.LabelField(HasComponent, style, idx.LayoutWithOffset);
+                                LabelField(HasComponent, style, idx.LayoutWithOffset);
                             }
                         }
                     } else {
-                        EditorGUILayout.LabelField(HasComponent, style, idx.LayoutWithOffset);
+                        LabelField(HasComponent, style, idx.LayoutWithOffset);
                     }
                 } else {
-                    EditorGUILayout.LabelField(GUIContent.none, Ui.LabelStyleGreyCenter, idx.LayoutWithOffset);
+                    LabelField(GUIContent.none, Ui.LabelStyleGreyCenter, idx.LayoutWithOffset);
                 }
 
                 Ui.DrawSeparator();

@@ -19,12 +19,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         
         internal static readonly Dictionary<Type, IStaticEcsValueDrawer> Inspectors = new();
         internal static readonly Dictionary<Type, Type> InspectorsGeneric = new();
+        internal static readonly Dictionary<Type, Type> InspectorsmultiArray2 = new();
+        internal static readonly Dictionary<Type, Type> InspectorsmultiArray3 = new();
         
         internal static readonly Type UnityObjectType = typeof(Object);
         internal static readonly Type EnumFlagsType = typeof(FlagsAttribute);
         
         private static readonly Type nameAttr = typeof(StaticEcsEditorNameAttribute);
         private static readonly Type valueAttr = typeof(StaticEcsEditorTableValueAttribute);
+        private static readonly Dictionary<Type, FieldInfo[]> _typesCacheWithNonPublic = new();
         private static readonly Dictionary<Type, FieldInfo[]> _typesCache = new();
 
         static MetaData() {
@@ -39,7 +42,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             var gins = (IStaticEcsValueDrawer) Activator.CreateInstance(type.MakeGenericType(typeof(int)));
                             var gcType = gins.ItemType();
                             if (gcType.IsArray) {
-                                InspectorsGeneric[gcType.BaseType] = type;
+                                if (gcType.GetArrayRank() == 1) {
+                                    InspectorsGeneric[gcType.BaseType] = type;
+                                } else if (gcType.GetArrayRank() == 2) {
+                                    InspectorsmultiArray2[gcType.BaseType] = type;
+                                } else if (gcType.GetArrayRank() == 3) {
+                                    InspectorsmultiArray3[gcType.BaseType] = type;
+                                }
+                                
                             } else if (gcType.IsGenericType) {
                                 InspectorsGeneric[gcType.GetGenericTypeDefinition()] = type;
                             } else {
@@ -217,7 +227,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
 
             Components.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                                    new[] { GUILayout.Width(width + 70f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
+                                                    new[] { GUILayout.Width(width + 68f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
             return false;
         }
 
@@ -245,7 +255,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
 
             StandardComponents.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                                            new[] { GUILayout.Width(width + 70f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
+                                                            new[] { GUILayout.Width(width + 68f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
             return false;
         }
 
@@ -318,13 +328,68 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return (null, null, -1);
         }
 
-        internal static FieldInfo[] GetCachedType(Type type) {
-            if (!_typesCache.TryGetValue(type, out var fields)) {
+        internal static FieldInfo[] GetCachedTypeWithNonPublic(Type type) {
+            if (!_typesCacheWithNonPublic.TryGetValue(type, out var fields)) {
                 fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                _typesCacheWithNonPublic[type] = fields;
+            }
+
+            return fields;
+        }
+
+        internal static FieldInfo[] GetCachedSerializableType(Type type) {
+            if (!_typesCache.TryGetValue(type, out var fields)) {
+                if (!Attribute.IsDefined(type, typeof(SerializableAttribute)) && !typeof(IComponent).IsAssignableFrom(type) && !typeof(IEvent).IsAssignableFrom(type) && !HasShowAttribute(type)) {
+                    fields = Array.Empty<FieldInfo>();
+                    _typesCache[type] = fields;
+                    return fields;
+                }
+
+                var publicFields = type.GetFields(BindingFlags.Instance | BindingFlags.Public)
+                                       .Where(f => !HasHideAttribute(f));
+
+                var nonPublicSerializable = type
+                                            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+                                            .Where(HasShowAttribute);
+
+                fields = publicFields.Concat(nonPublicSerializable).ToArray();
                 _typesCache[type] = fields;
             }
 
             return fields;
+        }
+        
+        private static bool HasShowAttribute(FieldInfo field) {
+            var showType = typeof(StaticEcsEditorShowAttribute);
+            foreach (var customAttribute in field.GetCustomAttributesData()) {
+                if (customAttribute.AttributeType.Namespace + customAttribute.AttributeType.FullName == showType.Namespace + showType.FullName) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+        private static bool HasShowAttribute(Type type) {
+            var showType = typeof(StaticEcsEditorShowAttribute);
+            foreach (var customAttribute in type.GetCustomAttributesData()) {
+                if (customAttribute.AttributeType.Namespace + customAttribute.AttributeType.FullName == showType.Namespace + showType.FullName) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+        private static bool HasHideAttribute(FieldInfo field) {
+            var hideType = typeof(StaticEcsEditorHideAttribute);
+            foreach (var customAttribute in field.GetCustomAttributesData()) {
+                if (customAttribute.AttributeType.Namespace + customAttribute.AttributeType.FullName == hideType.Namespace + hideType.FullName) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
     
@@ -395,7 +460,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public interface IStaticEcsValueDrawer {
         Type ItemType();
         int Priority();
-        bool DrawValue(IWorld world, string label, object value, out object newValue);
+        bool DrawValue(ref DrawContext ctx, string label, object value, out object newValue);
         void DrawTableValue(object value, GUIStyle style, GUILayoutOption[] layoutOptions);
     }
 
@@ -404,7 +469,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public virtual bool IsNullAllowed() => false;
         public virtual int Priority() => 0;
 
-        public bool DrawValue(IWorld world, string label, object value, out object newValue) {
+        public bool DrawValue(ref DrawContext ctx, string label, object value, out object newValue) {
             if (value == null && !IsNullAllowed()) {
                 Drawer.DrawSelectableText(label, "null");
                 newValue = default;
@@ -412,7 +477,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             var typedValue = (T) value;
-            if (DrawValue(world, label, ref typedValue)) {
+            if (DrawValue(ref ctx, label, ref typedValue)) {
                 newValue = typedValue;
                 return true;
             }
@@ -433,6 +498,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         public abstract void DrawTableValue(ref T value, GUIStyle style, GUILayoutOption[] layoutOptions);
 
-        public abstract bool DrawValue(IWorld world, string label, ref T value);
+        public abstract bool DrawValue(ref DrawContext ctx, string label, ref T value);
     }
 }

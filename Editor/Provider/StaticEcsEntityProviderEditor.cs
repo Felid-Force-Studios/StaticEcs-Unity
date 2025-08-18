@@ -12,16 +12,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         public override void OnInspectorGUI() {
-            if (Application.isPlaying && !_provider.EntityIsActual()) {
-                EditorGUILayout.HelpBox("Entity is not provided", MessageType.Warning, true);
-                return;
-            }
-            
-            if (!Application.isPlaying) {
+            if (!_provider.EntityIsActual()) {
                 DrawDefaultInspector();
             }
             
-            Drawer.DrawEntity(_provider, false, provider => provider.CreateEntity(), !_provider.EntityIsActual(), provider => provider.Entity = null);
+            Drawer.DrawEntity(_provider, DrawMode.Inspector, provider => {
+                provider.CreateEntity();
+                if (provider.IsPrefab()) {
+                    EntityInspectorWindow.ShowWindowForEntity(provider.World, provider.Entity);
+                    provider.Entity = null;
+                    provider.World = null;
+                }
+                provider.Prefab = null;
+                EditorUtility.SetDirty(provider);
+            }, !_provider.EntityIsActual(), provider => {
+                provider.Entity = null;
+                EditorUtility.SetDirty(provider);
+            });
         }
     }
 }

@@ -44,13 +44,17 @@ namespace FFS.Libraries.StaticEcs.Unity {
             #endif
             
             if (World.Events().TryGetPool(EventTemplate.GetType(), out var pool)) {
-                pool.AddRaw(EventTemplate);
-                RuntimeEvent = new RuntimeEvent {
-                    InternalIdx = pool.Last(),
-                    Version = pool.Version(pool.Last()),
-                    Type = EventTemplate.GetType()
-                };
-                EventCache = pool.GetRaw(pool.Last());
+                if (pool.ReceiversCount() > 0) {
+                    pool.AddRaw(EventTemplate);
+                    RuntimeEvent = new RuntimeEvent {
+                        InternalIdx = pool.Last(),
+                        Version = pool.Version(pool.Last()),
+                        Type = EventTemplate.GetType()
+                    };
+                    EventCache = pool.GetRaw(pool.Last());
+                } else {
+                    Debug.LogWarning($"No registered receivers found for event type {EventTemplate.GetType().Name}");
+                }
             } else {
                 throw new StaticEcsException("Event pool not registered");
             }

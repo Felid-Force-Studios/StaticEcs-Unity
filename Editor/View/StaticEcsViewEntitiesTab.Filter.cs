@@ -50,7 +50,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (_filterActive) {
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _all);
                     }
                     EditorGUILayout.LabelField("All:", Ui.WidthLine(120));
@@ -60,7 +60,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _allOnlyDisabled);
                     }
                     EditorGUILayout.LabelField("All only disabled:", Ui.WidthLine(120));
@@ -70,7 +70,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _allWithDisabled);
                     }
                     EditorGUILayout.LabelField("All with disabled:", Ui.WidthLine(120));
@@ -80,7 +80,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _none);
                     }
                     EditorGUILayout.LabelField("None:", Ui.WidthLine(120));
@@ -90,7 +90,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _noneWithDisabled);
                     }
                     EditorGUILayout.LabelField("None with disabled:", Ui.WidthLine(120));
@@ -100,7 +100,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _any);
                     }
                     EditorGUILayout.LabelField("Any:", Ui.WidthLine(120));
@@ -110,7 +110,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _anyOnlyDisabled);
                     }
                     EditorGUILayout.LabelField("Any only disabled:", Ui.WidthLine(120));
@@ -120,7 +120,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_components, _anyWithDisabled);
                     }
                     EditorGUILayout.LabelField("Any with disabled:", Ui.WidthLine(120));
@@ -131,7 +131,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 #if !FFS_ECS_DISABLE_TAGS
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_tags, _tagAll);
                     }
                     EditorGUILayout.LabelField("Tag all:", Ui.WidthLine(120));
@@ -141,7 +141,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_tags, _tagNone);
                     }
                     EditorGUILayout.LabelField("Tag none:", Ui.WidthLine(120));
@@ -151,7 +151,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_tags, _tagAny);
                     }
                     EditorGUILayout.LabelField("Tag any:", Ui.WidthLine(120));
@@ -163,7 +163,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 #if !FFS_ECS_DISABLE_MASKS
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_masks, _maskAll);
                     }
                     EditorGUILayout.LabelField("Mask all:", Ui.WidthLine(120));
@@ -173,7 +173,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_masks, _maskNone);
                     }
                     EditorGUILayout.LabelField("Mask none:", Ui.WidthLine(120));
@@ -183,7 +183,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    if (GUILayout.Button("+", Ui.ButtonStyleWhite, Ui.WidthLine(20))) {
+                    if (Ui.PlusButton) {
                         DrawShowFilterMenu(_masks, _maskAny);
                     }
                     EditorGUILayout.LabelField("Mask any:", Ui.WidthLine(120));
@@ -247,45 +247,47 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 incAll = incAll && _maskColumns.Count == _masks.Count;
                 excAll = excAll && _maskColumns.Count == 0;
                 #endif
-                if (GUILayout.Button("All", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
+                if (GUILayout.Button("All", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     ShowAllColumns();
                 }
 
-                if (GUILayout.Button("None", excAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
+                if (GUILayout.Button("None", excAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     ShowNoneColumns();
                 }
 
-                if (GUILayout.Button("+", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
-                    var menu = new GenericMenu();
-                    foreach (var idx in _standardComponents) {
-                        if (!_standardComponentsColumns.Contains(idx)) {
-                            menu.AddItem(new GUIContent(idx.FullName), false, objType => _standardComponentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                using (Ui.EnabledScopeVal(!incAll)) {
+                    if (Ui.PlusDropDownButton) {
+                        var menu = new GenericMenu();
+                        foreach (var idx in _standardComponents) {
+                            if (!_standardComponentsColumns.Contains(idx)) {
+                                menu.AddItem(new GUIContent(idx.FullName), false, objType => _standardComponentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                            }
                         }
-                    }
                     
-                    foreach (var idx in _components) {
-                        if (!_componentsColumns.Contains(idx)) {
-                            menu.AddItem(new GUIContent(idx.FullName), false, objType => _componentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                        foreach (var idx in _components) {
+                            if (!_componentsColumns.Contains(idx)) {
+                                menu.AddItem(new GUIContent(idx.FullName), false, objType => _componentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                            }
                         }
-                    }
                     
-                    #if !FFS_ECS_DISABLE_TAGS
-                    foreach (var idx in _tags) {
-                        if (!_tagsColumns.Contains(idx)) {
-                            menu.AddItem(new GUIContent(idx.FullName), false, objType => _tagsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                        #if !FFS_ECS_DISABLE_TAGS
+                        foreach (var idx in _tags) {
+                            if (!_tagsColumns.Contains(idx)) {
+                                menu.AddItem(new GUIContent(idx.FullName), false, objType => _tagsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                            }
                         }
-                    }
-                    #endif
+                        #endif
                     
-                    #if !FFS_ECS_DISABLE_MASKS
-                    foreach (var idx in _masks) {
-                        if (!_maskColumns.Contains(idx)) {
-                            menu.AddItem(new GUIContent(idx.FullName), false, objType => _maskColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                        #if !FFS_ECS_DISABLE_MASKS
+                        foreach (var idx in _masks) {
+                            if (!_maskColumns.Contains(idx)) {
+                                menu.AddItem(new GUIContent(idx.FullName), false, objType => _maskColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
+                            }
                         }
-                    }
-                    #endif
+                        #endif
 
-                    menu.ShowAsContext();
+                        menu.ShowAsContext();
+                    }
                 }
             }
             EditorGUILayout.EndHorizontal();
@@ -296,7 +298,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             {
                 EditorGUILayout.LabelField("Show data:", Ui.WidthLine(120));
 
-                if (GUILayout.Button("All", Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
+                if (GUILayout.Button("All", Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     for (var i = 0; i < _components.Count; i++) {
                         _components[i].ShowTableData = true;
                     }
@@ -305,7 +307,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
                 }
 
-                if (GUILayout.Button("None", Ui.ButtonStyleWhite, Ui.WidthLine(60))) {
+                if (GUILayout.Button("None", Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     for (var i = 0; i < _components.Count; i++) {
                         _components[i].ShowTableData = false;
                     }
@@ -355,8 +357,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawFilterLabels(List<EditorEntityDataMetaByWorld> types) {
             for (var i = 0; i < types.Count;) {
                 var idx = types[i];
-                EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleWhiteCenter, idx.Layout);
-                if (GUILayout.Button(Ui.IconTrash, Ui.WidthLine(30))) {
+                EditorGUILayout.SelectableLabel(idx.Name, Ui.LabelStyleThemeCenter, idx.Layout);
+                if (Ui.TrashButton) {
                     types.RemoveAt(i);
                 } else {
                     i++;

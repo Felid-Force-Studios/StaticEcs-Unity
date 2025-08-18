@@ -3,7 +3,8 @@
     "rootNamespace": "FFS.StaticEcs.Unity.Editor",
     "references": [
         "FFS.StaticEcs",
-        "FFS.StaticEcs.Unity"
+        "FFS.StaticEcs.Unity",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [
         "Editor"

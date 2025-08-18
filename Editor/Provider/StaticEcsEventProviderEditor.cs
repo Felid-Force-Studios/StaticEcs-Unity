@@ -22,7 +22,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 DrawDefaultInspector();
             }
             
-            Drawer.DrawEvent(_provider, false, provider => provider.SendEvent());
+            Drawer.DrawEvent(_provider, DrawMode.Inspector, provider => provider.SendEvent());
         }
     }
 }

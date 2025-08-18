@@ -6,6 +6,21 @@ using UnityEngine;
 namespace FFS.Libraries.StaticEcs.Unity {
 
     public partial class StaticEcsEntityProvider {
+        
+        private void OnValidate() {
+            if (Prefab && Prefab.gameObject.scene.IsValid()) {
+                Debug.LogWarning($"The {nameof(Prefab)} field should reference to the prefab, not to an object in the scene.", this);
+                Prefab = null;
+            }
+
+            if (Prefab && !gameObject.scene.IsValid()) {
+                Prefab = null;
+            }
+        }
+        
+        public bool IsPrefab() {
+            return !gameObject.scene.IsValid();
+        }
 
         #if !FFS_ECS_DISABLE_TAGS
         public void Tags(List<ITag> result) {
@@ -90,7 +105,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         #endif
         
         public bool EntityIsActual() {
-            return Entity != null && Entity.Gid() == EntityGid && Entity.IsActual();
+            return Entity != null && Entity.IsActual() && Entity.Gid() == EntityGid;
         }
         
         public bool HasStandardComponents() {
