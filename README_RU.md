@@ -42,11 +42,11 @@ ___
 Для подключения миров и систем к окну редактора необходимо вызвать специальный метод при инициализации мира и систем  
 с указанием требуемого мира или систем
 ```csharp
-        ClientEcs.Create(EcsConfig.Default());
+        ClientWorld.Create(WorldConfig.Default());
         //...
         EcsDebug<ClientWorldType>.AddWorld(); // Между созданием и инициализацией
         //...
-        ClientEcs.Initialize();
+        ClientWorld.Initialize();
         
         ClientSystems.Create();
         //...

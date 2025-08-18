@@ -41,11 +41,11 @@ ECS runtime data monitoring and management window
 To connect worlds and systems to the editor window it is necessary to call a special method when initializing the world and systems  
 specifying the world or systems required
 ```csharp
-        ClientEcs.Create(EcsConfig.Default());
+        ClientWorld.Create(WorldConfig.Default());
         //...
         EcsDebug<ClientWorldType>.AddWorld(); // Between creation and initialization
         //...
-        ClientEcs.Initialize();
+        ClientWorld.Initialize();
         
         ClientSystems.Create();
         //...
