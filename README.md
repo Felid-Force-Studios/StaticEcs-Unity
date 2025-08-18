@@ -30,7 +30,7 @@ Must also be installed [StaticEcs](https://github.com/Felid-Force-Studios/Static
   - As a git module in Unity PackageManager     
     `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git`
   - Or adding to the manifest `Packages/manifest.json`  
-    `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs.git-Unity"`
+    `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"`
 
 
 # Guid

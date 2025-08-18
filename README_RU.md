@@ -31,7 +31,7 @@ ___
   - Как git модуль в Unity PackageManager     
     `https://github.com/Felid-Force-Studios/StaticEcs-Unity.git`  
   - Или добавление в манифест `Packages/manifest.json`  
-    `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs.git-Unity"`  
+    `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"`  
 
 
 # Руководство
