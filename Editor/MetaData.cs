@@ -9,10 +9,8 @@ using Object = UnityEngine.Object;
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public static class MetaData {
-        internal static readonly List<EditorEntityDataMeta> StandardComponents = new();
         internal static readonly List<EditorEntityDataMeta> Components = new();
         internal static readonly List<EditorEntityDataMeta> Tags = new();
-        internal static readonly List<EditorEntityDataMeta> Masks = new();
         internal static readonly List<EditorEventDataMeta> Events = new();
 
         internal static readonly List<(Type WorldTypeType, string EditorName)> WorldsMetaData = new();
@@ -66,12 +64,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         continue;
                     }
 
-                    if (type.IsValueType && type.GetInterfaces().Contains(typeof(IStandardComponent)) && type != typeof(EntityGID) && !type.IsGenericType) {
-                        if (HandleStandardComponentMeta(type)) {
-                            continue;
-                        }
-                    }
-
                     if (type.IsValueType && type.GetInterfaces().Contains(typeof(IComponent)) && !type.IsGenericType) {
                         if (HandleComponentMeta(type)) {
                             continue;
@@ -80,12 +72,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                     if (type.IsValueType && type.GetInterfaces().Contains(typeof(ITag)) && !type.IsGenericType) {
                         if (HandleTagMeta(type)) {
-                            continue;
-                        }
-                    }
-
-                    if (type.IsValueType && type.GetInterfaces().Contains(typeof(IMask)) && !type.IsGenericType) {
-                        if (HandleMaskMeta(type)) {
                             continue;
                         }
                     }
@@ -150,33 +136,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             Events.Add(item);
         }
 
-        private static bool HandleMaskMeta(Type type) {
-            var fullName = "";
-            var name = "";
-
-            var (n, fn) = NameAttribute(type);
-            fullName = fn ?? fullName;
-            name = n ?? name;
-
-            if (string.IsNullOrEmpty(fullName)) {
-                fullName = type.EditorFullTypeName();
-            }
-
-            if (string.IsNullOrEmpty(name)) {
-                name = type.EditorTypeName();
-            }
-
-            if (Masks.Find(meta => meta.FullName == fullName) != null) {
-                Debug.LogError($"Mask `{fullName}` already registered, type `{type}` ignored");
-                return true;
-            }
-
-            var width = GUI.skin.label.CalcSize(new GUIContent(name)).x;
-            Masks.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                               new[] { GUILayout.Width(width + 46f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, null, null));
-            return false;
-        }
-
         private static bool HandleTagMeta(Type type) {
             var fullName = "";
             var name = "";
@@ -231,42 +190,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return false;
         }
 
-        private static bool HandleStandardComponentMeta(Type type) {
-            var fullName = "";
-            var name = "";
-            var (n, fn) = NameAttribute(type);
-            fullName = fn ?? fullName;
-            name = n ?? name;
-
-            if (string.IsNullOrEmpty(fullName)) {
-                fullName = type.EditorFullTypeName();
-            }
-
-            if (string.IsNullOrEmpty(name)) {
-                name = type.EditorTypeName();
-            }
-
-            if (StandardComponents.Find(meta => meta.FullName == fullName) != null) {
-                Debug.LogError($"StandardComponent `{fullName}` already registered, type `{type}` ignored");
-                return true;
-            }
-
-            var (field, property, width) = FindValueAttribute(type);
-            width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
-
-            StandardComponents.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                                            new[] { GUILayout.Width(width + 68f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
-            return false;
-        }
-
         public static void EnrichByWorld(IWorld world) {
-            foreach (var pool in world.GetAllStandardComponentsRawPools()) {
-                var type = pool.GetElementType();
-                if (StandardComponents.Find(meta => meta.Type == type) == null) {
-                    HandleStandardComponentMeta(type);
-                }
-            }
-            
             foreach (var pool in world.GetAllComponentsRawPools()) {
                 var type = pool.GetElementType();
                 if (Components.Find(meta => meta.Type == type) == null) {
@@ -278,13 +202,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 var type = pool.GetElementType();
                 if (Tags.Find(meta => meta.Type == type) == null) {
                     HandleTagMeta(type);
-                }
-            }
-            
-            foreach (var pool in world.GetAllMasksRawPools()) {
-                var type = pool.GetElementType();
-                if (Masks.Find(meta => meta.Type == type) == null) {
-                    HandleMaskMeta(type);
                 }
             }
             

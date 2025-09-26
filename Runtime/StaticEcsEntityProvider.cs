@@ -17,17 +17,14 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [DefaultExecutionOrder(short.MaxValue)]
     public partial class StaticEcsEntityProvider : AbstractStaticEcsProvider, IStaticEcsEntityProvider {
         public OnDestroyType OnDestroyType = OnDestroyType.None;
+        public bool DisableEntityOnCreate = false;
+        public bool SyncOnEnableAndDisable = true;
         public StaticEcsEntityProvider Prefab;
         
         [SerializeReference, HideInInspector] private List<IComponent> components = new();
-        [SerializeReference, HideInInspector] private List<IStandardComponent> standardComponents = new();
 
         #if !FFS_ECS_DISABLE_TAGS
         [SerializeReference, HideInInspector] private List<ITag> tags = new();
-        #endif
-        
-        #if !FFS_ECS_DISABLE_MASKS
-        [SerializeReference, HideInInspector] private List<IMask> masks = new();
         #endif
 
         public IEntity Entity {
@@ -54,6 +51,18 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (UsageType == UsageType.OnStart) {
                 CreateEntity();
                 Prefab = null;
+            }
+        }
+
+        protected virtual void OnEnable() {
+            if (SyncOnEnableAndDisable && (Entity?.IsActual() ?? false)) {
+                Entity.Enable();
+            }
+        }
+
+        protected virtual void OnDisable() {
+            if (SyncOnEnableAndDisable && (Entity?.IsActual() ?? false)) {
+                Entity.Disable();
             }
         }
 
@@ -90,20 +99,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
             Entity = World.NewEntity(value);
             EntityGid = Entity.Gid();
             
-            for (var i = 0; i < standardComponents.Count; i++) {
-                var standardComponent = standardComponents[i];
-                #if DEBUG
-                if (standardComponent == null) {
-                    throw new StaticEcsException("[StaticEcsEntityProvider] NULL standardComponent");
-                }
-                #endif
-                if (standardComponent is IOnProvideComponent e) {
-                    e.OnProvide(gameObject);
-                }
-
-                Entity.SetRawStandard(standardComponent);
-            }
-            
             for (var i = 1; i < components.Count; i++) {
                 value = components[i];
                 #if DEBUG
@@ -131,18 +126,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
             #endif
 
-            #if !FFS_ECS_DISABLE_MASKS
-            if (masks != null) {
-                foreach (var m in masks) {
-                    #if DEBUG
-                    if (m == null) {
-                        throw new StaticEcsException("[StaticEcsEntityProvider] NULL mask");
-                    }
-                    #endif
-                    Entity.SetMaskByType(m.GetType());
-                }
+            if (DisableEntityOnCreate) {
+                Entity.Disable();
             }
-            #endif
 
             if (onCreateEntity) {
                 OnCreate();

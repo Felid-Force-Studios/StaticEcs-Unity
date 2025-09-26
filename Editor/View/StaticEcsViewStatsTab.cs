@@ -28,13 +28,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class StatsDrawer {
-        private readonly IStandardRawPool[] standardComponentPools;
-        private readonly IStandardRawPool[] componentPools;
+        private readonly IRawPool[] componentPools;
         #if !FFS_ECS_DISABLE_TAGS
-        private readonly IStandardRawPool[] tagPools;
-        #endif
-        #if !FFS_ECS_DISABLE_MASKS
-        private readonly IStandardRawPool[] maskPools;
+        private readonly IRawPool[] tagPools;
         #endif
         #if !FFS_ECS_DISABLE_EVENTS
         private readonly IEventPoolWrapper[] eventPools;
@@ -49,14 +45,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public StatsDrawer(AbstractWorldData worldData) {
             _worldData = worldData;
             _world = _worldData.World;
-            standardComponentPools = new IStandardRawPool[MetaData.StandardComponents.Count];
-            for (var i = 0; i < MetaData.StandardComponents.Count; i++) {
-                if (_world.TryGetStandardComponentsRawPool(MetaData.StandardComponents[i].Type, out var pool)) {
-                    standardComponentPools[i] = pool;
-                }
-            }
             
-            componentPools = new IStandardRawPool[MetaData.Components.Count];
+            componentPools = new IRawPool[MetaData.Components.Count];
             for (var i = 0; i < MetaData.Components.Count; i++) {
                 if (_world.TryGetComponentsRawPool(MetaData.Components[i].Type, out var pool)) {
                     componentPools[i] = pool;
@@ -64,19 +54,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             #if !FFS_ECS_DISABLE_TAGS
-            tagPools = new IStandardRawPool[MetaData.Tags.Count];
+            tagPools = new IRawPool[MetaData.Tags.Count];
             for (var i = 0; i < MetaData.Tags.Count; i++) {
                 if (_world.TryGetTagsRawPool(MetaData.Tags[i].Type, out var pool)) {
                     tagPools[i] = pool;
-                }
-            }
-            #endif
-
-            #if !FFS_ECS_DISABLE_MASKS
-            maskPools = new IStandardRawPool[MetaData.Masks.Count];
-            for (var i = 0; i < MetaData.Masks.Count; i++) {
-                if (_world.TryGetMasksRawPool(MetaData.Masks[i].Type, out var pool)) {
-                    maskPools[i] = pool;
                 }
             }
             #endif
@@ -104,13 +85,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             verticalScrollStatsPosition = BeginScrollView(verticalScrollStatsPosition);
 
-            DrawComponentPoolsStats("Standard components:", MetaData.StandardComponents, standardComponentPools, true);
             DrawComponentPoolsStats("Components:", MetaData.Components, componentPools, true);
             #if !FFS_ECS_DISABLE_TAGS
             DrawComponentPoolsStats("Tags:", MetaData.Tags, tagPools, true);
-            #endif
-            #if !FFS_ECS_DISABLE_MASKS
-            DrawComponentPoolsStats("Masks:", MetaData.Masks, maskPools, false);
             #endif
             #if !FFS_ECS_DISABLE_EVENTS
             DrawEventsPoolsStats();
@@ -151,7 +128,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             Space(10);
         }
 
-        private void DrawComponentPoolsStats(string type, List<EditorEntityDataMeta> indexes, IStandardRawPool[] pools, bool withCapacity) {
+        private void DrawComponentPoolsStats(string type, List<EditorEntityDataMeta> indexes, IRawPool[] pools, bool withCapacity) {
             BeginHorizontal();
             SelectableLabel(type, Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
@@ -174,10 +151,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
 
                     Ui.DrawSeparator();
-                    LabelField(pool.Count().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
+                    LabelField(pool.CalculateCount().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
                     Ui.DrawSeparator();
                     if (withCapacity) {
-                        LabelField(pool.Capacity().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
+                        LabelField(pool.CalculateCapacity().ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
                     } else {
                         LabelField("N/A", Ui.LabelStyleGreyCenter, Ui.WidthLine(90));
                     }

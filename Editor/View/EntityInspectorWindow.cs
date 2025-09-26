@@ -150,7 +150,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 if (!_provider.EntityIsActual()) {
                     EditorGUILayout.HelpBox("Entity is destroyed or not actual", MessageType.Info, true);
                 } else {
-                    Drawer.DrawEntity(_provider, DrawMode.Viewer, _ => {}, false, _ => Close());
+                    Drawer.DrawEntity(_provider, DrawMode.Viewer, _ => {}, _ => Close());
                 }
             } else {
                 EditorGUILayout.HelpBox("Data is only available in play mode", MessageType.Info, true);

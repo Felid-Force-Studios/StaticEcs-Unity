@@ -9,7 +9,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                 PrefixLabel(label);
                 var empty = value.IsEmpty();
                 if (!empty && ctx.World != null && ctx.World.TryGetEntity(value, out var entity)) {
-                    LabelField(empty ? "Empty" : value.ToString(), Ui.MinWidth());
+                    LabelField(value.ToString(), Ui.MinWidth());
                 } else {
                     LabelField(empty ? "Empty" : value.ToString() + " (Not actual)", Ui.MinWidth());
                     empty = true;
@@ -29,28 +29,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
 
         public override void DrawTableValue(ref EntityGID value, GUIStyle style, GUILayoutOption[] layoutOptions) {
             SelectableLabel(value.ToString(), style, layoutOptions);
-        }
-    }
-
-    internal sealed class EntityStatusDrawer : IStaticEcsValueDrawer<EntityStatus> {
-        public override bool DrawValue(ref DrawContext ctx, string label, ref EntityStatus value) {
-            if (ctx.Level != Drawer.MaxRecursionLvl) {
-                LabelField(label);
-            }
-            EditorGUI.indentLevel++;
-            Drawer.DrawEnum("Value", value.Value, false, out var newValue);
-            EditorGUI.indentLevel--;
-                
-            if ((EntityStatusType)newValue == value.Value) {
-                return false;
-            }
-
-            value.Value = (EntityStatusType)newValue;
-            return true;
-        }
-
-        public override void DrawTableValue(ref EntityStatus value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            SelectableLabel(value.Value.ToString(), style, layoutOptions);
         }
     }
 

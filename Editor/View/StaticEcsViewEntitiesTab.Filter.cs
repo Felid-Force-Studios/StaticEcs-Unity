@@ -22,11 +22,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly List<EditorEntityDataMetaByWorld> _tagAll = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagNone = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagAny = new();
-        #if !FFS_ECS_DISABLE_MASKS
-        private readonly List<EditorEntityDataMetaByWorld> _maskAll = new();
-        private readonly List<EditorEntityDataMetaByWorld> _maskNone = new();
-        private readonly List<EditorEntityDataMetaByWorld> _maskAny = new();
-        #endif
         
         private readonly WithArray _ecsWithFilter = new(new List<IQueryMethod>());
 
@@ -159,41 +154,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 EditorGUILayout.EndHorizontal();
                 #endif
-
-                #if !FFS_ECS_DISABLE_MASKS
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (Ui.PlusButton) {
-                        DrawShowFilterMenu(_masks, _maskAll);
-                    }
-                    EditorGUILayout.LabelField("Mask all:", Ui.WidthLine(120));
-                    DrawFilterLabels(_maskAll);
-                }
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (Ui.PlusButton) {
-                        DrawShowFilterMenu(_masks, _maskNone);
-                    }
-                    EditorGUILayout.LabelField("Mask none:", Ui.WidthLine(120));
-                    DrawFilterLabels(_maskNone);
-                }
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (Ui.PlusButton) {
-                        DrawShowFilterMenu(_masks, _maskAny);
-                    }
-                    EditorGUILayout.LabelField("Mask any:", Ui.WidthLine(120));
-                    DrawFilterLabels(_maskAny);
-                }
-                EditorGUILayout.EndHorizontal();
-                #endif
                 
                 if (!IsFilterValid()) {
-                    EditorGUILayout.HelpBox("Please, provide at least one [All] or [Tag all] filter", MessageType.Warning, true);
+                    EditorGUILayout.HelpBox("Please, provide at least one filter", MessageType.Warning, true);
                 }
                 else if (_any.Count == 1) {
                     EditorGUILayout.HelpBox("Please, provide at least two [Any] filter", MessageType.Warning, true);
@@ -203,16 +166,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.HelpBox("Please, provide at least two [Tag any] filter", MessageType.Warning, true);
                 }
                 #endif
-                #if !FFS_ECS_DISABLE_MASKS
-                else if (_maskAny.Count == 1) {
-                    EditorGUILayout.HelpBox("Please, provide at least two [Mask any] filter", MessageType.Warning, true);
-                }
-                #endif
             }
         }
 
         private bool IsFilterValid() {
-            return _filterActive && (_all.Count > 0 || _tagAll.Count > 0 || _allWithDisabled.Count > 0 || _allOnlyDisabled.Count > 0);
+            return _filterActive && (_all.Count > 0 || _allOnlyDisabled.Count > 0 || _allWithDisabled.Count > 0 || _none.Count > 0 || _noneWithDisabled.Count > 0 || _any.Count > 1 
+                || _anyOnlyDisabled.Count > 1 || _anyWithDisabled.Count > 1 || _tagAll.Count > 0 || _tagNone.Count > 0 || _tagAny.Count > 1);
         }
 
         private void GidFilter() {
@@ -243,10 +202,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 excAll = excAll && _tagsColumns.Count == 0;
                 #endif
                 
-                #if !FFS_ECS_DISABLE_MASKS
-                incAll = incAll && _maskColumns.Count == _masks.Count;
-                excAll = excAll && _maskColumns.Count == 0;
-                #endif
                 if (GUILayout.Button("All", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     ShowAllColumns();
                 }
@@ -258,11 +213,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 using (Ui.EnabledScopeVal(!incAll)) {
                     if (Ui.PlusDropDownButton) {
                         var menu = new GenericMenu();
-                        foreach (var idx in _standardComponents) {
-                            if (!_standardComponentsColumns.Contains(idx)) {
-                                menu.AddItem(new GUIContent(idx.FullName), false, objType => _standardComponentsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
-                            }
-                        }
                     
                         foreach (var idx in _components) {
                             if (!_componentsColumns.Contains(idx)) {
@@ -274,14 +224,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         foreach (var idx in _tags) {
                             if (!_tagsColumns.Contains(idx)) {
                                 menu.AddItem(new GUIContent(idx.FullName), false, objType => _tagsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
-                            }
-                        }
-                        #endif
-                    
-                        #if !FFS_ECS_DISABLE_MASKS
-                        foreach (var idx in _masks) {
-                            if (!_maskColumns.Contains(idx)) {
-                                menu.AddItem(new GUIContent(idx.FullName), false, objType => _maskColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
                             }
                         }
                         #endif
@@ -302,17 +244,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     for (var i = 0; i < _components.Count; i++) {
                         _components[i].ShowTableData = true;
                     }
-                    for (var i = 0; i < _standardComponents.Count; i++) {
-                        _standardComponents[i].ShowTableData = true;
-                    }
                 }
 
                 if (GUILayout.Button("None", Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     for (var i = 0; i < _components.Count; i++) {
                         _components[i].ShowTableData = false;
-                    }
-                    for (var i = 0; i < _standardComponents.Count; i++) {
-                        _standardComponents[i].ShowTableData = false;
                     }
                 }
             }
@@ -332,23 +268,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var methods = _ecsWithFilter._methods;
             methods.Clear();
             
-            if (_all.Count > 0) methods.Add(new AllTypes<TypesArray>(new TypesArray(_all)));
-            if (_allOnlyDisabled.Count > 0) methods.Add(new AllOnlyDisabledTypes<TypesArray>(new TypesArray(_allOnlyDisabled)));
-            if (_allWithDisabled.Count > 0) methods.Add(new AllWithDisabledTypes<TypesArray>(new TypesArray(_allWithDisabled)));
-            if (_none.Count > 0) methods.Add(new NoneTypes<TypesArray>(new TypesArray(_none)));
-            if (_noneWithDisabled.Count > 0) methods.Add(new NoneWithDisabledTypes<TypesArray>(new TypesArray(_noneWithDisabled)));
-            if (_any.Count > 1) methods.Add(new AnyTypes<TypesArray>(new TypesArray(_any)));
-            if (_anyOnlyDisabled.Count > 1) methods.Add(new AnyOnlyDisabledTypes<TypesArray>(new TypesArray(_anyOnlyDisabled)));
-            if (_anyWithDisabled.Count > 1) methods.Add(new AnyWithDisabledTypes<TypesArray>(new TypesArray(_anyWithDisabled)));
+            if (_all.Count > 0) methods.Add(new TypesArray(_all, QueryMethodType.ALL));
+            if (_allOnlyDisabled.Count > 0) methods.Add(new TypesArray(_allOnlyDisabled, QueryMethodType.ALL_ONLY_DISABLED));
+            if (_allWithDisabled.Count > 0) methods.Add(new TypesArray(_allWithDisabled, QueryMethodType.ALL_WITH_DISABLED));
+            if (_none.Count > 0) methods.Add(new TypesArray(_none, QueryMethodType.NONE));
+            if (_noneWithDisabled.Count > 0) methods.Add(new TypesArray(_noneWithDisabled, QueryMethodType.NONE_WITH_DISABLED));
+            if (_any.Count > 1) methods.Add(new TypesArray(_any, QueryMethodType.ANY));
+            if (_anyOnlyDisabled.Count > 1) methods.Add(new TypesArray(_anyOnlyDisabled, QueryMethodType.ANY_ONLY_DISABLED));
+            if (_anyWithDisabled.Count > 1) methods.Add(new TypesArray(_anyWithDisabled, QueryMethodType.ANY_WITH_DISABLED));
             #if !FFS_ECS_DISABLE_TAGS
-            if (_tagAll.Count > 0) methods.Add(new TagAllTypes<TagArray>(new TagArray(_tagAll)));
-            if (_tagNone.Count > 0) methods.Add(new TagNoneTypes<TagArray>(new TagArray(_tagNone)));
-            if (_tagAny.Count > 1) methods.Add(new TagAnyTypes<TagArray>(new TagArray(_tagAny)));
-            #endif
-            #if !FFS_ECS_DISABLE_MASKS
-            if (_maskAll.Count > 0) methods.Add(new MaskAllTypes<MaskArray>(new MaskArray(_maskAll)));
-            if (_maskNone.Count > 0) methods.Add(new MaskNoneTypes<MaskArray>(new MaskArray(_maskNone)));
-            if (_maskAny.Count > 1) methods.Add(new MaskAnyTypes<MaskArray>(new MaskArray(_maskAny)));
+            if (_tagAll.Count > 0) methods.Add(new TagArray(_tagAll, QueryMethodType.ALL));
+            if (_tagNone.Count > 0) methods.Add(new TagArray(_tagNone, QueryMethodType.NONE));
+            if (_tagAny.Count > 1) methods.Add(new TagArray(_tagAny, QueryMethodType.ANY));
             #endif
 
             return _ecsWithFilter;
@@ -385,123 +316,205 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
     }
 
-    public struct TypesArray : IComponentTypes {
+    public enum QueryMethodType {
+        ALL,
+        ALL_ONLY_DISABLED,
+        ALL_WITH_DISABLED,
+        NONE,
+        NONE_WITH_DISABLED,
+        ANY,
+        ANY_ONLY_DISABLED,
+        ANY_WITH_DISABLED,
+        
+    }
+
+    public struct TypesArray : IQueryMethod {
         public List<EditorEntityDataMetaByWorld> Types;
+        private QueryMethodType Type;
 
         [MethodImpl(AggressiveInlining)]
-        public TypesArray(List<EditorEntityDataMetaByWorld> types) {
+        public TypesArray(List<EditorEntityDataMetaByWorld> types, QueryMethodType type) {
+            Type = type;
             Types = types;
         }
 
-        [MethodImpl(AggressiveInlining)]
-        public void SetMinData<WorldType>(ref uint minCount, ref uint[] entities) where WorldType : struct, IWorldType {
-            foreach (var type in Types) {
-                World<WorldType>.ModuleComponents.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
+        public void CheckChunk<WorldType>(ref ulong chunkMask, uint chunkIdx) where WorldType : struct, IWorldType {
+            switch (Type) {
+                case QueryMethodType.ALL:  
+                case QueryMethodType.ALL_ONLY_DISABLED:  
+                case QueryMethodType.ALL_WITH_DISABLED:  
+                    foreach (var type in Types) {
+                        chunkMask &= type.CopmponentsPool.Chunk(chunkIdx).fullBlocks;
+                    }
+                    break;
+                case QueryMethodType.NONE: 
+                case QueryMethodType.NONE_WITH_DISABLED: 
+                    foreach (var type in Types) {
+                        chunkMask &= ~type.CopmponentsPool.Chunk(chunkIdx).fullBlocks;
+                    }
+                    break;
+                case QueryMethodType.ANY:  
+                case QueryMethodType.ANY_ONLY_DISABLED:  
+                case QueryMethodType.ANY_WITH_DISABLED:  
+                    ulong mask = 0;
+                    foreach (var type in Types) {
+                        mask |= type.CopmponentsPool.Chunk(chunkIdx).notEmptyBlocks;
+                    }
+                    chunkMask &= mask;
+                    break;
             }
         }
 
-        [MethodImpl(AggressiveInlining)]
-        public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
-            foreach (var type in Types) {
-                World<WorldType>.ModuleComponents.Value.BitMask.SetInBuffer(bufId, World<WorldType>.ModuleComponents.Value.GetPool(type.Type).DynamicId());
+        public void CheckEntities<WorldType>(ref ulong entitiesMask, uint chunkIdx, int blockIdx) where WorldType : struct, IWorldType {
+            switch (Type) {
+                case QueryMethodType.ALL:  
+                    foreach (var type in Types) {
+                        entitiesMask &= type.CopmponentsPool.EMask(chunkIdx, blockIdx);
+                    }
+                    break;  
+                case QueryMethodType.ALL_ONLY_DISABLED:  
+                    foreach (var type in Types) {
+                        entitiesMask &= type.CopmponentsPool.DMask(chunkIdx, blockIdx);
+                    }
+                    break;  
+                case QueryMethodType.ALL_WITH_DISABLED:  
+                    foreach (var type in Types) {
+                        entitiesMask &= type.CopmponentsPool.AMask(chunkIdx, blockIdx);
+                    }
+                    break;
+                case QueryMethodType.NONE:  
+                    foreach (var type in Types) {
+                        entitiesMask &= ~type.CopmponentsPool.EMask(chunkIdx, blockIdx);
+                    }
+                    break; 
+                case QueryMethodType.NONE_WITH_DISABLED:  
+                    foreach (var type in Types) {
+                        entitiesMask &= ~type.CopmponentsPool.AMask(chunkIdx, blockIdx);
+                    }
+                    break; 
+                case QueryMethodType.ANY:  
+                    ulong mask1 = 0;
+                    foreach (var type in Types) {
+                        mask1 |= type.CopmponentsPool.EMask(chunkIdx, blockIdx);
+                    }
+                    entitiesMask &= mask1;
+                    break;  
+                case QueryMethodType.ANY_ONLY_DISABLED:  
+                    ulong mask2 = 0;
+                    foreach (var type in Types) {
+                        mask2 |= type.CopmponentsPool.DMask(chunkIdx, blockIdx);
+                    }
+                    entitiesMask &= mask2;
+                    break;  
+                case QueryMethodType.ANY_WITH_DISABLED:  
+                    ulong mask3 = 0;
+                    foreach (var type in Types) {
+                        mask3 |= type.CopmponentsPool.AMask(chunkIdx, blockIdx);
+                    }
+                    entitiesMask &= mask3;
+                    break;
             }
         }
-
-        #if DEBUG || FFS_ECS_ENABLE_DEBUG
-        [MethodImpl(AggressiveInlining)]
-        public void Block<WorldType>(int val) where WorldType : struct, IWorldType {
-            foreach (var type in Types) {
-                World<WorldType>.ModuleComponents.Value.GetPool(type.Type).AddBlocker(val);
-            }
-        }
-        #endif
+        public void IncQ<WorldType>(QueryData data) where WorldType : struct, IWorldType { }
+        public void DecQ<WorldType>() where WorldType : struct, IWorldType { }
+        public void BlockQ<WorldType>(int val) where WorldType : struct, IWorldType { }
     }
-
-    #if !FFS_ECS_DISABLE_MASKS
-    public struct MaskArray : IComponentMasks {
-        public List<EditorEntityDataMetaByWorld> Mask;
-
-        [MethodImpl(AggressiveInlining)]
-        public MaskArray(List<EditorEntityDataMetaByWorld> mask) {
-            Mask = mask;
-        }
-
-        [MethodImpl(AggressiveInlining)]
-        public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
-            for (var i = 0; i < Mask.Count; i++) {
-                World<WorldType>.ModuleMasks.Value.BitMask.SetInBuffer(bufId, World<WorldType>.ModuleMasks.Value.GetPool(Mask[i].Type).DynamicId());
-            }
-        }
-    }
-    #endif
 
     #if !FFS_ECS_DISABLE_TAGS
     #if ENABLE_IL2CPP
     [Il2CppSetOption(Option.NullChecks, false)]
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
     #endif
-    public struct TagArray : IComponentTags {
+    public struct TagArray : IQueryMethod {
         public List<EditorEntityDataMetaByWorld> Tags;
+        private QueryMethodType Type;
 
         [MethodImpl(AggressiveInlining)]
-        public TagArray(List<EditorEntityDataMetaByWorld> tags) {
+        public TagArray(List<EditorEntityDataMetaByWorld> tags, QueryMethodType type) {
+            Type = type;
             Tags = tags;
         }
 
-        [MethodImpl(AggressiveInlining)]
-        public void SetMinData<WorldType>(ref uint minCount, ref uint[] entities) where WorldType : struct, IWorldType {
-            foreach (var type in Tags) {
-                World<WorldType>.ModuleTags.Value.GetPool(type.Type).SetDataIfCountLess(ref minCount, ref entities);
+
+        public void CheckChunk<WorldType>(ref ulong chunkMask, uint chunkIdx) where WorldType : struct, IWorldType {
+            switch (Type) {
+                case QueryMethodType.ALL:  
+                    foreach (var type in Tags) {
+                        chunkMask &= type.TagsPool.Chunk(chunkIdx).fullBlocks;
+                    }
+                    break;
+                case QueryMethodType.NONE: 
+                    foreach (var type in Tags) {
+                        chunkMask &= ~type.TagsPool.Chunk(chunkIdx).fullBlocks;
+                    }
+                    break;
+                case QueryMethodType.ANY:  
+                    ulong mask = 0;
+                    foreach (var type in Tags) {
+                        mask |= type.TagsPool.Chunk(chunkIdx).notEmptyBlocks;
+                    }
+                    chunkMask &= mask;
+                    break;
             }
         }
 
-        [MethodImpl(AggressiveInlining)]
-        public void SetBitMask<WorldType>(byte bufId) where WorldType : struct, IWorldType {
-            foreach (var type in Tags) {
-                World<WorldType>.ModuleTags.Value.BitMask.SetInBuffer(bufId, World<WorldType>.ModuleTags.Value.GetPool(type.Type).DynamicId());
+        public void CheckEntities<WorldType>(ref ulong entitiesMask, uint chunkIdx, int blockIdx) where WorldType : struct, IWorldType {
+            switch (Type) {
+                case QueryMethodType.ALL:
+                    foreach (var type in Tags) {
+                        entitiesMask &= type.TagsPool.EMask(chunkIdx, blockIdx);
+                    }
+                    break;
+                case QueryMethodType.NONE:
+                    foreach (var type in Tags) {
+                        entitiesMask &= ~type.TagsPool.EMask(chunkIdx, blockIdx);
+                    }
+                    break; 
+                case QueryMethodType.ANY:
+                    ulong mask3 = 0;
+                    foreach (var type in Tags) {
+                        mask3 |= type.TagsPool.EMask(chunkIdx, blockIdx);
+                    }
+                    entitiesMask &= mask3;
+                    break;
             }
         }
-
-        #if DEBUG || FFS_ECS_ENABLE_DEBUG
-        [MethodImpl(AggressiveInlining)]
-        public void Block<WorldType>(int val) where WorldType : struct, IWorldType {
-            foreach (var type in Tags) {
-                World<WorldType>.ModuleTags.Value.GetPool(type.Type).AddBlocker(val);
-            }
-        }
-        #endif
+        public void IncQ<WorldType>(QueryData data) where WorldType : struct, IWorldType { }
+        public void DecQ<WorldType>() where WorldType : struct, IWorldType { }
+        public void BlockQ<WorldType>(int val) where WorldType : struct, IWorldType { }
     }
     #endif
 
-    public struct WithArray : IPrimaryQueryMethod {
+    public struct WithArray : IQueryMethod {
         internal List<IQueryMethod> _methods;
 
         public WithArray(List<IQueryMethod> methods) {
             _methods = methods;
         }
 
-        [MethodImpl(AggressiveInlining)]
-        public void SetData<WorldType>(ref uint minComponentsCount, ref uint[] minEntities) where WorldType : struct, IWorldType {
+        public void CheckChunk<WorldType>(ref ulong chunkMask, uint chunkIdx) where WorldType : struct, IWorldType {
             foreach (var method in _methods) {
-                method.SetData<WorldType>(ref minComponentsCount, ref minEntities);
+                method.CheckChunk<WorldType>(ref chunkMask, chunkIdx);
             }
         }
-
-        [MethodImpl(AggressiveInlining)]
-        public bool CheckEntity(uint entityId) {
+        public void CheckEntities<WorldType>(ref ulong entitiesMask, uint chunkIdx, int blockIdx) where WorldType : struct, IWorldType {
             foreach (var method in _methods) {
-                if (!method.CheckEntity(entityId)) {
-                    return false;
-                }
+                method.CheckEntities<WorldType>(ref entitiesMask, chunkIdx, blockIdx);
             }
-
-            return true;
         }
-
-        [MethodImpl(AggressiveInlining)]
-        public void Dispose<WorldType>() where WorldType : struct, IWorldType {
+        public void IncQ<WorldType>(QueryData data) where WorldType : struct, IWorldType {
             foreach (var method in _methods) {
-                method.Dispose<WorldType>();
+                method.IncQ<WorldType>(data);
+            }
+        }
+        public void DecQ<WorldType>() where WorldType : struct, IWorldType {
+            foreach (var method in _methods) {
+                method.DecQ<WorldType>();
+            }
+        }
+        public void BlockQ<WorldType>(int val) where WorldType : struct, IWorldType {
+            foreach (var method in _methods) {
+                method.BlockQ<WorldType>(val);
             }
         }
     }

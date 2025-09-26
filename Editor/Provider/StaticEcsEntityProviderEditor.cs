@@ -25,7 +25,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 provider.Prefab = null;
                 EditorUtility.SetDirty(provider);
-            }, !_provider.EntityIsActual(), provider => {
+            }, provider => {
                 provider.Entity = null;
                 EditorUtility.SetDirty(provider);
             });

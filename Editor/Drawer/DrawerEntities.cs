@@ -13,7 +13,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     
     public static partial class Drawer {
         public static void DrawEntity(
-            StaticEcsEntityProvider provider, DrawMode mode, Action<StaticEcsEntityProvider> onClickSpawn, bool allowStandardComponentsAddDelete, Action<StaticEcsEntityProvider> onClose
+            StaticEcsEntityProvider provider, DrawMode mode, Action<StaticEcsEntityProvider> onClickSpawn, Action<StaticEcsEntityProvider> onClose
         ) {
             var prefabView = mode != DrawMode.Viewer && provider.Prefab;
             var origin = provider;
@@ -65,6 +65,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                                 // menu.AddItem(new GUIContent("Copy as new entity"), false, () => { });
                                 // menu.AddItem(new GUIContent("Copy as builder template"), false, () => { });
                             }
+                            
+                            if (provider.Entity.IsEnabled()) {
+                                menu.AddItem(new GUIContent("Disable"), false, () => provider.Entity.Disable());
+                            } else {
+                                menu.AddItem(new GUIContent("Enable"), false, () => provider.Entity.Enable());
+                            }
 
                             menu.AddItem(new GUIContent("Destroy entity"), false, () => {
                                 provider.Entity.Destroy();
@@ -84,6 +90,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.LabelField("Entity ID:", Ui.WidthLine(60));
                     if (provider.EntityIsActual()) {
                         EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) provider.Entity.GetId()).d6, Ui.LabelStyleThemeBold, Ui.WidthLine(120));
+                        if (provider.Entity.IsDisabled()) {
+                            EditorGUILayout.LabelField("[Disabled]", Ui.LabelStyleThemeBold, Ui.WidthLine(70));
+                        }
                     } else {
                         EditorGUILayout.LabelField("---", Ui.LabelStyleThemeBold, Ui.WidthLine(60));
                         using (Ui.EnabledScope) {
@@ -120,7 +129,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     World = provider.World,
                     Level = MaxRecursionLvl
                 };
-                DrawEntity(ref ctx, provider, allowStandardComponentsAddDelete);
+                DrawEntity(ref ctx, provider);
 
                 if (mode != DrawMode.Inspector) {
                     EditorGUILayout.EndScrollView();
@@ -128,13 +137,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawEntity<TProvider>(ref DrawContext ctx, TProvider provider, bool allowStandardComponentsAddDelete = true) where TProvider : Object, IStaticEcsEntityProvider {
+        private static void DrawEntity<TProvider>(ref DrawContext ctx, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
             EditorGUILayout.Space(10);
-
-            provider.StandardComponents(_standardComponentsCache);
-            EditorGUILayout.Space(10);
-            DrawStandardComponents(ref ctx, _standardComponentsCache, provider, allowStandardComponentsAddDelete);
-            _standardComponentsCache.Clear();
 
             provider.Components(_componentsCache);
             EditorGUILayout.Space(10);
@@ -146,13 +150,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.Space(10);
             DrawTags(_tagsCache, provider);
             _tagsCache.Clear();
-            #endif
-            
-            #if !FFS_ECS_DISABLE_MASKS
-            provider.Masks(_masksCache);
-            EditorGUILayout.Space(10);
-            DrawMasks(_masksCache, provider);
-            _masksCache.Clear();
             #endif
         }
 

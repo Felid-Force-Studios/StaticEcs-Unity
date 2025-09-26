@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-1.0.25-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=for-the-badge)
 
 ### ЯЗЫК
 [RU](./README_RU.md)
@@ -23,6 +23,7 @@ ___
 
 # Контакты
 * [Telegram](https://t.me/felid_force_studios)
+
 # Установка
 Должен быть так же установлен [StaticEcs](https://github.com/Felid-Force-Studios/StaticEcs)
 * ### В виде исходников

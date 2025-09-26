@@ -62,111 +62,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             tags.RemoveAll(val => val == null);
         }
         #endif
-
-        #if !FFS_ECS_DISABLE_MASKS
-        public void Masks(List<IMask> result) {
-            if (EntityIsActual()) {
-                Entity.GetAllMasks(result);
-            } else {
-                result.AddRange(masks);
-            }
-        }
-        
-        public bool ShouldShowMask(Type maskType, bool runtime) {
-            if (!EntityIsActual() && !runtime) return true;
-            return World.TryGetMasksRawPool(maskType, out var _);
-        }
-        
-        public virtual void OnSelectMask(Type maskType) {
-            if (EntityIsActual()) {
-                Entity.SetMaskByType(maskType);
-            } else {
-                foreach (var val in masks) {
-                    if (val.GetType() == maskType) {
-                        return;
-                    }
-                }
-
-                masks.Add((IMask) Activator.CreateInstance(maskType, true));
-            }
-        }
-        
-        public virtual void OnDeleteMask(Type maskType) {
-            if (EntityIsActual()) {
-                Entity.DeleteMaskByType(maskType);
-            } else {
-                masks.RemoveAll(mask => mask.GetType() == maskType);
-            }
-        }
-
-        public void DeleteAllBrokenMasks() {
-            masks.RemoveAll(val => val == null);
-        }
-        #endif
         
         public bool EntityIsActual() {
             return Entity != null && Entity.IsActual() && Entity.Gid() == EntityGid;
-        }
-        
-        public bool HasStandardComponents() {
-            if (EntityIsActual()) {
-                return Entity.StandardComponentsCount() > 0;
-            }
-
-            return standardComponents.Count > 0;
-        }
-        
-        public void StandardComponents(List<IStandardComponent> result) {
-            if (EntityIsActual()) {
-                Entity.GetAllStandardComponents(result);
-            } else {
-                result.AddRange(standardComponents);
-            }
-        }
-        
-        public bool ShouldShowStandardComponent(Type componentType, bool runtime) {
-            if (!EntityIsActual() && !runtime) return true;
-            return World.TryGetStandardComponentsRawPool(componentType, out var _);
-        }
-        
-        public virtual void OnChangeStandardComponent(IStandardComponent component, Type componentType) {
-            if (EntityIsActual()) {
-                Entity.SetRawStandard(component);
-            } else {
-                for (var i = 0; i < standardComponents.Count; i++) {
-                    var val = standardComponents[i];
-                    if (val.GetType() == componentType) {
-                        standardComponents[i] = component;
-                        return;
-                    }
-                }
-                standardComponents.Add(component);
-            }
-        }
-        
-        public virtual void OnSelectStandardComponent(IStandardComponent component) {
-            if (EntityIsActual()) {
-                Entity.SetRawStandard(component);
-            } else {
-                for (var i = 0; i < standardComponents.Count; i++) {
-                    var val = standardComponents[i];
-                    if (val.GetType() == component.GetType()) {
-                        standardComponents[i] = component;
-                        return;
-                    }
-                }
-                standardComponents.Add(component);
-            }
-        }
-        
-        public virtual void OnDeleteStandardComponent(Type componentType) {
-            if (!EntityIsActual()) {
-                standardComponents.RemoveAll(component => component.GetType() == componentType);
-            }
-        }
-
-        public void DeleteAllBrokenStandardComponents() {
-            standardComponents.RemoveAll(val => val == null);
         }
 
         public bool HasComponents() {
@@ -253,9 +151,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
             components.Clear();
             #if !FFS_ECS_DISABLE_TAGS
             tags.Clear();
-            #endif
-            #if !FFS_ECS_DISABLE_MASKS
-            masks.Clear();
             #endif
         }
     }

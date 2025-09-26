@@ -6,14 +6,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public partial interface IStaticEcsEntityProvider {
         bool EntityIsActual();
 
-        bool HasStandardComponents();
-        void StandardComponents(List<IStandardComponent> result);
-        bool ShouldShowStandardComponent(Type componentType, bool runtime);
-        void OnChangeStandardComponent(IStandardComponent component, Type componentType);
-        void OnSelectStandardComponent(IStandardComponent component);
-        void OnDeleteStandardComponent(Type componentType);
-        void DeleteAllBrokenStandardComponents();
-
         bool HasComponents();
         bool IsDisabled(Type componentType);
         void Disable(Type componentType);
@@ -32,14 +24,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
         void OnDeleteTag(Type tagType);
         bool ShouldShowTag(Type tagType, bool runtime);
         void DeleteAllBrokenTags();
-        #endif
-
-        #if !FFS_ECS_DISABLE_MASKS
-        void Masks(List<IMask> result);
-        void OnSelectMask(Type maskType);
-        void OnDeleteMask(Type maskType);
-        bool ShouldShowMask(Type maskType, bool runtime);
-        void DeleteAllBrokenMasks();
         #endif
     }
 }

@@ -61,7 +61,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class AbstractWorldData {
         public IWorld World;
         public Type WorldTypeType;
-        public uint Count;
         public uint CountWithoutDestroyed;
         public uint Capacity;
         public uint Destroyed;
@@ -74,7 +73,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public abstract bool IsActual(uint idx);
 
-        public abstract void ForAll<T>(T with, IForAll action) where T : struct, IPrimaryQueryMethod;
+        public abstract void ForAll<T>(T with, IForAll action) where T : struct, IQueryMethod;
 
         public abstract IEntity GetEntity(uint entIdx);
 
@@ -101,12 +100,12 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public override IEntity GetEntity(uint entIdx) {
-            return World<WorldType>.Entity.FromIdx(entIdx);
+            return World<WorldType>.Entity.FromIdx(entIdx).Box();
         }
 
         public override bool FindEntityByGid(uint gid, out IEntity entity) {
             if (World<WorldType>.GIDStore.Value.TryGetEntity(gid, out var e)) {
-                entity = e;
+                entity = e.Box();
                 return true;
             }
 
@@ -202,11 +201,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public void OnWorldInitialized() {
             _worldData = new WorldData<WorldType> {
                 World = Worlds.Get(typeof(WorldType)),
-                Count = World<WorldType>.EntitiesCount(),
-                CountWithoutDestroyed = World<WorldType>.EntitiesCountWithoutDestroyed(),
-                Capacity = World<WorldType>.EntitiesCapacity(),
-                Destroyed = World<WorldType>.Entity.deletedEntitiesCount,
-                DestroyedCapacity = (uint) World<WorldType>.Entity.deletedEntities.Length,
+                CountWithoutDestroyed = World<WorldType>.CalculateEntitiesCount(),
+                Capacity = World<WorldType>.CalculateEntitiesCapacity(),
+                Destroyed = (uint) World<WorldType>.Entities.Value.deletedEntitiesCount,
+                DestroyedCapacity = (uint) World<WorldType>.Entities.Value.deletedEntities.Length,
                 WorldTypeType = typeof(WorldType),
                 Events = new PageRingBuffer<EventData>(_eventHistoryPageCount),
                 EventsReceived = new Dictionary<Type, int>(),
@@ -225,11 +223,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         private void UpdateWorldCounts() {
-            _worldData.Count = World<WorldType>.EntitiesCount();
-            _worldData.CountWithoutDestroyed = World<WorldType>.EntitiesCountWithoutDestroyed();
-            _worldData.Capacity = World<WorldType>.EntitiesCapacity();
-            _worldData.Destroyed = World<WorldType>.Entity.deletedEntitiesCount;
-            _worldData.DestroyedCapacity = (uint) World<WorldType>.Entity.deletedEntities.Length;
+            _worldData.CountWithoutDestroyed = World<WorldType>.CalculateEntitiesCount();
+            _worldData.Capacity = World<WorldType>.CalculateEntitiesCapacity();
+            _worldData.Destroyed = (uint) World<WorldType>.Entities.Value.deletedEntitiesCount;
+            _worldData.DestroyedCapacity = (uint) World<WorldType>.Entities.Value.deletedEntities.Length;
         }
 
         public void OnWorldResized(uint capacity) {

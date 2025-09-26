@@ -98,7 +98,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
                          || type == typeof(char)
                          || type == typeof(string)
                          || type == typeof(EntityGID)
-                         || type == typeof(EntityStatus)
                          || type == typeof(AnimationCurve)
                          || type == typeof(Color)
                          || type == typeof(Color32)

@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using UnityEngine;
 #if ENABLE_IL2CPP
 using Unity.IL2CPP.CompilerServices;
 #endif
@@ -27,6 +30,21 @@ namespace FFS.Libraries.StaticEcs.Unity {
             #if UNITY_EDITOR
             StaticEcsWorldDebug<WorldType>.Create(eventHistoryCount, windowEntityNameFunction);
             #endif
+        }
+    }
+
+    public abstract class AutoRegister<WorldType> where WorldType : struct, IWorldType {
+        public static void Apply() {
+            var methods = AppDomain.CurrentDomain
+                                   .GetAssemblies()
+                                   .SelectMany(asm => asm.GetTypes())
+                                   .SelectMany(type => type.GetMethods(
+                                                   BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+                                   .Where(m => m.GetCustomAttribute<StaticEcsAutoRegistrationAttribute>() != null && m.GetCustomAttribute<StaticEcsAutoRegistrationAttribute>().WorldType == typeof(WorldType));
+
+            foreach (var method in methods) {
+                method.Invoke(null, null);
+            }
         }
     }
 }

@@ -50,20 +50,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private float _maxWidth;
         
-        private readonly List<EditorEntityDataMetaByWorld> _standardComponents = new();
-        private readonly List<EditorEntityDataMetaByWorld> _standardComponentsColumns = new();
-        
         private readonly List<EditorEntityDataMetaByWorld> _components = new();
         private readonly List<EditorEntityDataMetaByWorld> _componentsColumns = new();
 
         #if !FFS_ECS_DISABLE_TAGS
         private readonly List<EditorEntityDataMetaByWorld> _tags = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagsColumns = new();
-        #endif
-
-        #if !FFS_ECS_DISABLE_MASKS
-        private readonly List<EditorEntityDataMetaByWorld> _masks = new();
-        private readonly List<EditorEntityDataMetaByWorld> _maskColumns = new();
         #endif
 
         private EditorEntityDataMetaByWorld _sortIdx;
@@ -83,12 +75,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _worldData = worldData;
             _parent = parent;
             
-            foreach (var val in MetaData.StandardComponents) {
-                if (worldData.World.TryGetStandardComponentsRawPool(val.Type, out var pool)) {
-                    _standardComponents.Add(new EditorEntityDataMetaByWorld(val, pool, _ => true));
-                }
-            }
-            
             foreach (var val in MetaData.Components) {
                 if (worldData.World.TryGetComponentsRawPool(val.Type, out var pool)) {
                     _components.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
@@ -99,14 +85,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             foreach (var val in MetaData.Tags) {
                 if (worldData.World.TryGetTagsRawPool(val.Type, out var pool)) {
                     _tags.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
-                }
-            }
-            #endif
-            
-            #if !FFS_ECS_DISABLE_MASKS
-            foreach (var val in MetaData.Masks) {
-                if (worldData.World.TryGetMasksRawPool(val.Type, out var pool)) {
-                    _masks.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
                 }
             }
             #endif
@@ -131,12 +109,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawEntitiesTable();
                     break;
                 case StaticEcsViewEntitiesTab.TabType.EntityBuilder:
-                    if (!_entityBuilder.HasStandardComponents()) {
-                        foreach (var idx in _standardComponents) {
-                            _entityBuilder.OnSelectStandardComponent((IStandardComponent) Activator.CreateInstance(idx.Type, true));
-                        }
-                    }
-
                     var prefab = ObjectField("Prefab", _entityBuilder.Prefab, typeof(StaticEcsEntityProvider), true);
                     if (prefab != _entityBuilder.Prefab) {
                         _entityBuilder.Prefab = (StaticEcsEntityProvider) prefab;
@@ -147,7 +119,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         EntityInspectorWindow.ShowWindowForEntity(provider.World, provider.Entity);
                         provider.Entity = null;
                         EditorUtility.SetDirty(provider);
-                    }, false, provider => {
+                    }, provider => {
                         provider.Entity = null;
                         EditorUtility.SetDirty(provider);
                     });
@@ -156,11 +128,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void ShowAllColumns() {
-            _standardComponentsColumns.Clear();
-            foreach (var val in _standardComponents) {
-                _standardComponentsColumns.Add(val);
-            }
-            
             _componentsColumns.Clear();
             foreach (var val in _components) {
                 _componentsColumns.Add(val);
@@ -172,23 +139,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 _tagsColumns.Add(val);
             }
             #endif
-
-            #if !FFS_ECS_DISABLE_MASKS
-            _maskColumns.Clear();
-            foreach (var val in _masks) {
-                _maskColumns.Add(val);
-            }
-            #endif
         }
 
         private void ShowNoneColumns() {
-            _standardComponentsColumns.Clear();
             _componentsColumns.Clear();
             #if !FFS_ECS_DISABLE_TAGS
             _tagsColumns.Clear();
-            #endif
-            #if !FFS_ECS_DISABLE_MASKS
-            _maskColumns.Clear();
             #endif
         }
 
@@ -214,7 +170,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             } else if (IsFilterValid()) {
                 _worldData.ForAll(MakeEcsWithFilter(), this);
             } else {
-                for (var entIdx = _worldData.Count; entIdx > 0; entIdx--) {
+                for (var entIdx = _worldData.Capacity; entIdx > 0; entIdx--) { // TODO capacity?
                     if (!DrawEntityRow(entIdx - 1, true, false)) {
                         break;
                     }
@@ -272,19 +228,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     Ui.DrawSeparator();
                 }
                 #endif
-                
-                #if !FFS_ECS_DISABLE_MASKS
-                for (var i = 0; i < _maskColumns.Count;) {
-                    var idx = _maskColumns[i];
-                    SelectableLabel(idx.Name, idx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : Ui.LabelStyleThemeCenter, idx.Layout);
-
-                    DrawSortButton(idx);
-                    DrawDeleteColumnButton(ref i, _maskColumns);
-                    Ui.DrawSeparator();
-                }
-                #endif
-                
-                DrawComponents(_standardComponentsColumns);
                 DrawComponents(_componentsColumns);
             }
             EndHorizontal();
@@ -357,7 +300,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     return true;
                 }
 
-                if (_currentEntityCount >= _sortIdx.Pool.Count() && _tempEntities.Count >= _maxEntityResult - _currentEntityCount) {
+                if (_currentEntityCount >= _sortIdx.Pool.CalculateCount() && _tempEntities.Count >= _maxEntityResult - _currentEntityCount) { // Todo CalculateCount slow
                     return false;
                 }
             }
@@ -390,10 +333,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             #if !FFS_ECS_DISABLE_TAGS
             DrawComponents(entIdx, _tagsColumns, 46f + baseWidth);
             #endif
-            #if !FFS_ECS_DISABLE_MASKS
-            DrawComponents(entIdx, _maskColumns, 46f + baseWidth);
-            #endif
-            DrawComponents(entIdx, _standardComponentsColumns, 68f + baseWidth);
             DrawComponents(entIdx, _componentsColumns, 68f + baseWidth);
         }
 
@@ -462,18 +401,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class EditorEntityDataMetaByWorld : EditorEntityDataMeta {
-        public readonly IStandardRawPool Pool;
+        public readonly IRawPool Pool;
         public readonly IRawComponentPool CopmponentsPool;
+        public readonly IRawTagPool TagsPool;
         private readonly Func<uint, bool> _hasComponentFunc;
         public bool ShowTableData;
 
-        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IStandardRawPool pool, Func<uint, bool> hasComponentFunc)
+        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IRawPool pool, Func<uint, bool> hasComponentFunc)
             : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
             _hasComponentFunc = hasComponentFunc;
             ShowTableData = false;
             Pool = pool;
             if (Pool is IRawComponentPool componentPool) {
                 CopmponentsPool = componentPool;
+            }
+            if (Pool is IRawTagPool tagPool) {
+                TagsPool = tagPool;
             }
         }
 
