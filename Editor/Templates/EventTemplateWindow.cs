@@ -160,6 +160,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             sb.AppendLine("using FFS.Libraries.StaticPack;", withConfig && serialization);
             sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor || autoRegister || ignoreInEditor);
             sb.AppendLine("using UnityEngine.Scripting;", autoRegister);
+            sb.AppendLine($"#if ENABLE_IL2CPP");
+            sb.AppendLine($"using Unity.IL2CPP.CompilerServices;");
+            sb.AppendLine($"#endif");
             sb.AppendLine($"using static FFS.Libraries.StaticEcs.World<{worldTypeName}>;");
             sb.AppendLine();
             sb.AppendLine($"namespace {nameSpace} {{", !string.IsNullOrEmpty(nameSpace));

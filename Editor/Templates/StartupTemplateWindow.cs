@@ -147,6 +147,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             sb.AppendLine("using FFS.Libraries.StaticEcs;");
             sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", debugWorld || autoRegister);
             sb.AppendLine("using UnityEngine;");
+            sb.AppendLine($"#if ENABLE_IL2CPP");
+            sb.AppendLine($"using Unity.IL2CPP.CompilerServices;");
+            sb.AppendLine($"#endif");
             sb.AppendLine();
             sb.AppendLine($"[StaticEcsEditorName(\"{worldEditorName}\")]", !string.IsNullOrEmpty(worldEditorName));
             sb.AppendLine($"public struct {worldTypeName} : IWorldType {{ }}");

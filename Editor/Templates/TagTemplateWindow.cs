@@ -172,6 +172,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             sb.AppendLine("using FFS.Libraries.StaticEcs;");
             sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor || autoRegister);
             sb.AppendLine("using UnityEngine.Scripting;", autoRegister);
+            sb.AppendLine($"#if ENABLE_IL2CPP");
+            sb.AppendLine($"using Unity.IL2CPP.CompilerServices;");
+            sb.AppendLine($"#endif");
             sb.AppendLine("using System.Runtime.CompilerServices;", withExtensions);
             sb.AppendLine("using static System.Runtime.CompilerServices.MethodImplOptions;", withExtensions);
             sb.AppendLine($"using static FFS.Libraries.StaticEcs.World<{worldTypeName}>;");
