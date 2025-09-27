@@ -55,13 +55,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         protected virtual void OnEnable() {
-            if (SyncOnEnableAndDisable && (Entity?.IsActual() ?? false)) {
+            if (SyncOnEnableAndDisable && World?.Status() == WorldStatus.Initialized && (Entity?.IsActual() ?? false)) {
                 Entity.Enable();
             }
         }
 
         protected virtual void OnDisable() {
-            if (SyncOnEnableAndDisable && (Entity?.IsActual() ?? false)) {
+            if (SyncOnEnableAndDisable && World?.Status() == WorldStatus.Initialized && (Entity?.IsActual() ?? false)) {
                 Entity.Disable();
             }
         }
