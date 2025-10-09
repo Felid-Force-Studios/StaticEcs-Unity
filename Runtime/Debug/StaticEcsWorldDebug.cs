@@ -170,6 +170,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
     }
 
+    #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
     public sealed class StaticEcsWorldDebug<WorldType> : World<WorldType>.IWorldDebugEventListener
                                                          #if !FFS_ECS_DISABLE_EVENTS
                                                          , World<WorldType>.IEventsDebugEventListener
@@ -256,5 +257,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
         #endif
 
     }
+#endif
 }
 #endif

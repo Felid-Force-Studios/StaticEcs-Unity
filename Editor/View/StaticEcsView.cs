@@ -36,6 +36,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (!_initialized || _tabs.Count == 0) {
                 titleContent = new GUIContent("Static ECS");
 
+                #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
                 _tabs.Add(new StaticEcsViewEntitiesTab());
                 _tabs.Add(new StaticEcsViewStatsTab());
                 #if !FFS_ECS_DISABLE_EVENTS
@@ -44,6 +45,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 _tabs.Add(new StaticEcsViewContextTab());
                 _tabs.Add(new StaticEcsViewSystemsTab());
                 _tabs.Add(new StaticEcsViewSettingsTab());
+                #endif
                 
                 foreach (var tab in _tabs) {
                     tab.Init();

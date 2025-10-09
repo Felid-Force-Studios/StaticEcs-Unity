@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -171,3 +172,4 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
     }
 }
+#endif

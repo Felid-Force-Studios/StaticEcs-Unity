@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿#if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
@@ -25,3 +26,4 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public void OnWorldChanged(AbstractWorldData newWorldData) { }
     }
 }
+#endif

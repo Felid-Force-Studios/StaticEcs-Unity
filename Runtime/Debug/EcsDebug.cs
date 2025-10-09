@@ -19,16 +19,20 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class EcsDebug<WorldType> where WorldType : struct, IWorldType {
         public static void AddSystem<SystemsType>() where SystemsType : struct, ISystemsType {
             #if UNITY_EDITOR
+            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             if (!World<WorldType>.Systems<SystemsType>.IsInitialized()) {
                 throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only when systems initialized");
             }
             StaticEcsDebugData.Systems[typeof(SystemsType)] = (World<WorldType>.Systems<SystemsType>._allSystems, World<WorldType>.Systems<SystemsType>._allSystemsCount, typeof(WorldType));
             #endif
+            #endif
         }
         
         public static void AddWorld(int eventHistoryCount = 8192, Func<IEntity, string> windowEntityNameFunction = null) {
             #if UNITY_EDITOR
+            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             StaticEcsWorldDebug<WorldType>.Create(eventHistoryCount, windowEntityNameFunction);
+            #endif
             #endif
         }
     }
