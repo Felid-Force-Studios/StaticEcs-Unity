@@ -136,9 +136,11 @@ Displays all entity data with the ability to modify, add and delete components
 By default, only **public** object fields marked with the attribute `[Serializable]`
 - To display a private field, you must mark it with the attribute `[StaticEcsEditorShow]`
 - To hide a public field, you must mark it with the attribute `[StaticEcsEditorHide]`
+- To disable value editing in play mode, you can mark it with the attribute `[StaticEcsEditorRuntimeReadOnly]`
 ```csharp
 public struct SomeComponent : IComponent {
     [StaticEcsEditorShow]
+    [StaticEcsEditorRuntimeReadOnly]
     private int _showData;
     
     [StaticEcsEditorHide]
