@@ -130,7 +130,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUI.indentLevel++;
                     ctx.Level--;
                     foreach (var field in fields) {
-           				using (Ui.EnabledScopeVal(GUI.enabled && Application.isPlaying && !HasReadonlyAttribute(field))) {
+           				using (Ui.EnabledScopeVal(GUI.enabled && (!Application.isPlaying || !HasReadonlyAttribute(field)))) {
                             var fValue = field.GetValue(value);
                             if (TryDrawObject(ref ctx, field.Name.ToPascalCaseNoUnderscore(), fValue?.GetType() ?? field.FieldType, fValue, out newValue)) {
                                 field.SetValue(value, newValue);
