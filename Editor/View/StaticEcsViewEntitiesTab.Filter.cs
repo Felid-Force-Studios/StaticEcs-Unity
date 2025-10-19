@@ -345,7 +345,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 case QueryMethodType.ALL_ONLY_DISABLED:  
                 case QueryMethodType.ALL_WITH_DISABLED:  
                     foreach (var type in Types) {
-                        chunkMask &= type.CopmponentsPool.Chunk(chunkIdx).fullBlocks;
+                        chunkMask &= type.CopmponentsPool.Chunk(chunkIdx).notEmptyBlocks;
                     }
                     break;
                 case QueryMethodType.NONE: 
@@ -441,7 +441,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             switch (Type) {
                 case QueryMethodType.ALL:  
                     foreach (var type in Tags) {
-                        chunkMask &= type.TagsPool.Chunk(chunkIdx).fullBlocks;
+                        chunkMask &= type.TagsPool.Chunk(chunkIdx).notEmptyBlocks;
                     }
                     break;
                 case QueryMethodType.NONE: 
