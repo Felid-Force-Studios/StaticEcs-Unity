@@ -71,6 +71,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
     }
 
     [AttributeUsage(AttributeTargets.Field)]
+    public sealed class StaticEcsEditorRuntimeReadOnlyAttribute : Attribute { }
+
+    [AttributeUsage(AttributeTargets.Field)]
     public sealed class StaticEcsEditorShowAttribute : Attribute { }
 
     [AttributeUsage(AttributeTargets.Field)]

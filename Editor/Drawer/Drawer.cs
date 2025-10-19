@@ -130,10 +130,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUI.indentLevel++;
                     ctx.Level--;
                     foreach (var field in fields) {
-                        var fValue = field.GetValue(value);
-                        if (TryDrawObject(ref ctx, field.Name.ToPascalCaseNoUnderscore(), fValue?.GetType() ?? field.FieldType, fValue, out newValue)) {
-                            field.SetValue(value, newValue);
-                            changed = true;
+           				using (Ui.EnabledScopeVal(GUI.enabled && Application.isPlaying && !HasReadonlyAttribute(field))) {
+                            var fValue = field.GetValue(value);
+                            if (TryDrawObject(ref ctx, field.Name.ToPascalCaseNoUnderscore(), fValue?.GetType() ?? field.FieldType, fValue, out newValue)) {
+                                field.SetValue(value, newValue);
+                                changed = true;
+                            }
                         }
                     }
                     ctx.Level++;
@@ -162,6 +164,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             DrawSelectableText(name, strVal);
+            return false;
+        }
+        
+        private static bool HasReadonlyAttribute(FieldInfo field) {
+            var attrType = typeof(StaticEcsEditorRuntimeReadOnlyAttribute);
+            foreach (var customAttribute in field.GetCustomAttributesData()) {
+                if (customAttribute.AttributeType.Namespace == attrType.Namespace && customAttribute.AttributeType.FullName == attrType.FullName) {
+                    return true;
+                }
+            }
+
             return false;
         }
 
