@@ -124,6 +124,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             provider.OnCreateType = OnCreateType.None;
             provider.WorldTypeName = wType.FullName;
             provider.WorldEditorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == wType).EditorName;
+            provider.SyncOnEnableAndDisable = false;
             return provider;
         }
 
