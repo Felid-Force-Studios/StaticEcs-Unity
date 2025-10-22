@@ -138,10 +138,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void OnDestroy() {
-            if (data.TryGetValue(_world.GetWorldType(), out var entities)) {
-                if (entities.TryGetValue(_entity.GetId(), out var window) && window == this) {
-                    Destroy(window._provider.gameObject);
-                    entities.Remove(_entity.GetId());
+            if (data != null && _world != null && _entity != null) {
+                if (data.TryGetValue(_world.GetWorldType(), out var entities)) {
+                    if (entities.TryGetValue(_entity.GetId(), out var window) && window == this) {
+                        if (window._provider && window._provider.gameObject) {
+                            Destroy(window._provider.gameObject);
+                        }
+                        
+                        entities.Remove(_entity.GetId());
+                    }
                 }
             }
         }
