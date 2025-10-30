@@ -1,6 +1,4 @@
-﻿#if !FFS_ECS_DISABLE_EVENTS
-
-using System;
+﻿using System;
 using UnityEngine;
 #if ENABLE_IL2CPP
 using Unity.IL2CPP.CompilerServices;
@@ -86,4 +84,3 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public bool IsEmpty() => InternalIdx == -1;
     }
 }
-#endif

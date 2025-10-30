@@ -87,7 +87,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         menu.ShowAsContext();
                     }
 
-                    EditorGUILayout.LabelField("Entity ID:", Ui.WidthLine(60));
+                    EditorGUILayout.LabelField("Entity GID:", Ui.WidthLine(60));
                     if (provider.EntityIsActual()) {
                         EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) provider.Entity.GetId()).d6, Ui.LabelStyleThemeBold, Ui.WidthLine(120));
                         if (provider.Entity.IsDisabled()) {
@@ -109,9 +109,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 {
                     if (Ui.MenuButton) { }
 
-                    EditorGUILayout.LabelField("Entity GID:", Ui.WidthLine(60));
+                    EditorGUILayout.LabelField("Cluster ID:", Ui.WidthLine(60));
                     if (provider.EntityIsActual()) {
-                        EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) provider.Entity.Gid().Id()).d6, Ui.LabelStyleThemeBold, Ui.WidthLine(120));
+                        EditorGUILayout.SelectableLabel(Ui.IntToStringD6(provider.Entity.Gid().ClusterId).d6, Ui.LabelStyleThemeBold, Ui.WidthLine(120));
                     } else {
                         EditorGUILayout.LabelField("---", Ui.LabelStyleThemeBold);
                     }
@@ -145,12 +145,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             DrawComponents(ref ctx, _componentsCache, provider);
             _componentsCache.Clear();
 
-            #if !FFS_ECS_DISABLE_TAGS
             provider.Tags(_tagsCache);
             EditorGUILayout.Space(10);
             DrawTags(_tagsCache, provider);
             _tagsCache.Clear();
-            #endif
         }
 
         private static void DrawWorldMenu(AbstractStaticEcsProvider provider) {

@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static partial class Drawer {
-        #if !FFS_ECS_DISABLE_EVENTS
         public static void DrawEvent(StaticEcsEventProvider provider, DrawMode mode, Action<StaticEcsEventProvider> onClickBuild, Action<StaticEcsEventProvider> onCopyTemplate = null) {
             if (mode != DrawMode.Inspector) {
                 provider.Scroll = EditorGUILayout.BeginScrollView(provider.Scroll);
@@ -155,6 +154,5 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             menu.ShowAsContext();
         }
-        #endif
     }
 }

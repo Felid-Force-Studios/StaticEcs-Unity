@@ -39,9 +39,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
                 _tabs.Add(new StaticEcsViewEntitiesTab());
                 _tabs.Add(new StaticEcsViewStatsTab());
-                #if !FFS_ECS_DISABLE_EVENTS
                 _tabs.Add(new StaticEcsViewEventsTab());
-                #endif
                 _tabs.Add(new StaticEcsViewContextTab());
                 _tabs.Add(new StaticEcsViewSystemsTab());
                 _tabs.Add(new StaticEcsViewSettingsTab());

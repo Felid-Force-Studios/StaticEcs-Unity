@@ -7,7 +7,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
         public override bool DrawValue(ref DrawContext ctx, string label, ref EntityGID value) {
             using (new HorizontalScope()) {
                 PrefixLabel(label);
-                var empty = value.IsEmpty();
+                var empty = value.Raw == 0;
                 if (!empty && ctx.World != null && ctx.World.TryGetEntity(value, out var entity)) {
                     LabelField(value.ToString(), Ui.MinWidth());
                 } else {
@@ -16,7 +16,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
                 }
                 
                 using (Ui.EnabledScopeVal(!empty)) {
-                    if (Application.isPlaying && !value.IsEmpty() && Ui.ViewButton) {
+                    if (Application.isPlaying && !empty && Ui.ViewButton) {
                         if (!EntityInspectorWindow.ShowWindowForEntity(ctx.World, value)) {
                             Debug.LogWarning($"Entity with EntityGID {value} is not available");
                         }
@@ -28,6 +28,35 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
         }
 
         public override void DrawTableValue(ref EntityGID value, GUIStyle style, GUILayoutOption[] layoutOptions) {
+            SelectableLabel(value.ToString(), style, layoutOptions);
+        }
+    }
+    
+    internal sealed class EntityGIDCompactDrawer : IStaticEcsValueDrawer<EntityGIDCompact> {
+        public override bool DrawValue(ref DrawContext ctx, string label, ref EntityGIDCompact value) {
+            using (new HorizontalScope()) {
+                PrefixLabel(label);
+                var empty = value.Raw == 0;
+                if (!empty && ctx.World != null && ctx.World.TryGetEntity(value, out var entity)) {
+                    LabelField(value.ToString(), Ui.MinWidth());
+                } else {
+                    LabelField(empty ? "Empty" : value.ToString() + " (Not actual)", Ui.MinWidth());
+                    empty = true;
+                }
+                
+                using (Ui.EnabledScopeVal(!empty)) {
+                    if (Application.isPlaying && !empty && Ui.ViewButton) {
+                        if (!EntityInspectorWindow.ShowWindowForEntity(ctx.World, value)) {
+                            Debug.LogWarning($"Entity with EntityGID {value} is not available");
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public override void DrawTableValue(ref EntityGIDCompact value, GUIStyle style, GUILayoutOption[] layoutOptions) {
             SelectableLabel(value.ToString(), style, layoutOptions);
         }
     }

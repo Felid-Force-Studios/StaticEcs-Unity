@@ -1,5 +1,4 @@
-﻿#if !FFS_ECS_DISABLE_TAGS
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -91,4 +90,3 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
     }
 }
-#endif

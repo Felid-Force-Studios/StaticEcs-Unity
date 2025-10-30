@@ -1,4 +1,3 @@
-#if !FFS_ECS_DISABLE_EVENTS
 using UnityEditor;
 using UnityEngine;
 
@@ -26,4 +25,3 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
     }
 }
-#endif

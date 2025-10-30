@@ -26,7 +26,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public IWorld World {
             get {
                 if (_world == null) {
-                    foreach (var typeToWorld in Worlds._worlds) {
+                    foreach (var typeToWorld in Worlds.WorldsMap) {
                         if (WorldTypeName == typeToWorld.Key.FullName) {
                             _world = typeToWorld.Value;
                             break;

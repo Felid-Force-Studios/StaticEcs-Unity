@@ -23,9 +23,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         
         [SerializeReference, HideInInspector] private List<IComponent> components = new();
 
-        #if !FFS_ECS_DISABLE_TAGS
         [SerializeReference, HideInInspector] private List<ITag> tags = new();
-        #endif
 
         public IEntity Entity {
             get => _entity;
@@ -55,13 +53,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         protected virtual void OnEnable() {
-            if (SyncOnEnableAndDisable && World?.Status() == WorldStatus.Initialized && (Entity?.IsActual() ?? false)) {
+            if (SyncOnEnableAndDisable && World?.Status() == WorldStatus.Initialized && (Entity?.IsNotDestroyed() ?? false)) {
                 Entity.Enable();
             }
         }
 
         protected virtual void OnDisable() {
-            if (SyncOnEnableAndDisable && World?.Status() == WorldStatus.Initialized && (Entity?.IsActual() ?? false)) {
+            if (SyncOnEnableAndDisable && World?.Status() == WorldStatus.Initialized && (Entity?.IsNotDestroyed() ?? false)) {
                 Entity.Disable();
             }
         }
@@ -113,7 +111,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 Entity.PutRaw(value);
             }
 
-            #if !FFS_ECS_DISABLE_TAGS
             if (tags != null) {
                 foreach (var t in tags) {
                     #if DEBUG
@@ -124,7 +121,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     Entity.SetTag(t.GetType());
                 }
             }
-            #endif
 
             if (DisableEntityOnCreate) {
                 Entity.Disable();

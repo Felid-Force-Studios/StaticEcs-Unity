@@ -22,7 +22,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
             return !gameObject.scene.IsValid();
         }
 
-        #if !FFS_ECS_DISABLE_TAGS
         public void Tags(List<ITag> result) {
             if (EntityIsActual()) {
                 Entity.GetAllTags(result);
@@ -61,10 +60,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public void DeleteAllBrokenTags() {
             tags.RemoveAll(val => val == null);
         }
-        #endif
         
         public bool EntityIsActual() {
-            return Entity != null && Entity.IsActual() && Entity.Gid() == EntityGid;
+            return Entity != null && Entity.IsNotDestroyed() && Entity.Gid() == EntityGid;
         }
 
         public bool HasComponents() {
@@ -149,9 +147,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public void Clear() {
             components.Clear();
-            #if !FFS_ECS_DISABLE_TAGS
             tags.Clear();
-            #endif
         }
     }
 }

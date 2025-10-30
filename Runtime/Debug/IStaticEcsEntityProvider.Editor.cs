@@ -18,13 +18,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
         void DeleteAllBrokenComponents();
 
 
-        #if !FFS_ECS_DISABLE_TAGS
         void Tags(List<ITag> result);
         void OnSelectTag(Type tagType);
         void OnDeleteTag(Type tagType);
         bool ShouldShowTag(Type tagType, bool runtime);
         void DeleteAllBrokenTags();
-        #endif
     }
 }
 #endif

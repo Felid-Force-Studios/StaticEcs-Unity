@@ -54,10 +54,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly List<EditorEntityDataMetaByWorld> _components = new();
         private readonly List<EditorEntityDataMetaByWorld> _componentsColumns = new();
 
-        #if !FFS_ECS_DISABLE_TAGS
         private readonly List<EditorEntityDataMetaByWorld> _tags = new();
         private readonly List<EditorEntityDataMetaByWorld> _tagsColumns = new();
-        #endif
 
         private EditorEntityDataMetaByWorld _sortIdx;
         private readonly List<uint> _tempEntities = new();
@@ -82,13 +80,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
             }
 
-            #if !FFS_ECS_DISABLE_TAGS
             foreach (var val in MetaData.Tags) {
                 if (worldData.World.TryGetTagsRawPool(val.Type, out var pool)) {
                     _tags.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
                 }
             }
-            #endif
             
             ShowAllColumns();
 
@@ -134,19 +130,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 _componentsColumns.Add(val);
             }
 
-            #if !FFS_ECS_DISABLE_TAGS
             _tagsColumns.Clear();
             foreach (var val in _tags) {
                 _tagsColumns.Add(val);
             }
-            #endif
         }
 
         private void ShowNoneColumns() {
             _componentsColumns.Clear();
-            #if !FFS_ECS_DISABLE_TAGS
             _tagsColumns.Clear();
-            #endif
         }
 
         internal void Destroy() {
@@ -220,7 +212,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 SelectableLabel(EntityID, Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
                 Ui.DrawSeparator();
 
-                #if !FFS_ECS_DISABLE_TAGS
                 for (var i = 0; i < _tagsColumns.Count;) {
                     var idx = _tagsColumns[i];
                     SelectableLabel(idx.Name, idx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : Ui.LabelStyleThemeCenter, idx.Layout);
@@ -228,7 +219,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawDeleteColumnButton(ref i, _tagsColumns);
                     Ui.DrawSeparator();
                 }
-                #endif
                 DrawComponents(_componentsColumns);
             }
             EndHorizontal();
@@ -331,9 +321,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawComponents(uint entIdx) {
             _maxWidth = 180f;
             const float baseWidth = 16f;
-            #if !FFS_ECS_DISABLE_TAGS
             DrawComponents(entIdx, _tagsColumns, 46f + baseWidth);
-            #endif
             DrawComponents(entIdx, _componentsColumns, 68f + baseWidth);
         }
 

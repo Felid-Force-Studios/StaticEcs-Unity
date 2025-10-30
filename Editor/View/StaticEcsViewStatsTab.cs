@@ -30,12 +30,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public class StatsDrawer {
         private readonly IRawPool[] componentPools;
-        #if !FFS_ECS_DISABLE_TAGS
         private readonly IRawPool[] tagPools;
-        #endif
-        #if !FFS_ECS_DISABLE_EVENTS
         private readonly IEventPoolWrapper[] eventPools;
-        #endif
 
         private readonly IWorld _world;
         private readonly AbstractWorldData _worldData;
@@ -54,23 +50,19 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
             }
 
-            #if !FFS_ECS_DISABLE_TAGS
             tagPools = new IRawPool[MetaData.Tags.Count];
             for (var i = 0; i < MetaData.Tags.Count; i++) {
                 if (_world.TryGetTagsRawPool(MetaData.Tags[i].Type, out var pool)) {
                     tagPools[i] = pool;
                 }
             }
-            #endif
 
-            #if !FFS_ECS_DISABLE_EVENTS
             eventPools = new IEventPoolWrapper[MetaData.Events.Count];
             for (var i = 0; i < MetaData.Events.Count; i++) {
                 if (_world.Events().TryGetPool(MetaData.Events[i].Type, out var pool)) {
                     eventPools[i] = pool;
                 }
             }
-            #endif
 
         }
 
@@ -87,12 +79,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             verticalScrollStatsPosition = BeginScrollView(verticalScrollStatsPosition);
 
             DrawComponentPoolsStats("Components:", MetaData.Components, componentPools, true);
-            #if !FFS_ECS_DISABLE_TAGS
-            DrawComponentPoolsStats("Tags:", MetaData.Tags, tagPools, true);
-            #endif
-            #if !FFS_ECS_DISABLE_EVENTS
+            DrawComponentPoolsStats("Tags:", MetaData.Tags, tagPools, false);
             DrawEventsPoolsStats();
-            #endif
 
             EndScrollView();
         }
@@ -101,17 +89,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             BeginHorizontal();
             SelectableLabel("World", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
-            SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
+            SelectableLabel("Active Entities", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            SelectableLabel("Capacity", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
+            SelectableLabel("Capacity Entities", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
-            SelectableLabel("Destroyed", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
-            Ui.DrawSeparator();
-            SelectableLabel("Destroyed capacity", Ui.LabelStyleThemeCenter, Ui.WidthLine(120));
+            SelectableLabel("Free Entities", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
             EndHorizontal();
 
-            Ui.DrawHorizontalSeparator(660f);
+            Ui.DrawHorizontalSeparator(530f);
 
             BeginHorizontal();
             LabelField(string.Empty, Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
@@ -121,8 +107,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             LabelField(_worldData.Capacity.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
             LabelField(_worldData.Destroyed.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
-            Ui.DrawSeparator();
-            LabelField(_worldData.DestroyedCapacity.ToString(), Ui.LabelStyleThemeCenter, Ui.WidthLine(120));
             Ui.DrawSeparator();
             EndHorizontal();
 
@@ -177,7 +161,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             Space(20);
         }
         
-        #if !FFS_ECS_DISABLE_EVENTS
         private void DrawEventsPoolsStats() {
             BeginHorizontal();
             SelectableLabel("Events:", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
@@ -225,7 +208,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             Space(20);
         }
-        #endif
     }
 }
 #endif

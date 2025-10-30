@@ -124,7 +124,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 EditorGUILayout.EndHorizontal();
                 
-                #if !FFS_ECS_DISABLE_TAGS
                 EditorGUILayout.BeginHorizontal();
                 {
                     if (Ui.PlusButton) {
@@ -154,7 +153,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     DrawFilterLabels(_tagAny);
                 }
                 EditorGUILayout.EndHorizontal();
-                #endif
                 
                 if (!IsFilterValid()) {
                     EditorGUILayout.HelpBox("Please, provide at least one filter", MessageType.Warning, true);
@@ -162,11 +160,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 else if (_any.Count == 1) {
                     EditorGUILayout.HelpBox("Please, provide at least two [Any] filter", MessageType.Warning, true);
                 }
-                #if !FFS_ECS_DISABLE_TAGS
                 else if (_tagAny.Count == 1) {
                     EditorGUILayout.HelpBox("Please, provide at least two [Tag any] filter", MessageType.Warning, true);
                 }
-                #endif
             }
         }
 
@@ -198,10 +194,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 var incAll = _componentsColumns.Count == _components.Count;
                 var excAll = _componentsColumns.Count == 0;
                 
-                #if !FFS_ECS_DISABLE_TAGS
                 incAll = incAll && _tagsColumns.Count == _tags.Count;
                 excAll = excAll && _tagsColumns.Count == 0;
-                #endif
                 
                 if (GUILayout.Button("All", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
                     ShowAllColumns();
@@ -221,13 +215,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             }
                         }
                     
-                        #if !FFS_ECS_DISABLE_TAGS
                         foreach (var idx in _tags) {
                             if (!_tagsColumns.Contains(idx)) {
                                 menu.AddItem(new GUIContent(idx.FullName), false, objType => _tagsColumns.Add((EditorEntityDataMetaByWorld) objType), idx);
                             }
                         }
-                        #endif
 
                         menu.ShowAsContext();
                     }
@@ -277,11 +269,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (_any.Count > 1) methods.Add(new TypesArray(_any, QueryMethodType.ANY));
             if (_anyOnlyDisabled.Count > 1) methods.Add(new TypesArray(_anyOnlyDisabled, QueryMethodType.ANY_ONLY_DISABLED));
             if (_anyWithDisabled.Count > 1) methods.Add(new TypesArray(_anyWithDisabled, QueryMethodType.ANY_WITH_DISABLED));
-            #if !FFS_ECS_DISABLE_TAGS
             if (_tagAll.Count > 0) methods.Add(new TagArray(_tagAll, QueryMethodType.ALL));
             if (_tagNone.Count > 0) methods.Add(new TagArray(_tagNone, QueryMethodType.NONE));
             if (_tagAny.Count > 1) methods.Add(new TagArray(_tagAny, QueryMethodType.ANY));
-            #endif
 
             return _ecsWithFilter;
         }
@@ -419,9 +409,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public void IncQ<WorldType>(QueryData data) where WorldType : struct, IWorldType { }
         public void DecQ<WorldType>() where WorldType : struct, IWorldType { }
         public void BlockQ<WorldType>(int val) where WorldType : struct, IWorldType { }
+        public void Assert<WorldType>() where WorldType : struct, IWorldType { }
     }
 
-    #if !FFS_ECS_DISABLE_TAGS
     #if ENABLE_IL2CPP
     [Il2CppSetOption(Option.NullChecks, false)]
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
@@ -482,9 +472,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
         public void IncQ<WorldType>(QueryData data) where WorldType : struct, IWorldType { }
         public void DecQ<WorldType>() where WorldType : struct, IWorldType { }
+        public void Assert<WorldType>() where WorldType : struct, IWorldType { }
         public void BlockQ<WorldType>(int val) where WorldType : struct, IWorldType { }
     }
-    #endif
 
     public struct WithArray : IQueryMethod {
         internal List<IQueryMethod> _methods;
@@ -516,6 +506,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public void BlockQ<WorldType>(int val) where WorldType : struct, IWorldType {
             foreach (var method in _methods) {
                 method.BlockQ<WorldType>(val);
+            }
+        }
+
+        public void Assert<WorldType>() where WorldType : struct, IWorldType {
+            foreach (var method in _methods) {
+                method.Assert<WorldType>();
             }
         }
     }
