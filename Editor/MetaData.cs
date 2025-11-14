@@ -185,6 +185,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var (field, property, width) = FindValueAttribute(type);
             width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
 
+            Drawer.openHideFlags.Add(type.FullName);
             Components.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
                                                     new[] { GUILayout.Width(width + 68f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
             return false;

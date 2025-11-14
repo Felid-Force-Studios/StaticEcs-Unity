@@ -86,7 +86,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
             }
             
-            ShowAllColumns();
+            ShowAllColumns(true);
 
             var go = new GameObject("StaticEcsEntityBuider") {
                 hideFlags = HideFlags.NotEditable,
@@ -124,9 +124,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private void ShowAllColumns() {
+        private void ShowAllColumns(bool? showTableData) {
             _componentsColumns.Clear();
             foreach (var val in _components) {
+                if (showTableData.HasValue) {
+                    val.ShowTableData = showTableData.Value;
+                }
                 _componentsColumns.Add(val);
             }
 

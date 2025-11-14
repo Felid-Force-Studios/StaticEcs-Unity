@@ -198,7 +198,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 excAll = excAll && _tagsColumns.Count == 0;
                 
                 if (GUILayout.Button("All", incAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
-                    ShowAllColumns();
+                    ShowAllColumns(null);
                 }
 
                 if (GUILayout.Button("None", excAll ? Ui.ButtonStyleGrey : Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
