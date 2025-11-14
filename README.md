@@ -34,7 +34,7 @@ Must also be installed [StaticEcs](https://github.com/Felid-Force-Studios/Static
     `"com.felid-force-studios.static-ecs-unity": "https://github.com/Felid-Force-Studios/StaticEcs-Unity.git"`
 
 
-# Guid
+# Guide
 The module provides additional integration options with the Unity engine:
 
 ### Connection:
