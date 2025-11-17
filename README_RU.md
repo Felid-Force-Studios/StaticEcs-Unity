@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-1.2.10-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.2.11-blue.svg?style=for-the-badge)
 
 ### ЯЗЫК
 [RU](./README_RU.md)
@@ -84,8 +84,64 @@ ___
 `Wotld` - тип мира в котором будет отправлено событие  
 `Type` - тип события
 
-### Шаблоны:
+## Шаблоны:
 Генераторы классов доступны по выбору в меню создания ассетов `Assets/Create/Static ECS/`
+
+### Burst
+Для высокооптимизированных итераций вы можете использовать специальные Burst совместимые системы
+- Установите Burst в ваш проект
+- Разрешите небезопасны код в проекте
+- Сгенерируйте систему с помощью `Assets/Create/Static ECS/Burst system`
+
+В результате вы получите такую систему:
+Вам требуется описать функцию `InvokeOne` для логики обработке одной сущности
+Также вы можете опционально настроить следующие параметра:
+- `entityStatusType` - тип итерируемой сущности
+- `componentStatus` - тип итерируемых компонентов
+- `clusters` - кластеры, по умолчанию все активные
+- `with` - дополнительный фильтр (теги, компоненты и тд)
+- `parallel` - будет ли запущена итерация паралелльно
+- `minEntitiesPerThread` - минимальное количество сущностей на поток, по умолчанию 64
+- `workersLimit` - максимальное количество потоков, по умолчанию все доступные
+- функция `InvokeBlock` - вы можете переопределить функцию блочной обработки сущностей, для особых оптимизаций таких как SIMD и тд (не отменяет функцию `InvokeOne`)
+```csharp
+public unsafe struct UpdateEntitiesBurstSystem : IUpdateSystem {
+    private const EntityStatusType entityStatusType = EntityStatusType.Enabled;
+    private const ComponentStatus componentStatus = ComponentStatus.Enabled;
+    private static readonly ushort[] clusters = Array.Empty<ushort>(); // Empty == all clusters
+    private static readonly WithNothing with = default;
+
+    private static bool parallel;
+    private static uint minEntitiesPerThread; // default - 64
+    private static uint workersLimit;         // default - max threads
+
+    [MethodImpl(AggressiveInlining)]
+    public void BeforeUpdate() { }
+
+    [MethodImpl(AggressiveInlining)]
+    public void AfterUpdate() { }
+
+    [BurstCompile]
+    [MethodImpl(AggressiveInlining)]
+    private void InvokeOne(ref Position position, ref Direction direction, int worker) {
+        // TODO Write a function for processing a single entity here"
+    }
+
+    [BurstCompile]
+    [MethodImpl(AggressiveInlining)]
+    private void InvokeBlock(Position* positions, Direction* directions, int worker, uint dataOffest) {
+        // Here, custom optimization of the entire entity block is possible. (SIMD, unroll, etc.)
+        for (var i = 0; i < Const.ENTITIES_IN_BLOCK; i++) {
+            var dIdx = i + dataOffest;
+            InvokeOne(ref positions[dIdx], ref directions[dIdx], worker);
+        }
+    }
+
+    #region GENERATED
+    // ...
+    #endregion
+}
+```
 
 ## Окно просмотра Static ECS:
 ![WindowMenu.png](Readme%2FWindowMenu.png)  

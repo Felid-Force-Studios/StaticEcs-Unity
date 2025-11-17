@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-1.2.10-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.2.11-blue.svg?style=for-the-badge)
 
 ### LANGUAGE
 [RU](./README_RU.md)
@@ -83,8 +83,65 @@ Add the `StaticEcsEventProvider` script to an object in the scene:
 `Wotld` - type of world in which the event will be sent  
 `Type` - event type
 
-### Templates:
+## Templates:
 Class generators are optionally available in the `Assets/Create/Static ECS/` asset creation menu
+
+### Burst
+For highly optimized iterations, you can use special Burst-compatible systems.
+- Install Burst in your project.
+- Allow unsafe code in the project
+- Generate a system using `Assets/Create/Static ECS/Burst system`.
+
+As a result, you will get the following system:
+You need to describe the `InvokeOne` function for the logic of processing a single entity.
+You can also optionally configure the following parameters:
+- `entityStatusType` - type of iterated entity
+- `componentStatus` - type of iterated components
+- `clusters` - clusters, all active by default.
+- `with` - additional filter (tags, components, etc.).
+- `parallel` - whether iteration will be run in parallel.
+- `minEntitiesPerThread` - minimum number of entities per thread, 64 by default.
+- `workersLimit` - maximum number of threads, default is all available
+- `InvokeBlock` function - you can override the entity block processing function for special optimizations such as SIMD, etc. (does not override the `InvokeOne` function)
+
+```csharp
+public unsafe struct UpdateEntitiesBurstSystem : IUpdateSystem {
+    private const EntityStatusType entityStatusType = EntityStatusType.Enabled;
+    private const ComponentStatus componentStatus = ComponentStatus.Enabled;
+    private static readonly ushort[] clusters = Array.Empty<ushort>(); // Empty == all clusters
+    private static readonly WithNothing with = default;
+
+    private static bool parallel;
+    private static uint minEntitiesPerThread; // default - 64
+    private static uint workersLimit;         // default - max threads
+
+    [MethodImpl(AggressiveInlining)]
+    public void BeforeUpdate() { }
+
+    [MethodImpl(AggressiveInlining)]
+    public void AfterUpdate() { }
+
+    [BurstCompile]
+    [MethodImpl(AggressiveInlining)]
+    private void InvokeOne(ref Position position, ref Direction direction, int worker) {
+        // TODO Write a function for processing a single entity here"
+    }
+
+    [BurstCompile]
+    [MethodImpl(AggressiveInlining)]
+    private void InvokeBlock(Position* positions, Direction* directions, int worker, uint dataOffest) {
+        // Here, custom optimization of the entire entity block is possible. (SIMD, unroll, etc.)
+        for (var i = 0; i < Const.ENTITIES_IN_BLOCK; i++) {
+            var dIdx = i + dataOffest;
+            InvokeOne(ref positions[dIdx], ref directions[dIdx], worker);
+        }
+    }
+
+    #region GENERATED
+    // ...
+    #endregion
+}
+```
 
 ## Static ECS view window:
 ![WindowMenu.png](Readme%2FWindowMenu.png)
