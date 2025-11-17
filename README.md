@@ -87,14 +87,14 @@ Add the `StaticEcsEventProvider` script to an object in the scene:
 Class generators are optionally available in the `Assets/Create/Static ECS/` asset creation menu
 
 ### Burst
-For highly optimized iterations, you can use special Burst-compatible systems.
+For highly optimized iterations, you can use special Burst-compatible systems.  
 - Install Burst in your project.
 - Allow unsafe code in the project
 - Generate a system using `Assets/Create/Static ECS/Burst system`.
 
-As a result, you will get the following system:
-You need to describe the `InvokeOne` function for the logic of processing a single entity.
-You can also optionally configure the following parameters:
+As a result, you will get the following system:  
+You need to describe the `InvokeOne` function for the logic of processing a single entity.  
+You can also optionally configure the following parameters:  
 - `entityStatusType` - type of iterated entity
 - `componentStatus` - type of iterated components
 - `clusters` - clusters, all active by default.
