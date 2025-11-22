@@ -225,13 +225,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]");
             sb.AppendLine($"{pad}    private void AfterUpdate() {{ }}");
             sb.AppendLine();
-            sb.AppendLine($"{pad}    [BurstCompile]");
             sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]");
             sb.AppendLine($"{pad}    private void InvokeOne({InvokeOneComponentsString()}, int worker) {{");
             sb.AppendLine($"{pad}        // TODO Write a function for processing a single entity here");
             sb.AppendLine($"{pad}    }}");
             sb.AppendLine();
-            sb.AppendLine($"{pad}    [BurstCompile]");
             sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]");
             sb.AppendLine($"{pad}    private void InvokeBlock({InvokeBlockComponentsString()}, int worker, uint dataOffest) {{");
             sb.AppendLine($"{pad}        // Here, custom optimization of the entire entity block is possible. (SIMD, unroll, etc.)");

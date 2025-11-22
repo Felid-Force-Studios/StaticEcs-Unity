@@ -121,13 +121,11 @@ public unsafe struct UpdateEntitiesBurstSystem : IUpdateSystem {
     [MethodImpl(AggressiveInlining)]
     public void AfterUpdate() { }
 
-    [BurstCompile]
     [MethodImpl(AggressiveInlining)]
     private void InvokeOne(ref Position position, ref Direction direction, int worker) {
         // TODO Write a function for processing a single entity here"
     }
 
-    [BurstCompile]
     [MethodImpl(AggressiveInlining)]
     private void InvokeBlock(Position* positions, Direction* directions, int worker, uint dataOffest) {
         // Here, custom optimization of the entire entity block is possible. (SIMD, unroll, etc.)
