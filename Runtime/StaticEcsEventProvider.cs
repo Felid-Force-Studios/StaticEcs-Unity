@@ -46,7 +46,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     pool.AddRaw(EventTemplate);
                     RuntimeEvent = new RuntimeEvent {
                         InternalIdx = pool.Last(),
-                        Version = pool.Version(pool.Last()),
+                        Status = EventStatus.Read,
                         Type = EventTemplate.GetType()
                     };
                     EventCache = pool.GetRaw(pool.Last());
@@ -73,14 +73,20 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public struct RuntimeEvent {
         public static RuntimeEvent Empty = new() {
             InternalIdx = -1,
-            Version = 0,
+            Status = default,
             Type = null
         };
             
         public Type Type;
+        public EventStatus Status;
         public int InternalIdx;
-        public ushort Version;
 
         public bool IsEmpty() => InternalIdx == -1;
+    }
+
+    public enum EventStatus : byte {
+        Sent,
+        Read,
+        Suppressed
     }
 }

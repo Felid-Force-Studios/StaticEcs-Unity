@@ -166,15 +166,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     
     public readonly struct EventId : IEquatable<EventId> {
         public readonly int InternalIdx;
-        public readonly ushort Version;
         
-        public EventId(int internalIdx, ushort version) {
+        public EventId(int internalIdx) {
             InternalIdx = internalIdx;
-            Version = version;
         }
 
         public bool Equals(EventId other) {
-            return InternalIdx == other.InternalIdx && Version == other.Version;
+            return InternalIdx == other.InternalIdx;
         }
 
         public override bool Equals(object obj) {
@@ -182,7 +180,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         public override int GetHashCode() {
-            return HashCode.Combine(InternalIdx, Version);
+            return HashCode.Combine(InternalIdx);
         }
     }
     
@@ -236,7 +234,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public static void ShowWindowForEvent(IWorld world, in EventData eventData) {
             ShowWindowForEvent(world, new RuntimeEvent {
                 InternalIdx = eventData.InternalIdx,
-                Version = eventData.Version,
+                Status = eventData.EventStatus,
                 Type = eventData.TypeIdx.Type
             }, eventData.CachedData);
         }
@@ -247,7 +245,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 data[world.GetWorldType()] = events;
             }
 
-            var id = new EventId(runtimeEvent.InternalIdx, runtimeEvent.Version);
+            var id = new EventId(runtimeEvent.InternalIdx);
 
             if (events.TryGetValue(id, out var existingWindow)) {
                 existingWindow.Focus();

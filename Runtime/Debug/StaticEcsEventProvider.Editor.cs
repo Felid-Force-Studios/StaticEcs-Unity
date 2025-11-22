@@ -13,7 +13,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
 
             if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
-                if (pool.Version(RuntimeEvent.InternalIdx) != RuntimeEvent.Version) {
+                if (RuntimeEvent.Status != EventStatus.Sent) {
                     cached = true;
                     return EventCache;
                 }
@@ -27,11 +27,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public bool IsCached() {
-            if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
-                return pool.Version(RuntimeEvent.InternalIdx) != RuntimeEvent.Version;
-            }
-
-            return false;
+            return RuntimeEvent.Status != EventStatus.Sent;
         }
         
         public bool ShouldShowEvent(Type type, bool runtime) {

@@ -80,7 +80,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                                     provider.RuntimeEvent = new RuntimeEvent {
                                         InternalIdx = pool.Last(),
                                         Type = actualEvent.GetType(),
-                                        Version = pool.Version(pool.Last())
+                                        Status = EventStatus.Sent
                                     };
                                 }
                             });

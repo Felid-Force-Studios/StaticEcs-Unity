@@ -36,11 +36,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public int ReceivedIdx;
         public int InternalIdx;
         public TypeIdx TypeIdx;
-        public ushort Version;
-        public Status Status;
+        public EventStatus EventStatus;
 
         public bool Equals(EventData other) {
-            return TypeIdx.Value.Equals(other.TypeIdx.Value) && InternalIdx == other.InternalIdx && Version == other.Version;
+            return TypeIdx.Value.Equals(other.TypeIdx.Value) && InternalIdx == other.InternalIdx;
         }
 
         public override bool Equals(object obj) {
@@ -48,14 +47,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public override int GetHashCode() {
-            return HashCode.Combine(TypeIdx.Value, InternalIdx, Version);
+            return HashCode.Combine(TypeIdx.Value, InternalIdx);
         }
-    }
-
-    public enum Status : byte {
-        Sent,
-        Read,
-        Suppressed
     }
 
     public abstract class AbstractWorldData {
@@ -137,36 +130,34 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 TypeIdx = typeIdx,
                 CachedData = null,
                 ReceivedIdx = index,
-                Version = World<WorldType>.Events.Pool<T>.Value.Version(value._eventIdx),
                 InternalIdx = value._eventIdx,
-                Status = Status.Sent
+                EventStatus = EventStatus.Sent
             });
         }
         
         public void OnEventReadAll<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
-            OnEventDelete(value, Status.Read);
+            OnEventDelete(value, EventStatus.Read);
         }
 
         public void OnEventSuppress<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
-            OnEventDelete(value, Status.Suppressed);
+            OnEventDelete(value, EventStatus.Suppressed);
         }
 
-        private void OnEventDelete<T>(World<WorldType>.Event<T> value, Status status) where T : struct, IEvent {
+        private void OnEventDelete<T>(World<WorldType>.Event<T> value, EventStatus eventStatus) where T : struct, IEvent {
             if (TypeIdx.Create<T>().Type.IsIgnored()) {
                 return;
             }
             
             var eventData = new EventData {
                 TypeIdx = TypeIdx.Create<T>(),
-                Version = World<WorldType>.Events.Pool<T>.Value.Version(value._eventIdx),
                 InternalIdx = value._eventIdx,
                 CachedData = value.Value,
-                Status = status,
+                EventStatus = eventStatus,
             };
             
             Events.Change(eventData, (EventData template, ref EventData item) => {
                 item.CachedData = template.CachedData;
-                item.Status = template.Status;
+                item.EventStatus = template.EventStatus;
             });
         }
 

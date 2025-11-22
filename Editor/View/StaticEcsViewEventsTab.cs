@@ -252,9 +252,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawRow(ref EventData val) {
             var meta = _eventsByType[val.TypeIdx.Type];
 
-            var style = val.Status switch {
-                Status.Read       => Ui.LabelStyleGreyCenter,
-                Status.Suppressed => Ui.LabelStyleYellowCenter,
+            var style = val.EventStatus switch {
+                EventStatus.Read       => Ui.LabelStyleGreyCenter,
+                EventStatus.Suppressed => Ui.LabelStyleYellowCenter,
                 var _             => Ui.LabelStyleThemeCenter
             };
 
@@ -288,7 +288,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
 
                 Ui.DrawSeparator();
-                SelectableLabel(Ui.IntToStringD6(val.Status is Status.Read or Status.Suppressed ? 0 : pool.UnreadCount(val.InternalIdx)).simple, style, Ui.WidthLine(60));
+                SelectableLabel(Ui.IntToStringD6(val.EventStatus is EventStatus.Read or EventStatus.Suppressed ? 0 : pool.UnreadCount(val.InternalIdx)).simple, style, Ui.WidthLine(60));
                 Ui.DrawSeparator();
             }
             EndHorizontal();
