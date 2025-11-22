@@ -36,7 +36,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public int ReceivedIdx;
         public int InternalIdx;
         public TypeIdx TypeIdx;
-        public short Version;
+        public ushort Version;
         public Status Status;
 
         public bool Equals(EventData other) {
@@ -137,8 +137,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 TypeIdx = typeIdx,
                 CachedData = null,
                 ReceivedIdx = index,
-                Version = World<WorldType>.Events.Pool<T>.Value._versions[value._idx],
-                InternalIdx = value._idx,
+                Version = World<WorldType>.Events.Pool<T>.Value.Version(value._eventIdx),
+                InternalIdx = value._eventIdx,
                 Status = Status.Sent
             });
         }
@@ -158,8 +158,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
             
             var eventData = new EventData {
                 TypeIdx = TypeIdx.Create<T>(),
-                Version = World<WorldType>.Events.Pool<T>.Value._versions[value._idx],
-                InternalIdx = value._idx,
+                Version = World<WorldType>.Events.Pool<T>.Value.Version(value._eventIdx),
+                InternalIdx = value._eventIdx,
                 CachedData = value.Value,
                 Status = status,
             };

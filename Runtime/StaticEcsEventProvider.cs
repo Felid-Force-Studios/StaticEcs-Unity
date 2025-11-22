@@ -73,13 +73,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public struct RuntimeEvent {
         public static RuntimeEvent Empty = new() {
             InternalIdx = -1,
-            Version = -1,
+            Version = 0,
             Type = null
         };
             
         public Type Type;
         public int InternalIdx;
-        public short Version;
+        public ushort Version;
 
         public bool IsEmpty() => InternalIdx == -1;
     }

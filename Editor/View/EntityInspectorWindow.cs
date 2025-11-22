@@ -166,9 +166,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     
     public readonly struct EventId : IEquatable<EventId> {
         public readonly int InternalIdx;
-        public readonly short Version;
+        public readonly ushort Version;
         
-        public EventId(int internalIdx, short version) {
+        public EventId(int internalIdx, ushort version) {
             InternalIdx = internalIdx;
             Version = version;
         }
