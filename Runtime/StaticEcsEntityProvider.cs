@@ -142,6 +142,21 @@ namespace FFS.Libraries.StaticEcs.Unity {
             _entity = null;
             EntityGid = default;
         }
+
+        public static void AttachEntityProvider(GameObject gameObject, IEntity entity) {
+            var provider = gameObject.AddComponent<StaticEcsEntityProvider>();
+            provider.OnCreateType = OnCreateType.None;
+            provider.UsageType = UsageType.Manual;
+            provider.WorldTypeName = entity.WorldTypeType().FullName;
+            provider.World = entity.World();
+            provider.Entity = entity;
+            if (entity.IsDisabled()) {
+                provider.enabled = false;
+            }
+            
+            entity.GetAllComponents(provider.components);
+            entity.GetAllTags(provider.tags);
+        }
     }
         
     public enum OnDestroyType {
