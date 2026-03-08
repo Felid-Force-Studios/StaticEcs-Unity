@@ -1,10 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
+
+    public static class EntityInspectorRegistry {
+        public static readonly Dictionary<Type, Func<EntityGID, bool>> ShowEntityHandlers = new();
+    }
 
     internal static class LastFocusedInspectorWindow {
         internal static EditorWindow lastFocused;
@@ -14,7 +18,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 windowToDock.Show();
                 return;
             }
-            
+
             var parentField = typeof(EditorWindow).GetField("m_Parent", BindingFlags.Instance | BindingFlags.NonPublic);
             if (parentField != null) {
                 var targetParent = parentField.GetValue(lastFocused);
@@ -32,15 +36,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
     }
-    
-    
-    public class EntityInspectorWindow : EditorWindow {
-        private static readonly Dictionary<Type, Dictionary<uint, EntityInspectorWindow>> data = new();
 
-        private IWorld _world;
-        private StaticEcsEntityProvider _provider;
-        private IEntity _entity;
-        
+
+    public class EntityInspectorWindow : EditorWindow {
+        private static readonly Dictionary<(Type, uint), EntityInspectorWindow> data = new();
+
+        internal AbstractStaticEcsProvider provider;
+        internal EntityGID entityGid;
+        internal Type worldType;
+        internal Action<EntityInspectorWindow> drawAction;
+        internal Func<EntityInspectorWindow, bool> isActualFunc;
+
         internal float drawRate = 0.5f;
         internal float drawFrames = 2;
         private float _acc;
@@ -48,14 +54,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         static EntityInspectorWindow() {
             EditorApplication.playModeStateChanged += state => {
                 if (state == PlayModeStateChange.ExitingPlayMode) {
-                    
-                    var allWindows = new List<EntityInspectorWindow>();
-                    foreach (var (key, value) in data) {
-                        foreach (var (id, window) in value) {
-                            allWindows.Add(window);
-                        }
-                    }
-                    
+
+                    var allWindows = new List<EntityInspectorWindow>(data.Values);
+
                     foreach (var window in allWindows) {
                         window.Close();
                     }
@@ -72,7 +73,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorApplication.update -= Draw;
                 return;
             }
-            
+
             _acc += Time.deltaTime;
             if (_acc >= drawRate) {
                 Repaint();
@@ -80,93 +81,104 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        public static bool ShowWindowForEntity(IWorld world, EntityGID gid) {
-            if (world.TryGetEntity(gid, out var entity)) {
-                ShowWindowForEntity(world, entity);
+        internal static bool ShowWindow(Type worldType, EntityGID gid, string title,
+            Func<EntityGID, AbstractStaticEcsProvider> createProvider,
+            Action<EntityInspectorWindow> drawAction,
+            Func<EntityInspectorWindow, bool> isActualFunc) {
+
+            var key = (worldType, gid.Id);
+            if (data.TryGetValue(key, out var existingWindow)) {
+                existingWindow.Focus();
                 return true;
             }
 
-            return false;
-        }
-
-        public static void ShowWindowForEntity(IWorld world, IEntity entity) {
-            if (data.TryGetValue(world.GetWorldType(), out var entities)) { } else {
-                entities = new Dictionary<uint, EntityInspectorWindow>();
-                data[world.GetWorldType()] = entities;
-            }
-
-            if (entities.TryGetValue(entity.GetId(), out var existingWindow)) {
-                existingWindow.Focus();
-                return;
-            }
-
             var window = CreateInstance<EntityInspectorWindow>();
-            entities[entity.GetId()] = window;
-            var nameFunction = StaticEcsDebugData.Worlds[world.GetWorldType()].WindowNameFunction;
-            window.titleContent = new GUIContent(nameFunction?.Invoke(entity) ?? $"Entity {entity.GetId()}");
-            window._entity = entity;
-            window._world = world;
-            window._provider = CreateStaticEcsEntityDebugView(world, entity);
-            
+            data[key] = window;
+            window.titleContent = new GUIContent(title);
+            window.entityGid = gid;
+            window.worldType = worldType;
+            window.provider = createProvider(gid);
+            window.drawAction = drawAction;
+            window.isActualFunc = isActualFunc;
+
             LastFocusedInspectorWindow.DockNextTo(window);
-        }
-
-        private static StaticEcsEntityProvider CreateStaticEcsEntityDebugView(IWorld world, IEntity entity) {
-            var wType = world.GetWorldType();
-
-            var go = new GameObject("StaticEcsEntityDebugView") {
-                hideFlags = HideFlags.NotEditable,
-            };
-            DontDestroyOnLoad(go);
-            var provider = go.AddComponent<StaticEcsEntityProvider>();
-            provider.Entity = entity;
-            provider.UsageType = UsageType.Manual;
-            provider.OnCreateType = OnCreateType.None;
-            provider.WorldTypeName = wType.FullName;
-            provider.WorldEditorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == wType).EditorName;
-            provider.SyncOnEnableAndDisable = false;
-            return provider;
+            return true;
         }
 
         private void OnFocus() {
             EditorApplication.update += Draw;
             LastFocusedInspectorWindow.lastFocused = this;
         }
-        
+
         private void OnDisable() {
             EditorApplication.update -= Draw;
         }
 
         private void OnDestroy() {
-            if (data != null && _world != null && _entity != null) {
-                if (data.TryGetValue(_world.GetWorldType(), out var entities)) {
-                    if (entities.TryGetValue(_entity.GetId(), out var window) && window == this) {
-                        if (window._provider && window._provider.gameObject) {
-                            Destroy(window._provider.gameObject);
-                        }
-                        
-                        entities.Remove(_entity.GetId());
-                    }
+            var key = (worldType, entityGid.Id);
+            if (data.TryGetValue(key, out var window) && window == this) {
+                if (window.provider && window.provider.gameObject) {
+                    Destroy(window.provider.gameObject);
                 }
+
+                data.Remove(key);
             }
         }
 
         private void OnGUI() {
             if (Application.isPlaying) {
-                if (!_provider.EntityIsActual()) {
+                if (isActualFunc != null && !isActualFunc(this)) {
                     EditorGUILayout.HelpBox("Entity is destroyed or not actual", MessageType.Info, true);
                 } else {
-                    Drawer.DrawEntity(_provider, DrawMode.Viewer, _ => {}, _ => Close());
+                    drawAction?.Invoke(this);
                 }
             } else {
                 EditorGUILayout.HelpBox("Data is only available in play mode", MessageType.Info, true);
             }
         }
     }
-    
+
+    public static class EntityInspectorHelper<TWorld, TProvider>
+        where TWorld : struct, IWorldType
+        where TProvider : StaticEcsEntityProvider<TWorld> {
+
+        public static bool ShowWindowForEntity(EntityGID gid) {
+            if (gid.Status<TWorld>() != GIDStatus.Active) {
+                return false;
+            }
+
+            var nameFunction = StaticEcsDebugData.Worlds.TryGetValue(typeof(TWorld), out var worldData) ? worldData.WindowNameFunction : null;
+            var title = nameFunction?.Invoke(gid) ?? $"Entity {gid.Id}";
+
+            return EntityInspectorWindow.ShowWindow(typeof(TWorld), gid, title,
+                CreateProvider, DrawEntity, IsActual);
+        }
+
+        private static AbstractStaticEcsProvider CreateProvider(EntityGID gid) {
+            var go = new GameObject("StaticEcsEntityDebugView") {
+                hideFlags = HideFlags.NotEditable,
+            };
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            var provider = go.AddComponent<TProvider>();
+            provider.EntityGid = gid;
+            provider.UsageType = UsageType.Manual;
+            provider.OnCreateType = OnCreateType.None;
+            provider.onEnableAndDisable = false;
+            return provider;
+        }
+
+        private static void DrawEntity(EntityInspectorWindow window) {
+            Drawer.DrawEntity<TWorld, TProvider>((TProvider) window.provider, DrawMode.Viewer, _ => {}, _ => window.Close());
+        }
+
+        private static bool IsActual(EntityInspectorWindow window) {
+            return ((TProvider) window.provider).EntityIsActual();
+        }
+    }
+
     public readonly struct EventId : IEquatable<EventId> {
         public readonly int InternalIdx;
-        
+
         public EventId(int internalIdx) {
             InternalIdx = internalIdx;
         }
@@ -183,15 +195,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return HashCode.Combine(InternalIdx);
         }
     }
-    
-    
-    public class EventInspectorWindow : EditorWindow {
-        private static readonly Dictionary<Type, Dictionary<EventId, EventInspectorWindow>> data = new();
 
-        private IWorld _world;
-        private StaticEcsEventProvider _provider;
-        private EventId _id;
-        
+
+    public class EventInspectorWindow : EditorWindow {
+        private static readonly Dictionary<(Type, EventId), EventInspectorWindow> data = new();
+
+        internal AbstractStaticEcsProvider provider;
+        internal Type worldType;
+        internal EventId id;
+        internal Action<EventInspectorWindow> drawAction;
+        internal Func<EventInspectorWindow, bool> isEmptyFunc;
+
         internal float drawRate = 0.5f;
         internal float drawFrames = 2;
         private float _acc;
@@ -199,14 +213,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         static EventInspectorWindow() {
             EditorApplication.playModeStateChanged += state => {
                 if (state == PlayModeStateChange.ExitingPlayMode) {
-                    
-                    var allWindows = new List<EventInspectorWindow>();
-                    foreach (var (key, value) in data) {
-                        foreach (var (id, window) in value) {
-                            allWindows.Add(window);
-                        }
-                    }
-                    
+
+                    var allWindows = new List<EventInspectorWindow>(data.Values);
+
                     foreach (var window in allWindows) {
                         window.Close();
                     }
@@ -223,7 +232,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorApplication.update -= Draw;
                 return;
             }
-            
+
             _acc += Time.deltaTime;
             if (_acc >= drawRate) {
                 Repaint();
@@ -231,81 +240,99 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        public static void ShowWindowForEvent(IWorld world, in EventData eventData) {
-            ShowWindowForEvent(world, new RuntimeEvent {
-                InternalIdx = eventData.InternalIdx,
-                Status = eventData.EventStatus,
-                Type = eventData.TypeIdx.Type
-            }, eventData.CachedData);
-        }
+        internal static void ShowWindow(Type worldType, in RuntimeEvent runtimeEvent, IEvent cachedEvent,
+            Func<RuntimeEvent, IEvent, AbstractStaticEcsProvider> createProvider,
+            Action<EventInspectorWindow> drawAction,
+            Func<EventInspectorWindow, bool> isEmptyFunc) {
 
-        public static void ShowWindowForEvent(IWorld world, in RuntimeEvent runtimeEvent, IEvent cachedEvent) {
-            if (data.TryGetValue(world.GetWorldType(), out var events)) { } else {
-                events = new Dictionary<EventId, EventInspectorWindow>();
-                data[world.GetWorldType()] = events;
-            }
+            var eventId = new EventId(runtimeEvent.InternalIdx);
+            var key = (worldType, eventId);
 
-            var id = new EventId(runtimeEvent.InternalIdx);
-
-            if (events.TryGetValue(id, out var existingWindow)) {
+            if (data.TryGetValue(key, out var existingWindow)) {
                 existingWindow.Focus();
                 return;
             }
 
             var window = CreateInstance<EventInspectorWindow>();
-            events[id] = window;
+            data[key] = window;
             window.titleContent = new GUIContent(runtimeEvent.Type.EditorTypeName());
-            window._id = id;
-            window._world = world;
-            window._provider = CreateStaticEcsEventDebugView(world, in runtimeEvent, cachedEvent);
-            
-            LastFocusedInspectorWindow.DockNextTo(window);
-        }
+            window.id = eventId;
+            window.worldType = worldType;
+            window.provider = createProvider(runtimeEvent, cachedEvent);
+            window.drawAction = drawAction;
+            window.isEmptyFunc = isEmptyFunc;
 
-        private static StaticEcsEventProvider CreateStaticEcsEventDebugView(IWorld world, in RuntimeEvent runtimeEvent, IEvent cachedEvent) {
-            var wType = world.GetWorldType();
-            var go = new GameObject("StaticEcsEventDebugView") {
-                hideFlags = HideFlags.NotEditable,
-            };
-            DontDestroyOnLoad(go);
-            var provider = go.AddComponent<StaticEcsEventProvider>();
-            provider.RuntimeEvent = runtimeEvent;
-            provider.EventCache = cachedEvent;
-            provider.UsageType = UsageType.Manual;
-            provider.OnCreateType = OnCreateType.None;
-            provider.WorldTypeName = wType.FullName;
-            provider.WorldEditorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == wType).EditorName;
-            return provider;
+            LastFocusedInspectorWindow.DockNextTo(window);
         }
 
         private void OnFocus() {
             EditorApplication.update += Draw;
             LastFocusedInspectorWindow.lastFocused = this;
         }
-        
+
         private void OnDisable() {
             EditorApplication.update -= Draw;
         }
 
         private void OnDestroy() {
-            if (data.TryGetValue(_world.GetWorldType(), out var events)) {
-                if (events.TryGetValue(_id, out var window) && window == this) {
-                    Destroy(window._provider.gameObject);
-                    events.Remove(_id);
+            var key = (worldType, id);
+            if (data.TryGetValue(key, out var window) && window == this) {
+                if (window.provider && window.provider.gameObject) {
+                    Destroy(window.provider.gameObject);
                 }
+                data.Remove(key);
             }
         }
 
         private void OnGUI() {
             if (Application.isPlaying) {
-                if (_provider.RuntimeEvent.IsEmpty()) {
+                if (isEmptyFunc != null && isEmptyFunc(this)) {
                     EditorGUILayout.HelpBox("Entity is destroyed or not actual", MessageType.Info, true);
                 } else {
-                    Drawer.DrawEvent(_provider, DrawMode.Viewer, _ => { }, provider => {});
+                    drawAction?.Invoke(this);
                 }
             } else {
                 EditorGUILayout.HelpBox("Data is only available in play mode", MessageType.Info, true);
             }
+        }
+    }
+
+    public static class EventInspectorHelper<TWorld, TProvider>
+        where TWorld : struct, IWorldType
+        where TProvider : StaticEcsEventProvider<TWorld> {
+
+        public static void ShowWindowForEvent(in EventData eventData) {
+            ShowWindowForEvent(new RuntimeEvent {
+                InternalIdx = eventData.InternalIdx,
+                Status = eventData.EventStatus,
+                Type = eventData.TypeIdx.Type
+            }, eventData.CachedData);
+        }
+
+        public static void ShowWindowForEvent(in RuntimeEvent runtimeEvent, IEvent cachedEvent) {
+            EventInspectorWindow.ShowWindow(typeof(TWorld), in runtimeEvent, cachedEvent,
+                CreateProvider, DrawEvent, IsEmpty);
+        }
+
+        private static AbstractStaticEcsProvider CreateProvider(RuntimeEvent runtimeEvent, IEvent cachedEvent) {
+            var go = new GameObject("StaticEcsEventDebugView") {
+                hideFlags = HideFlags.NotEditable,
+            };
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            var provider = go.AddComponent<TProvider>();
+            provider.RuntimeEvent = runtimeEvent;
+            provider.EventCache = cachedEvent;
+            provider.UsageType = UsageType.Manual;
+            provider.OnCreateType = OnCreateType.None;
+            return provider;
+        }
+
+        private static void DrawEvent(EventInspectorWindow window) {
+            Drawer.DrawEvent<TWorld, TProvider>((TProvider) window.provider, DrawMode.Viewer, _ => { }, _ => {});
+        }
+
+        private static bool IsEmpty(EventInspectorWindow window) {
+            return ((TProvider) window.provider).RuntimeEvent.IsEmpty();
         }
     }
 }

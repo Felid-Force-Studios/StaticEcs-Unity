@@ -8,7 +8,9 @@ using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     
-    public class StaticEcsViewEventsTab : IStaticEcsViewTab {
+    public class StaticEcsViewEventsTab<TWorld, TEventsProvider> : IStaticEcsViewTab 
+        where TWorld : struct, IWorldType
+        where TEventsProvider : StaticEcsEventProvider<TWorld> {
         internal enum TabType: byte {
             Table,
             EventBuilder
@@ -18,40 +20,42 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly string[] _tabsNames = { "Table", "Event builder" };
         internal TabType SelectedTab;
         
-        private readonly Dictionary<Type, EventsDrawer> _drawersByWorldTypeType = new();
-        private EventsDrawer _currentDrawer;
+        private readonly Dictionary<Type, EventsDrawer<TWorld, TEventsProvider>> _drawersByWorldTypeType = new();
+        private EventsDrawer<TWorld, TEventsProvider> _currentDrawer;
         
         public string Name() => "Events";
         public void Init() {}
 
-        public void Draw(StaticEcsView view) {
+        public void Draw() {
             Ui.DrawToolbar(_tabs, ref SelectedTab, type => _tabsNames[(int) type]);
             _currentDrawer.Draw();
         }
         public void Destroy() {}
 
         public void OnWorldChanged(AbstractWorldData newWorldData) {
-            if (!_drawersByWorldTypeType.ContainsKey(newWorldData.WorldTypeType)) {
-                _drawersByWorldTypeType[newWorldData.WorldTypeType] =  new EventsDrawer(this, newWorldData);
+            if (!_drawersByWorldTypeType.ContainsKey(newWorldData.Handle.WorldType)) {
+                _drawersByWorldTypeType[newWorldData.Handle.WorldType] =  new EventsDrawer<TWorld, TEventsProvider>(this, newWorldData);
             }
             
-            _currentDrawer = _drawersByWorldTypeType[newWorldData.WorldTypeType];
-            _drawersByWorldTypeType[newWorldData.WorldTypeType] = _currentDrawer;
+            _currentDrawer = _drawersByWorldTypeType[newWorldData.Handle.WorldType];
+            _drawersByWorldTypeType[newWorldData.Handle.WorldType] = _currentDrawer;
         }
     }
 
-    public class EventsDrawer {
+    public class EventsDrawer<TWorld, TEventProvider> 
+        where TWorld : struct, IWorldType
+        where TEventProvider : StaticEcsEventProvider<TWorld> {
         private const float _maxWidth = 1056f;
         
         private Vector2 horizontalScroll = Vector2.zero;
         private Vector2 verticalScroll = Vector2.zero;
         
-        private readonly StaticEcsViewEventsTab _parent;
+        private readonly StaticEcsViewEventsTab<TWorld, TEventProvider> _parent;
         private readonly AbstractWorldData _worldData;
         private readonly EditorEventDataMetaByWorld[] _eventsMeta;
         private readonly Dictionary<Type, EditorEventDataMetaByWorld> _eventsByType = new();
 
-        private readonly StaticEcsEventProvider _builder;
+        private readonly TEventProvider _builder;
         private bool _showAfterBuild;
 
         private PageRingBuffer<EventData> events;
@@ -63,7 +67,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         // filter
         private readonly List<EditorEventDataMetaByWorld> _filterTypes = new();
 
-        internal EventsDrawer(StaticEcsViewEventsTab parent, AbstractWorldData worldData) {
+        internal EventsDrawer(StaticEcsViewEventsTab<TWorld, TEventProvider> parent, AbstractWorldData worldData) {
             _parent = parent;
             _worldData = worldData;
             _eventsMeta = new EditorEventDataMetaByWorld[MetaData.Events.Count];
@@ -93,7 +97,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         internal void Draw() {
             switch (_parent.SelectedTab) {
-                case StaticEcsViewEventsTab.TabType.Table:
+                case StaticEcsViewEventsTab<TWorld, TEventProvider>.TabType.Table:
                     if (_filterTypes.Count > 0) {
                         DrawFilter(ref currentFilteredPage);
                     } else {
@@ -101,17 +105,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
                     DrawTable();
                     break;
-                case StaticEcsViewEventsTab.TabType.EventBuilder:
+                case StaticEcsViewEventsTab<TWorld, TEventProvider>.TabType.EventBuilder:
                     GUILayout.BeginVertical(Ui.MaxWidth600);
                     LabelField("Build settings:", Ui.WidthLine(90));
                     _showAfterBuild = Toggle("Show after build", _showAfterBuild, Ui.WidthLine(90));
                     GUILayout.EndVertical();
                     Space(10);
 
-                    Drawer.DrawEvent(_builder, DrawMode.Builder, provider => {
+                    Drawer.DrawEvent<TWorld, TEventProvider>(_builder, DrawMode.Builder, provider => {
                         provider.SendEvent();
                         if (_showAfterBuild) {
-                            EventInspectorWindow.ShowWindowForEvent(_worldData.World, in _builder.RuntimeEvent, _builder.EventCache);
+                            EventInspectorHelper<TWorld, TEventProvider>.ShowWindowForEvent(_builder.RuntimeEvent, _builder.EventCache);
                         }
                         _builder.RuntimeEvent = RuntimeEvent.Empty;
                         _builder.EventCache = null;
@@ -269,26 +273,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 IntField(val.ReceivedIdx, style, Ui.WidthLine(60));
                 Ui.DrawSeparator();
 
-                _worldData.World.Events().TryGetPool(val.TypeIdx.Type, out var pool);
+                _worldData.Handle.TryGetEventsHandle(val.TypeIdx.Type, out var eventsHandle);
 
                 SelectableLabel(val.TypeIdx.Type.EditorTypeName(), val.TypeIdx.Type.EditorTypeColor(out var color) ? Ui.LabelStyleThemeCenterColor(color) : style, Ui.WidthLine(200));
                 Ui.DrawSeparator();
-                var e = val.CachedData ?? pool.GetRaw(val.InternalIdx);
+                var e = val.CachedData ?? eventsHandle.GetRaw(val.InternalIdx);
 
-                if (MetaData.Inspectors.TryGetValue(meta.Type, out var inspector)) {
-                    inspector.DrawTableValue(e, Ui.LabelStyleThemeCenter, Ui.WidthLine(600));
+                if (meta.TryGetTableField(out var field)) {
+                    Drawer.DrawField(e, field, style, Ui.WidthLine(600));
+                } else if (meta.TryGetTableProperty(out var property)) {
+                    Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
                 } else {
-                    if (meta.TryGetTableField(out var field)) {
-                        Drawer.DrawField(e, field, style, Ui.WidthLine(600));
-                    } else if (meta.TryGetTableProperty(out var property)) {
-                        Drawer.DrawProperty(e, property, style, Ui.WidthLine(600));
-                    } else {
-                        LabelField("✔", style, Ui.WidthLine(600));
-                    }
+                    LabelField("✔", style, Ui.WidthLine(600));
                 }
 
                 Ui.DrawSeparator();
-                SelectableLabel(Ui.IntToStringD6(val.EventStatus is EventStatus.Read or EventStatus.Suppressed ? 0 : pool.UnreadCount(val.InternalIdx)).simple, style, Ui.WidthLine(60));
+                SelectableLabel(Ui.IntToStringD6(val.EventStatus is EventStatus.Read or EventStatus.Suppressed ? 0 : eventsHandle.UnreadCount(val.InternalIdx)).simple, style, Ui.WidthLine(60));
                 Ui.DrawSeparator();
             }
             EndHorizontal();
@@ -325,8 +325,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawDeleteEventButton(ref EventData data) {
             LabelField(GUIContent.none, Ui.Width(10));
             if (Ui.TrashButtonExpand) {
-                if (_worldData.World.Events().TryGetPool(data.TypeIdx.Type, out var pool)) {
-                    pool.Del(data.InternalIdx);
+                if (_worldData.Handle.TryGetEventsHandle(data.TypeIdx.Type, out var eventsHandle)) {
+                    eventsHandle.Delete(data.InternalIdx);
                 }
             }
         }
@@ -334,7 +334,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawViewEventButton(ref EventData data) {
             LabelField(GUIContent.none, Ui.Width(10));
             if (Ui.ViewButtonExpand) {
-                EventInspectorWindow.ShowWindowForEvent(_worldData.World, in data);
+                EventInspectorHelper<TWorld, TEventProvider>.ShowWindowForEvent(in data);
             }
         }
 
@@ -356,16 +356,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             Ui.DrawHorizontalSeparator(_maxWidth);
         }
 
-        private StaticEcsEventProvider CreateEventView() {
-            var go = new GameObject($"StaticEcsEventProvider") {
+        private TEventProvider CreateEventView() {
+            var go = new GameObject($"StaticEcsEventDebugView") {
                 hideFlags = HideFlags.NotEditable,
             };
             Object.DontDestroyOnLoad(go);
-            var view = go.AddComponent<StaticEcsEventProvider>();
+            var view = go.AddComponent<TEventProvider>();
             view.UsageType = UsageType.Manual;
             view.OnCreateType = OnCreateType.None;
-            view.WorldTypeName = _worldData.WorldTypeTypeFullName;
-            view.WorldEditorName = _worldData.worldEditorName;
             return view;
         }
     }

@@ -8,13 +8,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static partial class Drawer {
         private static readonly List<ITag> _tagsCache = new();
 
-        private static void DrawTags<TProvider>(List<ITag> tags, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
+        private static void DrawTags<TWorld>(List<ITag> tags, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
             EditorGUILayout.BeginHorizontal();
             {
                 var hasAll = MetaData.Tags.Count == tags.Count;
                 using (Ui.EnabledScopeVal(!hasAll && GUI.enabled)) {
                     if (Ui.PlusDropDownButton && !hasAll) {
-                        DrawTagsMenu(tags, provider);
+                        DrawTagsMenu(tags, obj, provider);
                     }
                 }
 
@@ -28,7 +28,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.LabelField($"Broken tag - is null, index {i}", EditorStyles.boldLabel);
                     if (GUILayout.Button("Delete all broken tags", Ui.ButtonStyleTheme, Ui.ExpandWidthFalse())) {
                         provider.DeleteAllBrokenTags();
-                        EditorUtility.SetDirty(provider);
+                        EditorUtility.SetDirty(obj);
                     }
 
                     EditorGUILayout.Space(2);
@@ -37,7 +37,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 var type = tag.GetType();
                 var colored = type.EditorTypeColor(out var color);
-                
+
                 EditorGUI.indentLevel++;
                 EditorGUILayout.BeginHorizontal(GUI.skin.box);
                 {
@@ -52,7 +52,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
                     if (Ui.TrashButton) {
                         provider.OnDeleteTag(type);
-                        EditorUtility.SetDirty(provider);
+                        EditorUtility.SetDirty(obj);
                     }
                 }
                 EditorGUILayout.EndHorizontal();
@@ -61,7 +61,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawTagsMenu<TProvider>(List<ITag> actualTags, TProvider provider) where TProvider : Object, IStaticEcsEntityProvider {
+        private static void DrawTagsMenu<TWorld>(List<ITag> actualTags, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
             var menu = new GenericMenu();
             foreach (var tag in MetaData.Tags) {
                 var has = false;
@@ -72,13 +72,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
                 }
 
-
                 if (has) continue;
 
                 if (provider.ShouldShowTag(tag.Type, Application.isPlaying)) {
                     menu.AddItem(new GUIContent(tag.FullName), false, objType => {
                                      provider.OnSelectTag((Type) objType);
-                                     EditorUtility.SetDirty(provider);
+                                     EditorUtility.SetDirty(obj);
                                  },
                                  tag.Type);
                 } else {

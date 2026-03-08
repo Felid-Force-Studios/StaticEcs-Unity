@@ -1,8 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using UnityEngine;
+using System.Threading;
 
 namespace FFS.Libraries.StaticEcs.Unity {
     internal static class TypeDescriptorData {
@@ -31,7 +30,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Type Type => TypeDescriptorData.Types[Value];
     }
 
-    public struct EventData: IEquatable<EventData> {
+    public struct EventData : IEquatable<EventData> {
         public IEvent CachedData;
         public int ReceivedIdx;
         public int InternalIdx;
@@ -52,105 +51,57 @@ namespace FFS.Libraries.StaticEcs.Unity {
     }
 
     public abstract class AbstractWorldData {
-        public IWorld World;
-        public Type WorldTypeType;
-        public uint CountWithoutDestroyed;
-        public uint Capacity;
-        public uint Destroyed;
+        public WorldHandle Handle;
         public PageRingBuffer<EventData> Events;
         public Dictionary<Type, int> EventsReceived;
-        public string worldEditorName;
-        public string WorldTypeTypeFullName;
-        public Func<IEntity, string> WindowNameFunction;
-
-        public abstract bool IsActual(uint idx);
-
-        public abstract void ForAll<T>(T with, IForAll action) where T : struct, IQueryMethod;
-
-        public abstract IEntity GetEntity(uint entIdx);
-
-        public abstract bool FindEntityByGid(uint gid, out IEntity entity);
-
-        public abstract void DestroyEntity(uint entIdx);
+        public Func<EntityGID, string> WindowNameFunction;
     }
 
-    public interface IForAll {
-        public bool ForAll(uint entityId);
-    }
+    internal class WorldData<TWorld> : AbstractWorldData, World<TWorld>.IEventsDebugEventListener where TWorld : struct, IWorldType {
+        private SpinLock _eventListenerLock = new SpinLock(false);
 
-    internal class WorldData<WorldType> : AbstractWorldData where WorldType : struct, IWorldType {
-        public override bool IsActual(uint idx) {
-            return new World<WorldType>.Entity(idx).IsNotDestroyed();
-        }
-
-        public override void ForAll<T>(T with, IForAll action) {
-            foreach (var entity in World<WorldType>.Query.Entities(with)) {
-                if (!action.ForAll(entity.id - Const.ENTITY_ID_OFFSET)) {
-                    return;
-                }
-            }
-        }
-
-        public override IEntity GetEntity(uint entIdx) {
-            return new World<WorldType>.Entity(entIdx).Box();
-        }
-
-        public override bool FindEntityByGid(uint eid, out IEntity entity) {
-            var chunks = World<WorldType>.Entities.Value.chunks;
-
-            var e = new World<WorldType>.Entity(eid);
-            var chunkIdx = eid >> Const.ENTITIES_IN_CHUNK_SHIFT;
-            
-            if (chunkIdx < chunks.Length && World<WorldType>.Entities.Value.EntityIsLoaded(e) && e.IsNotDestroyed()) {
-                entity = e.Box();
-                return true;
-            }
-
-            entity = default;
-            return false;
-        }
-
-        public override void DestroyEntity(uint entIdx) {
-            new World<WorldType>.Entity(entIdx).Destroy();
-        }
-        
-        public void OnEventSent<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
+        public void OnEventSent<T>(World<TWorld>.Event<T> value) where T : struct, IEvent {
             var typeIdx = TypeIdx.Create<T>();
-            
+
             if (typeIdx.Type.IsIgnored()) {
                 return;
             }
+
+            var lockTaken = false;
+            _eventListenerLock.Enter(ref lockTaken);
 
             if (EventsReceived.TryGetValue(typeIdx.Type, out var index)) {
                 index++;
             }
             EventsReceived[typeIdx.Type] = index;
-            
+
             Events.Push(new EventData {
                 TypeIdx = typeIdx,
                 CachedData = null,
                 ReceivedIdx = index,
-                InternalIdx = value._eventIdx,
+                InternalIdx = value.EventIdx,
                 EventStatus = EventStatus.Sent
             });
+
+            _eventListenerLock.Exit();
         }
         
-        public void OnEventReadAll<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
+        public void OnEventReadAll<T>(World<TWorld>.Event<T> value) where T : struct, IEvent {
             OnEventDelete(value, EventStatus.Read);
         }
 
-        public void OnEventSuppress<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
+        public void OnEventSuppress<T>(World<TWorld>.Event<T> value) where T : struct, IEvent {
             OnEventDelete(value, EventStatus.Suppressed);
         }
 
-        private void OnEventDelete<T>(World<WorldType>.Event<T> value, EventStatus eventStatus) where T : struct, IEvent {
+        private void OnEventDelete<T>(World<TWorld>.Event<T> value, EventStatus eventStatus) where T : struct, IEvent {
             if (TypeIdx.Create<T>().Type.IsIgnored()) {
                 return;
             }
             
             var eventData = new EventData {
                 TypeIdx = TypeIdx.Create<T>(),
-                InternalIdx = value._eventIdx,
+                InternalIdx = value.EventIdx,
                 CachedData = value.Value,
                 EventStatus = eventStatus,
             };
@@ -160,85 +111,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 item.EventStatus = template.EventStatus;
             });
         }
-
     }
-
-    #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
-    public sealed class StaticEcsWorldDebug<WorldType> : World<WorldType>.IWorldDebugEventListener
-                                                         , World<WorldType>.IEventsDebugEventListener
-        where WorldType : struct, IWorldType {
-        private WorldData<WorldType> _worldData;
-        internal static StaticEcsWorldDebug<WorldType> Instance;
-        internal Func<IEntity, string> windowEntityNameFunction;
-        private readonly int _eventHistoryPageCount;
-
-        private StaticEcsWorldDebug(int eventHistoryCount) {
-            _eventHistoryPageCount = Math.Max(eventHistoryCount, 8);
-        }
-
-        public static void Create(int eventHistoryPageCount, Func<IEntity, string> windowEntityNameFunction = null) {
-            if (World<WorldType>.Status != WorldStatus.Created) {
-                throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only between world creation and initialization");
-            }
-
-            Instance = new StaticEcsWorldDebug<WorldType>(eventHistoryPageCount) {
-                windowEntityNameFunction = windowEntityNameFunction,
-            };
-            World<WorldType>.DEBUG.AddWorldDebugEventListener(Instance);
-            World<WorldType>.Events.AddEventsDebugEventListener(Instance);
-        }
-
-        public void OnWorldInitialized() {
-            _worldData = new WorldData<WorldType> {
-                World = Worlds.Get(typeof(WorldType)),
-                WorldTypeType = typeof(WorldType),
-                Events = new PageRingBuffer<EventData>(_eventHistoryPageCount),
-                EventsReceived = new Dictionary<Type, int>(),
-                WindowNameFunction = windowEntityNameFunction
-            };
-            
-            UpdateWorldCounts();
-
-            StaticEcsDebugData.Worlds[typeof(WorldType)] = _worldData;
-        }
-
-        public void OnWorldDestroyed() {
-            World<WorldType>.DEBUG.RemoveWorldDebugEventListener(this);
-            World<WorldType>.Events.RemoveEventsDebugEventListener(this);
-            StaticEcsDebugData.Worlds.Remove(typeof(WorldType));
-        }
-
-        private void UpdateWorldCounts() {
-            _worldData.CountWithoutDestroyed = World<WorldType>.CalculateLoadedEntitiesCount();
-            _worldData.Capacity = World<WorldType>.CalculateEntitiesCapacity();
-            _worldData.Destroyed = _worldData.Capacity - World<WorldType>.CalculateLoadedEntitiesCount();
-        }
-
-        public void OnWorldResized(uint capacity) {
-            UpdateWorldCounts();
-        }
-
-        public void OnEntityCreated(World<WorldType>.Entity entity) {
-            UpdateWorldCounts();
-        }
-
-        public void OnEntityDestroyed(World<WorldType>.Entity entity) {
-            UpdateWorldCounts();
-        }
-        
-        public void OnEventSent<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
-            _worldData.OnEventSent(value);
-        }
-
-        public void OnEventReadAll<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
-            _worldData.OnEventReadAll(value);
-        }
-
-        public void OnEventSuppress<T>(World<WorldType>.Event<T> value) where T : struct, IEvent {
-            _worldData.OnEventSuppress(value);
-        }
-
-    }
-#endif
 }
 #endif

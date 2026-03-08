@@ -1,15 +1,7 @@
 ﻿using System;
 
 namespace FFS.Libraries.StaticEcs.Unity {
-    [AttributeUsage(AttributeTargets.Method)]
-    public class StaticEcsAutoRegistrationAttribute : Attribute {
-        public Type WorldType { get; }
-
-        public StaticEcsAutoRegistrationAttribute(Type worldType) {
-            WorldType = worldType;
-        }
-    }
-    
+   
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public sealed class StaticEcsEditorNameAttribute : Attribute {
         public readonly string Name;

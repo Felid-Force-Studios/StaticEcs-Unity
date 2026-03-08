@@ -1,0 +1,72 @@
+#if FFS_ECS_TMP
+using System.Runtime.CompilerServices;
+using TMPro;
+using UnityEngine;
+using static System.Runtime.CompilerServices.MethodImplOptions;
+#if ENABLE_IL2CPP
+using Unity.IL2CPP.CompilerServices;
+#endif
+
+namespace FFS.Libraries.StaticEcs.Unity {
+
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    [RequireComponent(typeof(TMP_Dropdown))]
+    public abstract class DropdownChangeEntityProvider<TWorld> : GUIEntityEventProvider<TWorld>
+        where TWorld : struct, IWorldType {
+
+        private TMP_Dropdown _dropdown;
+
+        protected virtual void Awake() {
+            _dropdown = GetComponent<TMP_Dropdown>();
+            _dropdown.onValueChanged.AddListener(OnDropdownValueChanged);
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        protected virtual void OnSendEvent(TMP_Dropdown dropdown, int value) {
+            World<TWorld>.SendEvent(new DropdownChangeEntityEvent {
+                Ref = dropdown,
+                EntityGID = EntityGID,
+                Value = value,
+            });
+        }
+
+        private void OnDropdownValueChanged(int v) {
+            if (!CanSend()) return;
+            if (SendEvents) OnSendEvent(_dropdown, v);
+        }
+    }
+
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    public abstract class DropdownChangeEntityGIDProvider<TWorld> : DropdownChangeEntityProvider<TWorld>
+        where TWorld : struct, IWorldType {
+
+        [SerializeField] private EntityGID entityGid;
+        protected override EntityGID EntityGID { [MethodImpl(AggressiveInlining)] get => entityGid; }
+        [MethodImpl(AggressiveInlining)]
+        public void SetEntityGID(EntityGID gid) => entityGid = gid;
+    }
+
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    public abstract class DropdownChangeEntityRefProvider<TWorld, TProvider> : DropdownChangeEntityProvider<TWorld>
+        where TWorld : struct, IWorldType
+        where TProvider : StaticEcsEntityProvider<TWorld> {
+
+        [SerializeField] private TProvider entityProvider;
+        protected override EntityGID EntityGID {
+            [MethodImpl(AggressiveInlining)]
+            get => entityProvider != null ? entityProvider.EntityGid : default;
+        }
+        [MethodImpl(AggressiveInlining)]
+        public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+    }
+}
+#endif

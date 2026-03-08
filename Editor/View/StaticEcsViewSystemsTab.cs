@@ -1,38 +1,38 @@
-﻿#if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+#if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
-    public class StaticEcsViewSystemsTab : IStaticEcsViewTab {
+    public class StaticEcsViewSystemsTab<TWorld> : IStaticEcsViewTab
+        where TWorld : struct, IWorldType {
         internal enum TabType: byte {
             Init,
             Update,
             Destroy
         }
-        
+
         private static readonly TabType[] _tabs = { TabType.Init, TabType.Update, TabType.Destroy };
         private static readonly string[] _tabsNames = { "Init", "Update", "Destroy" };
         internal TabType SelectedTab;
 
-        private Dictionary<Type, SystemDrawer> _drawersBySystemIdType = new();
-        private SystemDrawer _currentDrawer;
+        private Dictionary<Type, SystemDrawer<TWorld>> _drawersBySystemIdType = new();
+        private SystemDrawer<TWorld> _currentDrawer;
         private AbstractWorldData _currentWorldData;
 
         public string Name() => "Systems";
 
         public void Init() { }
 
-        public void DrawHeader(StaticEcsView view) {
+        public void DrawHeader() {
             CheckDrawer();
             if (_currentDrawer != null) {
                 DrawSystemsSelector();
             }
         }
 
-        public void Draw(StaticEcsView view) {
+        public void Draw() {
             CheckDrawer();
 
             if (_currentDrawer != null) {
@@ -44,19 +44,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void CheckDrawer() {
             if (_currentDrawer == null && _currentWorldData != null) {
                 foreach (var drawer in _drawersBySystemIdType) {
-                    if (drawer.Value.Systems.worldType == _currentWorldData.WorldTypeType) {
+                    if (drawer.Value.Systems.worldType == _currentWorldData.Handle.WorldType) {
                         _currentDrawer = drawer.Value;
                         break;
                     }
                 }
 
                 foreach (var typeToSystem in StaticEcsDebugData.Systems) {
-                    if (typeToSystem.Value.worldType == _currentWorldData.WorldTypeType) {
-                        _currentDrawer = new SystemDrawer {
+                    if (typeToSystem.Value.worldType == _currentWorldData.Handle.WorldType) {
+                        _currentDrawer = new SystemDrawer<TWorld> {
                             Parent = this,
                             SysIdType = typeToSystem.Key,
                             Systems = typeToSystem.Value,
-                            SystemsInfo = new List<SystemInfo>[typeToSystem.Value.systems.Length],
                         };
 
                         _drawersBySystemIdType[typeToSystem.Key] = _currentDrawer;
@@ -72,99 +71,114 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _currentWorldData = newWorldData;
             _currentDrawer = null;
         }
-        
+
         internal void DrawSystemsSelector() {
-            // GUILayout.BeginHorizontal();
-            // {
-                if (GUILayout.Button(new GUIContent("Systems:", EditorGUIUtility.IconContent("d_Preset.Context").image), Ui.IconButtonStretchedStyle, Ui.ExpandWidthFalse())) {
-                    var menu = new GenericMenu();
-                    foreach (var drawer in _drawersBySystemIdType) {
-                        if (drawer.Value.Systems.worldType == _currentWorldData.WorldTypeType && drawer.Value != _currentDrawer) {
-                            menu.AddItem(new GUIContent(drawer.Value.SysIdType.EditorTypeName()), false, () => { _currentDrawer = drawer.Value; });
-                        }
+            if (GUILayout.Button(new GUIContent("Systems:", EditorGUIUtility.IconContent("d_Preset.Context").image), Ui.IconButtonStretchedStyle, Ui.ExpandWidthFalse())) {
+                var menu = new GenericMenu();
+                foreach (var drawer in _drawersBySystemIdType) {
+                    if (drawer.Value.Systems.worldType == _currentWorldData.Handle.WorldType && drawer.Value != _currentDrawer) {
+                        menu.AddItem(new GUIContent(drawer.Value.SysIdType.EditorTypeName()), false, () => { _currentDrawer = drawer.Value; });
                     }
-
-                    foreach (var typeToSystem in StaticEcsDebugData.Systems) {
-                        if (typeToSystem.Value.worldType == _currentWorldData.WorldTypeType && !_drawersBySystemIdType.ContainsKey(typeToSystem.Key)) {
-                            menu.AddItem(new GUIContent(typeToSystem.Key.EditorTypeName()), false, () => {
-                                _currentDrawer = new SystemDrawer {
-                                    Parent = this,
-                                    SysIdType = typeToSystem.Key,
-                                    Systems = typeToSystem.Value,
-                                    SystemsInfo = new List<SystemInfo>[typeToSystem.Value.systems.Length],
-                                };
-
-                                _drawersBySystemIdType[typeToSystem.Key] = _currentDrawer;
-                            });
-                        }
-                    }
-                    menu.ShowAsContext();
                 }
-                GUILayout.Label(_currentDrawer.SysIdType.Name, Ui.LabelStyleThemeBold2, Ui.ExpandWidthFalse());
-            // }
-            // GUILayout.EndHorizontal();
+
+                foreach (var typeToSystem in StaticEcsDebugData.Systems) {
+                    if (typeToSystem.Value.worldType == _currentWorldData.Handle.WorldType && !_drawersBySystemIdType.ContainsKey(typeToSystem.Key)) {
+                        menu.AddItem(new GUIContent(typeToSystem.Key.EditorTypeName()), false, () => {
+                            _currentDrawer = new SystemDrawer<TWorld> {
+                                Parent = this,
+                                SysIdType = typeToSystem.Key,
+                                Systems = typeToSystem.Value,
+                            };
+
+                            _drawersBySystemIdType[typeToSystem.Key] = _currentDrawer;
+                        });
+                    }
+                }
+                menu.ShowAsContext();
+            }
+            GUILayout.Label(_currentDrawer.SysIdType.Name, Ui.LabelStyleThemeBold2, Ui.ExpandWidthFalse());
         }
     }
 
-    public class SystemDrawer {
-        internal StaticEcsViewSystemsTab Parent;
+    public class SystemDrawer<TWorld> where TWorld : struct, IWorldType {
+        internal StaticEcsViewSystemsTab<TWorld> Parent;
         internal Type SysIdType;
-        internal ((ISystem system, short order, int idx)[] systems, int count, Type worldType) Systems;
-        internal List<SystemInfo>[] SystemsInfo;
+        internal (SystemData[] systems, int count, Type worldType) Systems;
 
         private static Dictionary<int, string> _formattedTime = new();
-
-        private static readonly Type IInitSystemType = typeof(IInitSystem);
-        private static readonly Type ISystemsBatchType = typeof(ISystemsBatch);
-        private static readonly Type IDestroySystemType = typeof(IDestroySystem);
         private Vector2 verticalScroll = Vector2.zero;
+        private int _drawLevel = 10;
+
+        private static string FormatTime(float avgTime) {
+            var key = (int)(avgTime * 100);
+            if (!_formattedTime.TryGetValue(key, out var str)) {
+                str = $"{avgTime:F2} ms";
+                _formattedTime[key] = str;
+            }
+            return str;
+        }
+
+        private bool DrawSystemNameFoldout(int index, SystemData systemData) {
+            var systemType = systemData.System.GetType();
+            var systemName = systemType.EditorTypeName();
+            var foldoutKey = HashCode.Combine("SYS_", SysIdType.FullName, index);
+            var isOpen = Drawer.openHideFlags.Contains(foldoutKey);
+
+            var style = new GUIStyle(EditorStyles.boldLabel) {
+                hover = EditorStyles.iconButton.hover,
+                active = EditorStyles.iconButton.active,
+                focused = EditorStyles.iconButton.focused,
+            };
+
+            var rect = EditorGUILayout.GetControlRect(Ui.WidthLine(400));
+            rect = EditorGUI.IndentedRect(rect);
+            using (Ui.EnabledScope) {
+                if (GUI.Button(rect, (isOpen ? "▾ " : "▸ ") + systemName, style)) {
+                    if (isOpen) Drawer.openHideFlags.Remove(foldoutKey);
+                    else Drawer.openHideFlags.Add(foldoutKey);
+                    isOpen = !isOpen;
+                }
+            }
+
+            return isOpen;
+        }
+
+        private void DrawSystemFields(SystemData systemData) {
+            var systemType = systemData.System.GetType();
+            var systemName = systemType.EditorTypeName();
+            _drawLevel = 10;
+            EditorGUILayout.BeginVertical(GUI.skin.box);
+            Drawer.TryDrawObject(ref _drawLevel, systemName, systemType, systemData.System, out _);
+            EditorGUILayout.EndVertical();
+        }
 
         internal void Draw() {
             switch (Parent.SelectedTab) {
-                case StaticEcsViewSystemsTab.TabType.Init:
+                case StaticEcsViewSystemsTab<TWorld>.TabType.Init:
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.SelectableLabel("System", Ui.LabelStyleThemeCenter, Ui.WidthLine(400));
                     Ui.DrawSeparator();
                     EditorGUILayout.EndHorizontal();
                     Ui.DrawHorizontalSeparator(410f);
                     verticalScroll = EditorGUILayout.BeginScrollView(verticalScroll);
-                    
+
                     for (var i = 0; i < Systems.count; i++) {
-                        var item = Systems.systems[i].system;
-                        var itemType = item.GetType();
-                        if (IInitSystemType.IsAssignableFrom(itemType)) {
+                        var systemData = Systems.systems[i];
+                        if (systemData.HasInit) {
                             EditorGUILayout.BeginHorizontal();
-                            EditorGUILayout.SelectableLabel(itemType.EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(400));
+                            var isOpen = DrawSystemNameFoldout(i, systemData);
                             Ui.DrawSeparator();
                             EditorGUILayout.EndHorizontal();
+                            if (isOpen) {
+                                DrawSystemFields(systemData);
+                            }
                             Ui.DrawHorizontalSeparator(410f);
-                        }
-                        if (ISystemsBatchType.IsAssignableFrom(itemType)) {
-                            var batch = (ISystemsBatch) item;
-                            SystemsInfo[i] ??= new List<SystemInfo>();
-                            batch.Info(SystemsInfo[i]);
-
-                            bool hasInitSystems = false;
-                            for (var sysId = 0; sysId < SystemsInfo[i].Count; sysId++) {
-                                var systemInfo = SystemsInfo[i][sysId];
-                                if (systemInfo.InitSystem) {
-                                    hasInitSystems = true;
-                                    EditorGUILayout.BeginHorizontal();
-                                    EditorGUILayout.SelectableLabel(systemInfo.SystemType.EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(400));
-                                    Ui.DrawSeparator();
-                                    EditorGUILayout.EndHorizontal();
-                                }
-                            }
-
-                            if (hasInitSystems) {
-                                Ui.DrawHorizontalSeparator(410f);
-                            }
                         }
                     }
                     EditorGUILayout.EndScrollView();
 
                     break;
-                case StaticEcsViewSystemsTab.TabType.Update:
+                case StaticEcsViewSystemsTab<TWorld>.TabType.Update:
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.SelectableLabel("Active", Ui.LabelStyleThemeCenter, Ui.WidthLine(37));
                     Ui.DrawSeparator();
@@ -177,42 +191,35 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     verticalScroll = EditorGUILayout.BeginScrollView(verticalScroll);
 
                     for (var i = 0; i < Systems.count; i++) {
-                        var item = Systems.systems[i].system;
-                        var itemType = item.GetType();
-                        if (ISystemsBatchType.IsAssignableFrom(itemType)) {
-                            var batch = (ISystemsBatch) item;
-                            SystemsInfo[i] ??= new List<SystemInfo>();
-                            batch.Info(SystemsInfo[i]);
-                            
-                            for (var sysId = 0; sysId < SystemsInfo[i].Count; sysId++) {
-                                var systemInfo = SystemsInfo[i][sysId];
-                                EditorGUILayout.BeginHorizontal();
-                                EditorGUILayout.LabelField(GUIContent.none, Ui.LabelStyleThemeBold, Ui.WidthLine(10));
-                                var newEnabled = EditorGUILayout.Toggle(systemInfo.Enabled, Ui.WidthLine(10));
-                                EditorGUILayout.LabelField(GUIContent.none, Ui.LabelStyleThemeBold, Ui.WidthLine(10));
-                                Ui.DrawSeparator();
-                                if (newEnabled != systemInfo.Enabled) {
-                                    batch.SetActive(sysId, newEnabled);
-                                }
-                                EditorGUILayout.SelectableLabel(systemInfo.SystemType.EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(400));
-                                Ui.DrawSeparator();
+                        ref var systemData = ref Systems.systems[i];
+                        if (!systemData.HasUpdate) continue;
 
-                                if (!_formattedTime.TryGetValue((int) (systemInfo.AvgUpdateTime * 1000), out var time)) {
-                                    time = $"{systemInfo.AvgUpdateTime.ToString("F3", CultureInfo.InvariantCulture)} ms";
-                                    _formattedTime[(int) (systemInfo.AvgUpdateTime * 1000)] = time;
-                                }
-                                
-                                EditorGUILayout.LabelField(time, Ui.LabelStyleThemeBold, Ui.WidthLine(60));
-                                Ui.DrawSeparator();
-                                EditorGUILayout.EndHorizontal();
-                            }
-                            Ui.DrawHorizontalSeparator(540f);
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField(GUIContent.none, Ui.LabelStyleThemeBold, Ui.WidthLine(10));
+                        var isActive = systemData.HasUpdateIsActive ? systemData.System.UpdateIsActive() : true;
+                        var effectiveActive = isActive && !systemData.DebugDisabled;
+                        var newActive = EditorGUILayout.Toggle(effectiveActive, Ui.WidthLine(10));
+                        if (newActive != effectiveActive) {
+                            systemData.DebugDisabled = !newActive;
+                        }
+                        EditorGUILayout.LabelField(GUIContent.none, Ui.LabelStyleThemeBold, Ui.WidthLine(10));
+                        Ui.DrawSeparator();
+
+                        var isOpen = DrawSystemNameFoldout(i, systemData);
+                        Ui.DrawSeparator();
+
+                        EditorGUILayout.LabelField(FormatTime(systemData.AvgUpdateTime), Ui.LabelStyleThemeBold, Ui.WidthLine(60));
+                        Ui.DrawSeparator();
+                        EditorGUILayout.EndHorizontal();
+                        if (isOpen) {
+                            DrawSystemFields(systemData);
                         }
                     }
+                    Ui.DrawHorizontalSeparator(540f);
                     EditorGUILayout.EndScrollView();
 
                     break;
-                case StaticEcsViewSystemsTab.TabType.Destroy:
+                case StaticEcsViewSystemsTab<TWorld>.TabType.Destroy:
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.SelectableLabel("System", Ui.LabelStyleThemeCenter, Ui.WidthLine(400));
                     Ui.DrawSeparator();
@@ -221,35 +228,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     verticalScroll = EditorGUILayout.BeginScrollView(verticalScroll);
 
                     for (var i = 0; i < Systems.count; i++) {
-                        var item = Systems.systems[i].system;
-                        var itemType = item.GetType();
-                        if (IDestroySystemType.IsAssignableFrom(itemType)) {
+                        var systemData = Systems.systems[i];
+                        if (systemData.HasDestroy) {
                             EditorGUILayout.BeginHorizontal();
-                            EditorGUILayout.SelectableLabel(itemType.EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(400));
+                            var isOpen = DrawSystemNameFoldout(i, systemData);
                             Ui.DrawSeparator();
                             EditorGUILayout.EndHorizontal();
+                            if (isOpen) {
+                                DrawSystemFields(systemData);
+                            }
                             Ui.DrawHorizontalSeparator(410f);
-                        }
-                        if (ISystemsBatchType.IsAssignableFrom(itemType)) {
-                            var batch = (ISystemsBatch) item;
-                            SystemsInfo[i] ??= new List<SystemInfo>();
-                            batch.Info(SystemsInfo[i]);
-
-                            var hasDestroySystems = false;
-                            for (var sysId = 0; sysId < SystemsInfo[i].Count; sysId++) {
-                                var systemInfo = SystemsInfo[i][sysId];
-                                if (systemInfo.DestroySystem) {
-                                    hasDestroySystems = true;
-                                    EditorGUILayout.BeginHorizontal();
-                                    EditorGUILayout.SelectableLabel(systemInfo.SystemType.EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(400));
-                                    Ui.DrawSeparator();
-                                    EditorGUILayout.EndHorizontal();
-                                }
-                            }
-
-                            if (hasDestroySystems) {
-                                Ui.DrawHorizontalSeparator(410f);
-                            }
                         }
                     }
 

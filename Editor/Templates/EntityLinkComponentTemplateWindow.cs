@@ -1,51 +1,39 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using FFS.Libraries.StaticEcs.Unity.Editor.Inspectors;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class EntityLinkComponentTemplateWindow : EditorWindow {
-        ArrayDrawer<string> namesDrawer = new();
         string[] names = {"Link"};
         string path;
         Vector2 scroll;
-        
+
         string nameSpace;
         string worldName;
         string worldTypeName;
         Type worldType;
-        
-        bool autoRegister = true;
-        
-        bool withConfig = true;
+
         bool serialization = false;
-        bool onComponentChanged = false;
-        bool copyable = true;
-        bool clearable = true;
-        
+        bool withHooks = false;
+
         bool withExtensions = true;
         bool refMethod = true;
         bool addMethod = true;
-        bool tryAddMethod = true;
-        bool putMethod = true;
+        bool setMethod = true;
         bool hasMethod = true;
         bool hasDisabledMethod = true;
         bool hasEnabledMethod = true;
         bool enableMethod = true;
         bool disableMethod = true;
         bool deleteMethod = true;
-        bool tryDeleteMethod = true;
         bool copyMethod = true;
-        bool tryCopyMethod = true;
         bool moveMethod = true;
-        bool tryMoveMethod = true;
-        bool setLinksMethod = true;
-        
-        
+        bool setLinkMethod = true;
+
+
         bool withColor = true;
         Color color = Color.white;
 
@@ -55,7 +43,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             window.minSize = new Vector2(300, 200);
             window.path = AssetPath();
             window.nameSpace = EditorSettings.projectGenerationRootNamespace.Trim();
-            Drawer.openHideFlags.Add(typeof(string[]).FullName + "Links" + 10);
+            Drawer.openHideFlags.Add((typeof(string[]).FullName + "Links" + 10).GetHashCode());
         }
 
         void OnGUI() {
@@ -68,8 +56,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
             }
             scroll = EditorGUILayout.BeginScrollView(scroll);
-            
-            
+
+
             EditorGUILayout.BeginHorizontal();
             {
                 if (Ui.SettingButton) {
@@ -77,42 +65,31 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 EditorGUILayout.LabelField("World:", Ui.WidthLine(60));
                 EditorGUILayout.LabelField(worldName, Ui.LabelStyleThemeBold);
-                if (worldType != null && names.Length > 0 && GUILayout.Button("Create Components", Ui.ButtonStyleYellow)) {
+                if (worldType != null && names.Length > 0 && GUILayout.Button("Create Link-Components", Ui.ButtonStyleYellow)) {
                     CreateFiles();
                     Close();
                 }
             }
             EditorGUILayout.EndHorizontal();
-            
+
             EditorGUILayout.Space(10);
             nameSpace = EditorGUILayout.TextField("Namespace", nameSpace);
-            
+
             EditorGUILayout.Space(10);
-            var context = new DrawContext() {
-                Level = 10
-            };
-            namesDrawer.DrawValue(ref context, "Links", ref names);
+            Drawer.DrawStringArray("Links", ref names);
             for (var i = 0; i < names.Length; i++) {
                 ref var val = ref names[i];
                 if (string.IsNullOrEmpty(val)) {
-                    val = "Component";
+                    val = "Link";
                 }
             }
-            
-            EditorGUILayout.Space(10);
-            autoRegister = EditorGUILayout.Toggle("Auto registration", autoRegister);
 
             EditorGUILayout.Space(10);
-            withConfig = EditorGUILayout.Toggle("Config", withConfig);
-            if (withConfig) {
-                EditorGUI.indentLevel++;
-                serialization = EditorGUILayout.Toggle("Serialization", serialization);
-                onComponentChanged = EditorGUILayout.Toggle("Events", onComponentChanged);
-                copyable = EditorGUILayout.Toggle("Copyable", copyable);
-                clearable = EditorGUILayout.Toggle("Clearable", clearable);
-                EditorGUI.indentLevel--;
-            }
-            
+            serialization = EditorGUILayout.Toggle("Serialization", serialization);
+
+            EditorGUILayout.Space(10);
+            withHooks = EditorGUILayout.Toggle("Hooks", withHooks);
+
             EditorGUILayout.Space(10);
             withColor = EditorGUILayout.Toggle("Editor color", withColor);
             if (withColor) {
@@ -120,34 +97,30 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 color = EditorGUILayout.ColorField("Color", color);
                 EditorGUI.indentLevel--;
             }
-            
+
             EditorGUILayout.Space(10);
             withExtensions = EditorGUILayout.Toggle("Extensions", withExtensions);
             if (withExtensions) {
                 EditorGUI.indentLevel++;
                 refMethod = EditorGUILayout.Toggle("Ref", refMethod);
                 addMethod = EditorGUILayout.Toggle("Add", addMethod);
-                tryAddMethod = EditorGUILayout.Toggle("Try add", tryAddMethod);
-                putMethod = EditorGUILayout.Toggle("Put", putMethod);
+                setMethod = EditorGUILayout.Toggle("Set", setMethod);
                 hasMethod = EditorGUILayout.Toggle("Has", hasMethod);
                 hasDisabledMethod = EditorGUILayout.Toggle("Has disabled", hasDisabledMethod);
                 hasEnabledMethod = EditorGUILayout.Toggle("Has enabled", hasEnabledMethod);
                 enableMethod = EditorGUILayout.Toggle("Enable", enableMethod);
                 disableMethod = EditorGUILayout.Toggle("Disable", disableMethod);
                 deleteMethod = EditorGUILayout.Toggle("Delete", deleteMethod);
-                tryDeleteMethod = EditorGUILayout.Toggle("Try delete", tryDeleteMethod);
                 copyMethod = EditorGUILayout.Toggle("Copy", copyMethod);
-                tryCopyMethod = EditorGUILayout.Toggle("Try copy", tryCopyMethod);
                 moveMethod = EditorGUILayout.Toggle("Move", moveMethod);
-                tryMoveMethod = EditorGUILayout.Toggle("Try move", tryMoveMethod);
-                setLinksMethod = EditorGUILayout.Toggle("Set link", setLinksMethod);
+                setLinkMethod = EditorGUILayout.Toggle("Set link", setLinkMethod);
                 EditorGUI.indentLevel--;
             }
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndScrollView();
         }
-        
+
         private void DrawWorldMenu() {
             var menu = new GenericMenu();
             for (var i = 0; i < MetaData.WorldsMetaData.Count; i++) {
@@ -165,7 +138,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             menu.ShowAsContext();
         }
-        
+
         public void CreateFiles() {
             foreach (var componentName in names) {
                 var fileName = $"{path}/{componentName}.cs";
@@ -175,12 +148,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 catch (Exception ex) {
                     Debug.LogError(ex.Message);
-                }  
+                }
             }
 
             AssetDatabase.Refresh();
         }
-        
+
         static string AssetPath() {
             var path = AssetDatabase.GetAssetPath(Selection.activeObject);
             if (!string.IsNullOrEmpty(path) && AssetDatabase.Contains(Selection.activeObject)) {
@@ -194,23 +167,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return path;
         }
 
-        public string CreateTemplate(string componentName) {
+        public string CreateTemplate(string linkName) {
             var sb = new StringBuilder();
             var pad = string.IsNullOrEmpty(nameSpace) ? "" : "    ";
             sb.AppendLine("using System;");
             sb.AppendLine("using FFS.Libraries.StaticEcs;");
-            sb.AppendLine("using FFS.Libraries.StaticPack;", withConfig && serialization);
-            sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor || autoRegister);
-            sb.AppendLine("using UnityEngine.Scripting;", autoRegister);
+            sb.AppendLine("using FFS.Libraries.StaticPack;", serialization);
+            sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor);
             sb.AppendLine($"#if ENABLE_IL2CPP");
             sb.AppendLine($"using Unity.IL2CPP.CompilerServices;");
             sb.AppendLine($"#endif");
             sb.AppendLine("using System.Runtime.CompilerServices;", withExtensions);
             sb.AppendLine("using static System.Runtime.CompilerServices.MethodImplOptions;", withExtensions);
-            sb.AppendLine($"using static FFS.Libraries.StaticEcs.World<{worldTypeName}>;");
+            sb.AppendLine($"using static FFS.Libraries.StaticEcs.World<{worldTypeName}>;", withExtensions);
             sb.AppendLine();
             sb.AppendLine($"namespace {nameSpace} {{", !string.IsNullOrEmpty(nameSpace));
-            
+
             sb.AppendLine($"{pad}#if ENABLE_IL2CPP");
             sb.AppendLine($"{pad}[Il2CppSetOption(Option.NullChecks, false)]");
             sb.AppendLine($"{pad}[Il2CppSetOption(Option.ArrayBoundsChecks, false)]");
@@ -220,63 +192,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]", withColor);
-            sb.AppendLine($"{pad}public struct {componentName} : IEntityLinkComponent<{componentName}> {{");
-            sb.AppendLine($"{pad}    public EntityGID Link;");
-            sb.AppendLine();
-            sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]");
-            sb.AppendLine($"{pad}    ref EntityGID IRefProvider<{componentName}, EntityGID>.RefValue(ref {componentName} component) => ref component.Link;");
-            sb.AppendLine();
-            sb.AppendLine($"{pad}    [Preserve]", autoRegister);
-            sb.AppendLine($"{pad}    [StaticEcsAutoRegistration(typeof({worldTypeName}))]", autoRegister);
-            sb.AppendLine($"{pad}    public static void RegisterFor{worldTypeName}() {{");
-            sb.AppendLine($"{pad}        throw new NotImplementedException(\"Implement ONE of the following relations for {componentName}:\");");
-            sb.AppendLine();
-            sb.AppendLine($"{pad}        /*");
-            sb.AppendLine($"{pad}        RegisterToOneRelationType<{componentName}>(onDeleteStrategy : OneDirectionalDeleteStrategy.Default,");
-            sb.AppendLine($"{pad}                                           onCopyStrategy : CopyStrategy.Default,");
-            sb.AppendLine($"{pad}                                           config : new Config<{worldTypeName}>()", withConfig);
-            sb.AppendLine($"{pad}                                           config : null", !withConfig);
-            sb.AppendLine($"{pad}        );");
-            sb.AppendLine($"{pad}        RegisterOneToOneRelationType<ANOTHER_LINK_TYPE, {componentName}>(leftDeleteStrategy: BiDirectionalDeleteStrategy.DeleteAnotherLink,");
-            sb.AppendLine($"{pad}                                                                 rightDeleteStrategy: BiDirectionalDeleteStrategy.DeleteAnotherLink,");
-            sb.AppendLine($"{pad}                                                                 leftCopyStrategy: CopyStrategy.Default,");
-            sb.AppendLine($"{pad}                                                                 rightCopyStrategy: CopyStrategy.Default,");
-            sb.AppendLine($"{pad}                                                                 leftConfig: ANOTHER_LINK_TYPE_CONFIG_OR_NULL,");
-            sb.AppendLine($"{pad}                                                                 rightConfig: new Config<{worldTypeName}>()", withConfig);
-            sb.AppendLine($"{pad}                                                                 rightConfig: null", !withConfig);
-            sb.AppendLine($"{pad}        );");
-            sb.AppendLine($"{pad}        RegisterOneToManyRelationType<{componentName}, ANOTHER_LINK_TYPE>(8,");
-            sb.AppendLine($"{pad}                                                                  leftDeleteStrategy: BiDirectionalDeleteStrategy.DeleteAnotherLink,");
-            sb.AppendLine($"{pad}                                                                  rightDeleteStrategy: BiDirectionalDeleteStrategy.DeleteAnotherLink,");
-            sb.AppendLine($"{pad}                                                                  leftCopyStrategy: CopyStrategy.Default,");
-            sb.AppendLine($"{pad}                                                                  rightCopyStrategy: CopyStrategy.Default,");
-            sb.AppendLine($"{pad}                                                                  leftConfig: new Config<{worldTypeName}>(),", withConfig);
-            sb.AppendLine($"{pad}                                                                  leftConfig: null,", !withConfig);
-            sb.AppendLine($"{pad}                                                                  rightConfig: ANOTHER_LINK_TYPE_CONFIG_OR_NULL");
-            sb.AppendLine($"{pad}        );");
-            sb.AppendLine($"{pad}        */");
-            sb.AppendLine($"{pad}    }}");
-            sb.AppendLine();
-            if (withConfig) {
-                sb.AppendLine($"{pad}    public class Config<WorldType> : DefaultComponentConfig<{componentName}, WorldType> where WorldType : struct, IWorldType {{");
-                if (serialization) {
-                    sb.AppendLine($"{pad}        public override Guid Id() => new(\"{GUID.Generate().ToString()}\");\n");
-                    sb.AppendLine($"{pad}        public override BinaryWriter<{componentName}> Writer() => (ref BinaryPackWriter writer, in {componentName} value) => {{");
-                    sb.AppendLine($"{pad}            writer.WriteEntityGID(value.Link);");
-                    sb.AppendLine($"{pad}        }};\n");
-                    sb.AppendLine($"{pad}        public override BinaryReader<{componentName}> Reader() => (ref BinaryPackReader reader) => new {componentName} {{");
-                    sb.AppendLine($"{pad}            Link = reader.ReadEntityGID()");
-                    sb.AppendLine($"{pad}        }};\n");
-                }
-                if (onComponentChanged) {
-                    sb.AppendLine($"{pad}        public override World<WorldType>.OnComponentHandler<{componentName}> OnAdd() => null;\n");
-                    sb.AppendLine($"{pad}        public override World<WorldType>.OnComponentHandler<{componentName}> OnPut() => null;\n");
-                    sb.AppendLine($"{pad}        public override World<WorldType>.OnComponentHandler<{componentName}> OnDelete() => null;\n");
-                    sb.AppendLine($"{pad}        public override World<WorldType>.OnCopyHandler<{componentName}> OnCopy() => null;\n"); 
-                }
-                sb.AppendLine($"{pad}        public override bool IsCopyable() => {copyable.ToString().ToLower()};\n");
-                sb.AppendLine($"{pad}        public override bool IsClearable() => {clearable.ToString().ToLower()};\n");
-                sb.AppendLine($"{pad}    }}\n");
+            sb.AppendLine($"{pad}public struct {linkName} : ILinkType {{");
+            if (serialization) {
+                sb.AppendLine($"{pad}    public static readonly ComponentTypeConfig<Link<{linkName}>> Config = new(");
+                sb.AppendLine($"{pad}        guid: new(\"{GUID.Generate().ToString()}\"),");
+                sb.AppendLine($"{pad}        readWriteStrategy: new UnmanagedPackArrayStrategy<Link<{linkName}>>()");
+                sb.AppendLine($"{pad}    );");
+                sb.AppendLine();
+            }
+            if (withHooks) {
+                sb.AppendLine($"{pad}    public void OnAdd<TWorld>(World<TWorld>.Entity self, EntityGID link) where TWorld : struct, IWorldType {{");
+                sb.AppendLine($"{pad}        // TODO implement this");
+                sb.AppendLine($"{pad}    }}");
+                sb.AppendLine();
+                sb.AppendLine($"{pad}    public void OnDelete<TWorld>(World<TWorld>.Entity self, EntityGID link, HookReason reason) where TWorld : struct, IWorldType {{");
+                sb.AppendLine($"{pad}        // TODO implement this");
+                sb.AppendLine($"{pad}    }}");
+                sb.AppendLine();
+                sb.AppendLine($"{pad}    public void CopyTo<TWorld>(World<TWorld>.Entity self, World<TWorld>.Entity other, EntityGID link) where TWorld : struct, IWorldType {{");
+                sb.AppendLine($"{pad}        // TODO implement this");
+                sb.AppendLine($"{pad}    }}");
             }
             sb.AppendLine($"{pad}}}");
             if (withExtensions) {
@@ -285,26 +220,19 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 sb.AppendLine($"{pad}[Il2CppSetOption(Option.NullChecks, false)]");
                 sb.AppendLine($"{pad}[Il2CppSetOption(Option.ArrayBoundsChecks, false)]");
                 sb.AppendLine($"{pad}#endif");
-                sb.AppendLine($"{pad}public static class {componentName}ExtensionsFor{worldTypeName} {{");
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ref {componentName} {componentName}(this Entity entity) => ref Components<{componentName}>.Value.Ref(entity);\n", refMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ref {componentName} Add{componentName}(this Entity entity) => ref Components<{componentName}>.Value.Add(entity);\n", addMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Add{componentName}(this Entity entity, {componentName} value) => Components<{componentName}>.Value.Add(entity) = value;\n", addMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ref {componentName} TryAdd{componentName}(this Entity entity) => ref Components<{componentName}>.Value.TryAdd(entity);\n", tryAddMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void TryAdd{componentName}(this Entity entity, {componentName} value) => Components<{componentName}>.Value.TryAdd(entity) = value;\n", tryAddMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Put{componentName}(this Entity entity, {componentName} value) => Components<{componentName}>.Value.Put(entity, value);\n", putMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Has{componentName}(this Entity entity) => Components<{componentName}>.Value.Has(entity);\n", hasMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool HasDisabled{componentName}(this Entity entity) => Components<{componentName}>.Value.HasDisabled(entity);\n",  hasDisabledMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool HasEnabled{componentName}(this Entity entity) => Components<{componentName}>.Value.HasEnabled(entity);\n",   hasEnabledMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Enable{componentName}(this Entity entity) => Components<{componentName}>.Value.Enable(entity);\n", enableMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Disable{componentName}(this Entity entity) => Components<{componentName}>.Value.Disable(entity);\n", disableMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Delete{componentName}(this Entity entity) => Components<{componentName}>.Value.Delete(entity);\n", deleteMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool TryDelete{componentName}(this Entity entity) => Components<{componentName}>.Value.TryDelete(entity);\n",  tryDeleteMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Copy{componentName}To(this Entity entity, Entity dst) => Components<{componentName}>.Value.Copy(entity, dst);\n", copyMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool TryCopy{componentName}To(this Entity entity, Entity dst) => Components<{componentName}>.Value.TryCopy(entity, dst);\n", tryCopyMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Move{componentName}To(this Entity entity, Entity dst) => Components<{componentName}>.Value.Move(entity, dst);\n", moveMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool TryMove{componentName}To(this Entity entity, Entity dst) => Components<{componentName}>.Value.TryMove(entity, dst);\n",  tryMoveMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Set{componentName}Link(this Entity entity, EntityGID link) => entity.SetLink<{componentName}>(link);\n",  setLinksMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Set{componentName}Link(this Entity entity, EntityGID link, out bool newLink) => entity.SetLink<{componentName}>(link, out newLink);\n",  setLinksMethod);
+                sb.AppendLine($"{pad}public static class {linkName}ExtensionsFor{worldTypeName} {{");
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ref Link<{linkName}> {linkName}Link(this Entity entity) => ref Components<Link<{linkName}>>.Instance.Ref(entity);\n", refMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ref Link<{linkName}> Add{linkName}Link(this Entity entity) => ref Components<Link<{linkName}>>.Instance.Add(entity);\n", addMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Set{linkName}Link(this Entity entity, Link<{linkName}> value) => Components<Link<{linkName}>>.Instance.Set(entity, value);\n", setMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Set{linkName}Link(this Entity entity, EntityGID link) => Components<Link<{linkName}>>.Instance.Set(entity, link);\n", setLinkMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Has{linkName}Link(this Entity entity) => Components<Link<{linkName}>>.Instance.Has(entity);\n", hasMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool HasDisabled{linkName}Link(this Entity entity) => Components<Link<{linkName}>>.Instance.HasDisabled(entity);\n",  hasDisabledMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool HasEnabled{linkName}Link(this Entity entity) => Components<Link<{linkName}>>.Instance.HasEnabled(entity);\n",   hasEnabledMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ToggleResult Enable{linkName}Link(this Entity entity) => Components<Link<{linkName}>>.Instance.Enable(entity);\n", enableMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static ToggleResult Disable{linkName}Link(this Entity entity) => Components<Link<{linkName}>>.Instance.Disable(entity);\n", disableMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Delete{linkName}Link(this Entity entity) => Components<Link<{linkName}>>.Instance.Delete(entity);\n", deleteMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Copy{linkName}LinkTo(this Entity entity, Entity dst) => Components<Link<{linkName}>>.Instance.Copy(entity, dst);\n", copyMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Move{linkName}LinkTo(this Entity entity, Entity dst) => Components<Link<{linkName}>>.Instance.Move(entity, dst);\n", moveMethod);
                 sb.AppendLine($"{pad}}}");
             }
             sb.AppendLine("}", !string.IsNullOrEmpty(nameSpace));

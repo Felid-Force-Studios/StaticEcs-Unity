@@ -1,11 +1,14 @@
-﻿#if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+#if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
-    public class StaticEcsViewContextTab : IStaticEcsViewTab {
+    public class StaticEcsViewContextTab<TWorld, TEntityProvider> : IStaticEcsViewTab
+        where TWorld : struct, IWorldType
+        where TEntityProvider : StaticEcsEntityProvider<TWorld> {
         private readonly Dictionary<Type, ContextDrawer> _drawersByWorldTypeType = new();
         private ContextDrawer _currentDrawer;
 
@@ -13,43 +16,34 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         public void Init() { }
 
-        public void Draw(StaticEcsView view) {
+        public void Draw() {
             _currentDrawer.Draw();
         }
 
         public void Destroy() { }
 
         public void OnWorldChanged(AbstractWorldData newWorldData) {
-            if (!_drawersByWorldTypeType.ContainsKey(newWorldData.WorldTypeType)) {
-                _drawersByWorldTypeType[newWorldData.WorldTypeType] = new ContextDrawer(newWorldData);
+            if (!_drawersByWorldTypeType.ContainsKey(newWorldData.Handle.WorldType)) {
+                _drawersByWorldTypeType[newWorldData.Handle.WorldType] = new ContextDrawer(newWorldData);
             }
 
-            _currentDrawer = _drawersByWorldTypeType[newWorldData.WorldTypeType];
+            _currentDrawer = _drawersByWorldTypeType[newWorldData.Handle.WorldType];
         }
     }
 
     public class ContextDrawer {
-        private readonly IWorld _world;
+        private readonly WorldHandle _handle;
         private readonly AbstractWorldData _worldData;
-        
+
         private readonly List<string> _toRemoveNamedContext = new();
-        private readonly List<Action> _toRemoveContext = new();
-        private readonly Type _contextValueType = typeof(ContextValue);
-        private DrawContext _drawContext;
-        private ContextValue _contextValue;
+        private readonly List<Type> _toRemoveContext = new();
+        private readonly Dictionary<Type, (ScriptableObject wrapper, FieldInfo field)> _valueTypeWrapperCache = new();
 
         private Vector2 verticalScrollStatsPosition = Vector2.zero;
 
         public ContextDrawer(AbstractWorldData worldData) {
             _worldData = worldData;
-            _world = _worldData.World;
-            _drawContext.World = _world;
-            _drawContext.Level = Drawer.MaxRecursionLvl;
-        }
-
-        [Serializable]
-        struct ContextValue {
-            public object Value;
+            _handle = _worldData.Handle;
         }
 
         internal void Draw() {
@@ -62,28 +56,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void DrawContext() {
             DrawHeader("Context");
 
-            object newValue = null;
-            Action<object> setMethod = null;
-            var changed = false;
-            foreach (var val in _world.Context().GetAllGetSetRemoveValuesMethods()) {
-                _contextValue.Value = val.Value.Item1();
-                setMethod = val.Value.Item2;
-                var name = val.Key.EditorTypeName();
+            Type changedType = null;
+            object changedValue = null;
+            foreach (var resourceType in _handle.GetAllResourcesTypes()) {
+                var resourceValue = _handle.GetResource(resourceType);
+                var name = resourceType.EditorTypeName();
 
-                if (!val.Key.IsSerializable) {
+                if (!resourceType.IsSerializable) {
                     continue;
                 }
 
                 bool show;
                 EditorGUILayout.BeginHorizontal(GUI.skin.box);
                 {
-                    var key = "CONTEXT_" + val.Key.FullName;
-                    Drawer.DrawFoldoutBox(key, name, name, out show);
+                    Drawer.DrawFoldoutBox(HashCode.Combine("CONTEXT_", resourceType.FullName), name, name, out show);
 
                     EditorGUILayout.BeginVertical(GUILayout.MinWidth(32));
                     if (Ui.MenuButton) {
+                        var capturedType = resourceType;
                         var menu = new GenericMenu();
-                        menu.AddItem(new GUIContent("Remove"), false, () => _toRemoveContext.Add(val.Value.Item3));
+                        menu.AddItem(new GUIContent("Remove"), false, () => _toRemoveContext.Add(capturedType));
                         menu.ShowAsContext();
                     }
 
@@ -91,51 +83,52 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 EditorGUILayout.EndHorizontal();
 
-
                 if (show) {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
-                    changed = Drawer.TryDrawObject(ref _drawContext, name, _contextValueType, _contextValue, out newValue);
+                    if (TryDrawResourceValue(resourceType, resourceValue, out var newValue)) {
+                        changedType = resourceType;
+                        changedValue = newValue;
+                    }
                     EditorGUILayout.EndVertical();
-                    if (changed) {
+                    if (changedType != null) {
                         break;
                     }
                 }
             }
-            
-            if (changed) {
-                setMethod(((ContextValue) newValue).Value);
+
+            if (changedType != null) {
+                _handle.SetResource(changedType, changedValue, true);
             }
-            
-            foreach (var action in _toRemoveContext) {
-                action();
+
+            foreach (var type in _toRemoveContext) {
+                _handle.RemoveResource(type);
             }
             _toRemoveContext.Clear();
         }
 
         private void DrawNamedContext() {
             DrawHeader("Named context");
-            
-            object newValue = null;
-            string name = null;
-            var changed = false;
-            foreach (var val in _world.Context().GetAllNamedValues()) {
-                name = val.Key;
-                _contextValue.Value = val.Value;
 
-                if (!val.Value.GetType().IsSerializable) {
+            string changedKey = null;
+            object changedValue = null;
+            foreach (var resourceKey in _handle.GetAllResourcesKeys()) {
+                var resourceValue = _handle.GetResource(resourceKey);
+                var resourceType = resourceValue.GetType();
+
+                if (!resourceType.IsSerializable) {
                     continue;
                 }
 
                 bool show;
                 EditorGUILayout.BeginHorizontal(GUI.skin.box);
                 {
-                    var key = "CONTEXT_" + name;
-                    Drawer.DrawFoldoutBox(key, name, name, out show);
+                    Drawer.DrawFoldoutBox(HashCode.Combine("CONTEXT_", resourceKey), resourceKey, resourceKey, out show);
 
                     EditorGUILayout.BeginVertical(GUILayout.MinWidth(32));
                     if (Ui.MenuButton) {
+                        var capturedKey = resourceKey;
                         var menu = new GenericMenu();
-                        menu.AddItem(new GUIContent("Remove"), false, () => _toRemoveNamedContext.Add(val.Key));
+                        menu.AddItem(new GUIContent("Remove"), false, () => _toRemoveNamedContext.Add(capturedKey));
                         menu.ShowAsContext();
                     }
 
@@ -145,22 +138,88 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (show) {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
-                    changed = Drawer.TryDrawObject(ref _drawContext, name, _contextValueType, _contextValue, out newValue);
+                    if (TryDrawResourceValue(resourceType, resourceValue, out var newValue)) {
+                        changedKey = resourceKey;
+                        changedValue = newValue;
+                    }
                     EditorGUILayout.EndVertical();
-                    if (changed) {
+                    if (changedKey != null) {
                         break;
                     }
                 }
             }
-            
-            if (changed) {
-                _world.Context().ReplaceNamed(name, ((ContextValue) newValue).Value);
+
+            if (changedKey != null) {
+                _handle.SetResource(changedKey, changedValue, true);
             }
-            
+
             foreach (var val in _toRemoveNamedContext) {
-                _world.Context().RemoveNamed(val);
+                _handle.RemoveResource(val);
             }
             _toRemoveNamedContext.Clear();
+        }
+
+        private bool TryDrawResourceValue(Type resourceType, object resourceValue, out object newValue) {
+            newValue = null;
+            if (resourceType.IsValueType) {
+                return TryDrawValueType(resourceType, resourceValue, out newValue);
+            }
+
+            return TryDrawReferenceType(resourceValue, out newValue);
+        }
+
+        private bool TryDrawReferenceType(object resourceValue, out object newValue) {
+            newValue = null;
+            var wrapper = ContextDrawerWrapper.Instance;
+            var so = new SerializedObject(wrapper);
+            var prop = so.FindProperty("value");
+            prop.managedReferenceValue = resourceValue;
+            so.ApplyModifiedProperties();
+            so.Update();
+            prop = so.FindProperty("value");
+
+            if (prop != null && prop.propertyType == SerializedPropertyType.ManagedReference) {
+                Drawer.DrawSerializedPropertyChildren(prop);
+
+                if (so.ApplyModifiedProperties()) {
+                    newValue = wrapper.value;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryDrawValueType(Type resourceType, object resourceValue, out object newValue) {
+            newValue = null;
+            var (wrapper, field) = GetValueTypeWrapper(resourceType);
+            field.SetValue(wrapper, resourceValue);
+            var so = new SerializedObject(wrapper);
+            so.Update();
+            var prop = so.FindProperty("value");
+
+            if (prop != null) {
+                Drawer.DrawSerializedPropertyChildren(prop);
+
+                if (so.ApplyModifiedProperties()) {
+                    newValue = field.GetValue(wrapper);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private (ScriptableObject wrapper, FieldInfo field) GetValueTypeWrapper(Type valueType) {
+            if (!_valueTypeWrapperCache.TryGetValue(valueType, out var cached)) {
+                var wrapperType = typeof(ContextValueDrawerWrapper<>).MakeGenericType(valueType);
+                var wrapper = ScriptableObject.CreateInstance(wrapperType);
+                wrapper.hideFlags = HideFlags.DontSave;
+                var field = wrapperType.GetField("value");
+                cached = (wrapper, field);
+                _valueTypeWrapperCache[valueType] = cached;
+            }
+            return cached;
         }
 
         private void DrawHeader(string name) {

@@ -1,39 +1,17 @@
-﻿using System;
+using System;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static partial class Drawer {
-        public static void DrawEvent(StaticEcsEventProvider provider, DrawMode mode, Action<StaticEcsEventProvider> onClickBuild, Action<StaticEcsEventProvider> onCopyTemplate = null) {
+        public static void DrawEvent<TWorld, TProvider>(
+            TProvider provider, DrawMode mode, Action<TProvider> onClickBuild, Action<TProvider> onCopyTemplate = null
+        ) where TProvider : StaticEcsEventProvider<TWorld>
+          where TWorld : struct, IWorldType {
             if (mode != DrawMode.Inspector) {
                 provider.Scroll = EditorGUILayout.BeginScrollView(provider.Scroll);
             }
             EditorGUILayout.Space(10);
-
-            if (string.IsNullOrEmpty(provider.WorldTypeName)) {
-                EditorGUILayout.HelpBox("Please, provide world", MessageType.Warning, true);
-            }
-
-            EditorGUILayout.BeginHorizontal();
-            {
-                var allowChangeWorld = provider.RuntimeEvent.IsEmpty() && mode == DrawMode.Inspector;
-                using (Ui.EnabledScopeVal(allowChangeWorld)) {
-                    if (Ui.SettingButton && allowChangeWorld) {
-                        DrawWorldMenu(provider);
-                    }
-                }
-
-                EditorGUILayout.LabelField("World:", Ui.WidthLine(60));
-                EditorGUILayout.LabelField(provider.WorldEditorName, Ui.LabelStyleThemeBold);
-            }
-            EditorGUILayout.EndHorizontal();
-
-            if (string.IsNullOrEmpty(provider.WorldTypeName)) {
-                if (mode != DrawMode.Inspector) {
-                    EditorGUILayout.EndScrollView();
-                }
-                return;
-            }
 
             if (provider.EventTemplate == null && provider.RuntimeEvent.IsEmpty()) {
                 EditorGUILayout.HelpBox("Please, provide event type", MessageType.Warning, true);
@@ -44,7 +22,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 var allowChangeEventType = provider.RuntimeEvent.IsEmpty();
                 using (Ui.EnabledScopeVal(allowChangeEventType)) {
                     if (Ui.PlusButton && allowChangeEventType) {
-                        DrawEventsMenu(provider);
+                        DrawEventsMenu<TWorld, TProvider>(provider);
                     }
                 }
 
@@ -74,11 +52,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             });
                             menu.AddItem(new GUIContent("Send as new event"), false, () => {
                                 var actualEvent = provider.GetActualEvent(out var _);
-                                if (provider.World.Events().TryGetPool(actualEvent.GetType(), out var pool)) {
-                                    pool.AddRaw(actualEvent);
+                                if (World<TWorld>._TryGetEventsHandle(actualEvent.GetType(), out var eventsHandle)) {
+                                    eventsHandle.AddRaw(actualEvent);
                                     provider.EventCache = actualEvent;
                                     provider.RuntimeEvent = new RuntimeEvent {
-                                        InternalIdx = pool.Last(),
+                                        InternalIdx = eventsHandle.Last(),
                                         Type = actualEvent.GetType(),
                                         Status = EventStatus.Sent
                                     };
@@ -104,11 +82,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             if (provider.EventIsActual(Application.isPlaying)) {
                 EditorGUILayout.Space(10);
-                var ctx = new DrawContext {
-                    World = provider.World,
-                    Level = MaxRecursionLvl
-                };
-                DrawEvent(ref ctx, provider);
+                DrawEventValue<TWorld, TProvider>(provider);
             }
 
             if (mode != DrawMode.Inspector) {
@@ -116,7 +90,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawEvent(ref DrawContext ctx, StaticEcsEventProvider provider) {
+        private static void DrawEventValue<TWorld, TEntityProvider>(TEntityProvider provider) where TEntityProvider : StaticEcsEventProvider<TWorld> where TWorld : struct, IWorldType {
             var eventValue = provider.GetActualEvent(out var cached);
             var type = eventValue.GetType();
             var typeName = type.EditorTypeName();
@@ -124,8 +98,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             using (Ui.EnabledScopeVal(!cached)) {
                 EditorGUILayout.BeginVertical(GUI.skin.box);
                 {
-                    if (TryDrawObject(ref ctx, typeName, type, eventValue, out var newValue)) {
-                        provider.OnChangeEvent((IEvent) newValue);
+                    var wrapper = EventDrawerWrapper.Instance;
+                    wrapper.value = eventValue;
+                    var so = new SerializedObject(wrapper);
+                    so.Update();
+
+                    var prop = so.FindProperty("value");
+                    DrawSerializedPropertyChildren(prop);
+
+                    if (so.ApplyModifiedProperties()) {
+                        provider.OnChangeEvent(wrapper.value);
                         EditorUtility.SetDirty(provider);
                     }
                 }
@@ -133,7 +115,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawEventsMenu(StaticEcsEventProvider provider) {
+        private static void DrawEventsMenu<TWorld, TEntityProvider>(TEntityProvider provider) where TEntityProvider : StaticEcsEventProvider<TWorld> where TWorld : struct, IWorldType {
             var menu = new GenericMenu();
             foreach (var eventDataMeta in MetaData.Events) {
                 if (provider.EventTemplate != null && provider.EventTemplate.GetType() == eventDataMeta.Type) {

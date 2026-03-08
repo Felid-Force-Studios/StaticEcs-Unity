@@ -2,25 +2,22 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
-using FFS.Libraries.StaticEcs.Unity.Editor.Inspectors;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class TagTemplateWindow : EditorWindow {
-        ArrayDrawer<string> namesDrawer = new();
         string[] names = {"Tag"};
         string path;
         Vector2 scroll;
-        
+
         string nameSpace;
         string worldName;
         string worldTypeName;
         Type worldType;
-        
-        bool autoRegister = true;
+
         bool serialization = true;
-        
+
         bool withExtensions = true;
         bool hasMethod = true;
         bool hasNotMethod = false;
@@ -32,7 +29,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         bool applyMethod = true;
         bool copyMethod = true;
         bool moveMethod = true;
-        
+
         bool withColor = true;
         Color color = Color.white;
 
@@ -42,7 +39,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             window.minSize = new Vector2(300, 200);
             window.path = AssetPath();
             window.nameSpace = EditorSettings.projectGenerationRootNamespace.Trim();
-            Drawer.openHideFlags.Add(typeof(string[]).FullName + "Tags" + 0);
+            Drawer.openHideFlags.Add((typeof(string[]).FullName + "Tags" + 0).GetHashCode());
         }
 
         void OnGUI() {
@@ -55,8 +52,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
             }
             scroll = EditorGUILayout.BeginScrollView(scroll);
-            
-            
+
+
             EditorGUILayout.BeginHorizontal();
             {
                 if (Ui.SettingButton) {
@@ -70,26 +67,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
             }
             EditorGUILayout.EndHorizontal();
-            
+
             EditorGUILayout.Space(10);
             nameSpace = EditorGUILayout.TextField("Namespace", nameSpace);
-            
+
             EditorGUILayout.Space(10);
-            var context = new DrawContext();
-            namesDrawer.DrawValue(ref context, "Tags", ref names);
+            Drawer.DrawStringArray("Tags", ref names);
             for (var i = 0; i < names.Length; i++) {
                 ref var val = ref names[i];
                 if (string.IsNullOrEmpty(val)) {
                     val = "Tag";
                 }
             }
-            
-            EditorGUILayout.Space(10);
-            autoRegister = EditorGUILayout.Toggle("Auto registration", autoRegister);
-            
+
             EditorGUILayout.Space(10);
             serialization = EditorGUILayout.Toggle("Serialization", serialization);
-            
+
             EditorGUILayout.Space(10);
             withColor = EditorGUILayout.Toggle("Editor color", withColor);
             if (withColor) {
@@ -97,7 +90,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 color = EditorGUILayout.ColorField("Color", color);
                 EditorGUI.indentLevel--;
             }
-            
+
             EditorGUILayout.Space(10);
             withExtensions = EditorGUILayout.Toggle("Extensions", withExtensions);
             if (withExtensions) {
@@ -118,7 +111,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndScrollView();
         }
-        
+
         private void DrawWorldMenu() {
             var menu = new GenericMenu();
             for (var i = 0; i < MetaData.WorldsMetaData.Count; i++) {
@@ -136,7 +129,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             menu.ShowAsContext();
         }
-        
+
         public void CreateFiles() {
             foreach (var componentName in names) {
                 var fileName = $"{path}/{componentName}.cs";
@@ -146,12 +139,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 catch (Exception ex) {
                     Debug.LogError(ex.Message);
-                }  
+                }
             }
 
             AssetDatabase.Refresh();
         }
-        
+
         static string AssetPath() {
             var path = AssetDatabase.GetAssetPath(Selection.activeObject);
             if (!string.IsNullOrEmpty(path) && AssetDatabase.Contains(Selection.activeObject)) {
@@ -170,14 +163,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var pad = string.IsNullOrEmpty(nameSpace) ? "" : "    ";
             sb.AppendLine("using System;");
             sb.AppendLine("using FFS.Libraries.StaticEcs;");
-            sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor || autoRegister);
-            sb.AppendLine("using UnityEngine.Scripting;", autoRegister);
+            sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor);
             sb.AppendLine($"#if ENABLE_IL2CPP");
             sb.AppendLine($"using Unity.IL2CPP.CompilerServices;");
             sb.AppendLine($"#endif");
             sb.AppendLine("using System.Runtime.CompilerServices;", withExtensions);
             sb.AppendLine("using static System.Runtime.CompilerServices.MethodImplOptions;", withExtensions);
-            sb.AppendLine($"using static FFS.Libraries.StaticEcs.World<{worldTypeName}>;");
+            sb.AppendLine($"using static FFS.Libraries.StaticEcs.World<{worldTypeName}>;", withExtensions);
             sb.AppendLine();
             sb.AppendLine($"namespace {nameSpace} {{", !string.IsNullOrEmpty(nameSpace));
             sb.AppendLine($"{pad}#if ENABLE_IL2CPP");
@@ -190,14 +182,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]", withColor);
             sb.AppendLine($"{pad}public struct {tagName} : ITag {{");
-            sb.AppendLine("");
-            sb.AppendLine($"{pad}    [Preserve]", autoRegister);
-            sb.AppendLine($"{pad}    [StaticEcsAutoRegistration(typeof({worldTypeName}))]", autoRegister);
-            sb.AppendLine($"{pad}    public static void RegisterFor{worldTypeName}() {{");
-            sb.AppendLine($"{pad}        RegisterTagType<{tagName}>(new(\"{GUID.Generate().ToString()}\"));", serialization);
-            sb.AppendLine($"{pad}        RegisterTagType<{tagName}>();", !serialization);
-            sb.AppendLine($"{pad}    }}");
-            sb.AppendLine();
+            if (serialization) {
+                sb.AppendLine($"{pad}    public static readonly TagTypeConfig<{tagName}> Config = new(guid: new(\"{GUID.Generate().ToString()}\"));");
+            }
             sb.AppendLine($"{pad}}}");
             if (withExtensions) {
                 sb.AppendLine();
@@ -206,16 +193,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 sb.AppendLine($"{pad}[Il2CppSetOption(Option.ArrayBoundsChecks, false)]");
                 sb.AppendLine($"{pad}#endif");
                 sb.AppendLine($"{pad}public static class {tagName}ExtensionsFor{worldTypeName} {{");
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Has{tagName}(this Entity entity) => Tags<{tagName}>.Value.Has(entity);\n", hasMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool HasNot{tagName}(this Entity entity) => !Tags<{tagName}>.Value.Has(entity);\n", hasMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Is{tagName}(this Entity entity) => Tags<{tagName}>.Value.Has(entity);\n", isMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool IsNot{tagName}(this Entity entity) => !Tags<{tagName}>.Value.Has(entity);\n", isNotMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Set{tagName}(this Entity entity) => Tags<{tagName}>.Value.Set(entity);\n", setMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Delete{tagName}(this Entity entity) => Tags<{tagName}>.Value.Delete(entity);\n", deleteMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Toggle{tagName}(this Entity entity) => Tags<{tagName}>.Value.Toggle(entity);\n", toggleMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Apply{tagName}(this Entity entity, bool state) => Tags<{tagName}>.Value.Apply(entity, state);\n", applyMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Copy{tagName}To(this Entity entity, Entity dst) => Tags<{tagName}>.Value.Copy(entity, dst);\n", copyMethod);
-                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Move{tagName}To(this Entity entity, Entity dst) => Tags<{tagName}>.Value.Move(entity, dst);\n", moveMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Has{tagName}(this Entity entity) => Components<{tagName}>.Instance.Has(entity);\n", hasMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool HasNot{tagName}(this Entity entity) => !Components<{tagName}>.Instance.Has(entity);\n", hasNotMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Is{tagName}(this Entity entity) => Components<{tagName}>.Instance.Has(entity);\n", isMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool IsNot{tagName}(this Entity entity) => !Components<{tagName}>.Instance.Has(entity);\n", isNotMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Set{tagName}(this Entity entity) => Components<{tagName}>.Instance.Set(entity);\n", setMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Delete{tagName}(this Entity entity) => Components<{tagName}>.Instance.Delete(entity);\n", deleteMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Toggle{tagName}(this Entity entity) => Components<{tagName}>.Instance.Toggle(entity);\n", toggleMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static void Apply{tagName}(this Entity entity, bool state) => Components<{tagName}>.Instance.Apply(entity, state);\n", applyMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Copy{tagName}To(this Entity entity, Entity dst) => Components<{tagName}>.Instance.Copy(entity, dst);\n", copyMethod);
+                sb.AppendLine($"{pad}    [MethodImpl(AggressiveInlining)]\n{pad}    public static bool Move{tagName}To(this Entity entity, Entity dst) => Components<{tagName}>.Instance.Move(entity, dst);\n", moveMethod);
                 sb.AppendLine($"{pad}}}");
             }
             sb.AppendLine("}", !string.IsNullOrEmpty(nameSpace));

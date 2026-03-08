@@ -1,196 +1,102 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
-using static UnityEditor.EditorGUILayout;
 
-namespace FFS.Libraries.StaticEcs.Unity.Editor.Inspectors {
-    internal sealed class EntityGIDDrawer : IStaticEcsValueDrawer<EntityGID> {
-        public override bool DrawValue(ref DrawContext ctx, string label, ref EntityGID value) {
-            using (new HorizontalScope()) {
-                PrefixLabel(label);
-                var empty = value.Raw == 0;
-                if (!empty && ctx.World != null && ctx.World.TryGetEntity(value, out var entity)) {
-                    LabelField(value.ToString(), Ui.MinWidth());
-                } else {
-                    LabelField(empty ? "Empty" : value.ToString() + " (Not actual)", Ui.MinWidth());
-                    empty = true;
+namespace FFS.Libraries.StaticEcs.Unity.Editor {
+    [CustomPropertyDrawer(typeof(EntityGID))]
+    public class EntityGIDPropertyDrawer : PropertyDrawer {
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
+            EditorGUI.BeginProperty(position, label, property);
+
+            var rawProp = property.FindPropertyRelative("Raw");
+            var raw = rawProp != null ? (ulong) rawProp.longValue : 0UL;
+
+            var labelRect = new Rect(position.x, position.y, EditorGUIUtility.labelWidth, position.height);
+            EditorGUI.PrefixLabel(labelRect, label);
+
+            var valueRect = new Rect(position.x + EditorGUIUtility.labelWidth, position.y,
+                position.width - EditorGUIUtility.labelWidth - (Application.isPlaying ? 24 : 0), position.height);
+
+            var empty = raw == 0;
+            string text;
+            bool actual = false;
+
+            if (empty) {
+                text = "Empty";
+            } else {
+                var gid = new EntityGID(raw);
+                text = gid.ToString();
+
+                foreach (var kvp in StaticEcsDebugData.Worlds) {
+                    if (kvp.Value.Handle.GIDStatus(gid) == GIDStatus.Active) {
+                        actual = true;
+                        break;
+                    }
                 }
-                
-                using (Ui.EnabledScopeVal(!empty)) {
-                    if (Application.isPlaying && !empty && Ui.ViewButton) {
-                        if (!EntityInspectorWindow.ShowWindowForEntity(ctx.World, value)) {
-                            Debug.LogWarning($"Entity with EntityGID {value} is not available");
+
+                if (!actual) {
+                    text += " (Not actual)";
+                }
+            }
+
+            EditorGUI.LabelField(valueRect, text);
+
+            if (Application.isPlaying && actual) {
+                var buttonRect = new Rect(position.xMax - 20, position.y, 20, position.height);
+                if (GUI.Button(buttonRect, "⊙", EditorStyles.miniButton)) {
+                    var gid = new EntityGID(raw);
+                    foreach (var kvp in StaticEcsDebugData.Worlds) {
+                        if (kvp.Value.Handle.GIDStatus(gid) == GIDStatus.Active) {
+                            if (EntityInspectorRegistry.ShowEntityHandlers.TryGetValue(kvp.Key, out var handler)) {
+                                handler(gid);
+                            }
+                            break;
                         }
                     }
                 }
             }
 
-            return false;
-        }
-
-        public override void DrawTableValue(ref EntityGID value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            SelectableLabel(value.ToString(), style, layoutOptions);
-        }
-    }
-    
-    internal sealed class EntityGIDCompactDrawer : IStaticEcsValueDrawer<EntityGIDCompact> {
-        public override bool DrawValue(ref DrawContext ctx, string label, ref EntityGIDCompact value) {
-            using (new HorizontalScope()) {
-                PrefixLabel(label);
-                var empty = value.Raw == 0;
-                if (!empty && ctx.World != null && ctx.World.TryGetEntity(value, out var entity)) {
-                    LabelField(value.ToString(), Ui.MinWidth());
-                } else {
-                    LabelField(empty ? "Empty" : value.ToString() + " (Not actual)", Ui.MinWidth());
-                    empty = true;
-                }
-                
-                using (Ui.EnabledScopeVal(!empty)) {
-                    if (Application.isPlaying && !empty && Ui.ViewButton) {
-                        if (!EntityInspectorWindow.ShowWindowForEntity(ctx.World, value)) {
-                            Debug.LogWarning($"Entity with EntityGID {value} is not available");
-                        }
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        public override void DrawTableValue(ref EntityGIDCompact value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            SelectableLabel(value.ToString(), style, layoutOptions);
+            EditorGUI.EndProperty();
         }
     }
 
-    internal sealed class MultiComponentDrawer<T> : IStaticEcsValueDrawer<Multi<T>> where T : struct {
-        public override bool DrawValue(ref DrawContext ctx, string label, ref Multi<T> value) {
-            
-            if (value.data == null) {
-                BeginHorizontal();
-                PrefixLabel(label);
-                LabelField("NULL", Ui.MinWidth());
-                GUILayout.FlexibleSpace();
-                using (Ui.DisabledScope) {
-                    if (Ui.MenuButton) {}
-                }
-                EndHorizontal();
-                return false;
-            }
+    [CustomPropertyDrawer(typeof(EntityGIDCompact))]
+    public class EntityGIDCompactPropertyDrawer : PropertyDrawer {
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
+            EditorGUI.BeginProperty(position, label, property);
 
-            var changed = false;
-            var type = typeof(T);
-            
-            BeginHorizontal();
-            Drawer.DrawFoldoutBox(typeof(T[]).FullName + label + ctx.Level, label, label, out var show);
-            GUILayout.FlexibleSpace();
-            if (Ui.PlusButton) {
-                value.Add(type.CreateDefault<T>());
-                changed = true;
-            }
-            EndHorizontal();
-            
-            if (changed || !show) {
-                return changed;
-            }
-            
-            EditorGUI.indentLevel++;
-            ctx.Level--;
-            var simple = type.EditorTypeIsCompactView();
-            
-            for (var i = 0; i < value.Count; i++) {
-                var val = value[i];
-                BeginHorizontal();
-                BeginVertical(GUI.skin.box);
-                if (simple) {
-                    if (Drawer.TryDrawObject(ref ctx, $"[{i}]", type, val, out var newValue)) {
-                        value[i] = (T) newValue;
-                        changed = true;
-                    }
-                } else {
-                    LabelField($"[{i}] {type.EditorTypeName()}:");
-                    if (Drawer.TryDrawObject(ref ctx, type.EditorTypeName(), type, val, out var newValue)) {
-                        value[i] = (T) newValue;
-                        changed = true;
+            var rawProp = property.FindPropertyRelative("Raw");
+            var raw = rawProp != null ? (uint) rawProp.intValue : 0u;
+
+            var labelRect = new Rect(position.x, position.y, EditorGUIUtility.labelWidth, position.height);
+            EditorGUI.PrefixLabel(labelRect, label);
+
+            var valueRect = new Rect(position.x + EditorGUIUtility.labelWidth, position.y,
+                position.width - EditorGUIUtility.labelWidth, position.height);
+
+            var empty = raw == 0;
+            string text;
+
+            if (empty) {
+                text = "Empty";
+            } else {
+                var gid = new EntityGIDCompact(raw);
+                text = gid.ToString();
+
+                bool actual = false;
+                foreach (var kvp in StaticEcsDebugData.Worlds) {
+                    if (kvp.Value.Handle.GIDStatus(gid) == GIDStatus.Active) {
+                        actual = true;
+                        break;
                     }
                 }
-                EndVertical();
-                if (Ui.TrashButton) {
-                    value.RemoveAt(i);
-                    changed = true;
-                }
-                EndHorizontal();
 
-                if (changed) {
-                    break;
-                }
-
-                if (!simple) {
-                    LabelField("", GUI.skin.horizontalSlider);
-                }
-            }
-            
-            ctx.Level++;
-            EditorGUI.indentLevel--;
-            return changed;
-        }
-
-        public override void DrawTableValue(ref Multi<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            SelectableLabel($"Count: {value.Count}, Cap: {value.Capacity}", style, layoutOptions);
-        }
-    }
-
-    internal sealed class RoMultiComponentDrawer<T> : IStaticEcsValueDrawer<ROMulti<T>> where T : struct {
-        public override bool DrawValue(ref DrawContext ctx, string label, ref ROMulti<T> value) {
-            if (value.multi.data == null) {
-                BeginHorizontal();
-                PrefixLabel(label);
-                LabelField("NULL", Ui.MinWidth());
-                GUILayout.FlexibleSpace();
-                using (Ui.DisabledScope) {
-                    if (Ui.MenuButton) { }
-                }
-                EndHorizontal();
-                return false;
-            }
-
-            var type = typeof(T);
-            
-            BeginHorizontal();
-            Drawer.DrawFoldoutBox(typeof(ROMulti<T>).FullName + label + ctx.Level, label, label, out var show);
-            GUILayout.FlexibleSpace();
-            using (Ui.DisabledScope) {
-                if (Ui.MenuButton) { }
-            }
-            EndHorizontal();
-            
-            if (!show) {
-                return false;
-            }
-
-            EditorGUI.indentLevel++;
-            ctx.Level--;
-            var typeName = type.EditorTypeName();
-            var simple = type.EditorTypeIsCompactView();
-            
-            using (Ui.DisabledScope) {
-                for (ushort i = 0; i < value.Count; i++) {
-                    BeginVertical(GUI.skin.box);
-                    if (simple) {
-                        Drawer.TryDrawObject(ref ctx, $"[{i}]", type, value[i], out var _);
-                    } else {
-                        LabelField($"[{i}] {type.EditorTypeName()}:");
-                        Drawer.TryDrawObject(ref ctx, typeName, type, value[i], out var _);
-                    }
-                    EndVertical();
+                if (!actual) {
+                    text += " (Not actual)";
                 }
             }
 
-            ctx.Level++;
-            EditorGUI.indentLevel--;
-            return false;
-        }
-
-        public override void DrawTableValue(ref ROMulti<T> value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            SelectableLabel($"Count: {value.Count}, Cap: {value.Capacity}", style, layoutOptions);
+            EditorGUI.LabelField(valueRect, text);
+            EditorGUI.EndProperty();
         }
     }
 }

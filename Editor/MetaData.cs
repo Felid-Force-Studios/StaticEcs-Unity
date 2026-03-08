@@ -12,13 +12,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         internal static readonly List<EditorEntityDataMeta> Components = new();
         internal static readonly List<EditorEntityDataMeta> Tags = new();
         internal static readonly List<EditorEventDataMeta> Events = new();
+        internal static readonly List<EditorEntityTypeMeta> EntityTypes = new();
 
         internal static readonly List<(Type WorldTypeType, string EditorName)> WorldsMetaData = new();
-        
-        internal static readonly Dictionary<Type, IStaticEcsValueDrawer> Inspectors = new();
-        internal static readonly Dictionary<Type, Type> InspectorsGeneric = new();
-        internal static readonly Dictionary<Type, Type> InspectorsmultiArray2 = new();
-        internal static readonly Dictionary<Type, Type> InspectorsmultiArray3 = new();
+
+        private static readonly Dictionary<byte, string> _entityTypeNames = new();
         
         internal static readonly Type UnityObjectType = typeof(Object);
         internal static readonly Type EnumFlagsType = typeof(FlagsAttribute);
@@ -35,35 +33,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static void Init() {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
                 foreach (var type in assembly.GetTypes()) {
-                    if (!type.IsInterface && !type.IsAbstract && typeof(IStaticEcsValueDrawer).IsAssignableFrom(type)) {
-                        if (type.IsGenericType) {
-                            var gins = (IStaticEcsValueDrawer) Activator.CreateInstance(type.MakeGenericType(typeof(int)));
-                            var gcType = gins.ItemType();
-                            if (gcType.IsArray) {
-                                if (gcType.GetArrayRank() == 1) {
-                                    InspectorsGeneric[gcType.BaseType] = type;
-                                } else if (gcType.GetArrayRank() == 2) {
-                                    InspectorsmultiArray2[gcType.BaseType] = type;
-                                } else if (gcType.GetArrayRank() == 3) {
-                                    InspectorsmultiArray3[gcType.BaseType] = type;
-                                }
-                                
-                            } else if (gcType.IsGenericType) {
-                                InspectorsGeneric[gcType.GetGenericTypeDefinition()] = type;
-                            } else {
-                                InspectorsGeneric[gcType] = type;
-                            }
-                            continue;
-                        }
-                        
-                        var ins = (IStaticEcsValueDrawer) Activator.CreateInstance(type);
-                        var cType = ins.ItemType();
-                        if (!Inspectors.TryGetValue(cType, out var prevIns) || ins.Priority() > prevIns.Priority()) {
-                            Inspectors[cType] = ins;
-                        }
-                        continue;
-                    }
-
                     if (type.IsValueType && type.GetInterfaces().Contains(typeof(IComponent)) && !type.IsGenericType) {
                         if (HandleComponentMeta(type)) {
                             continue;
@@ -93,8 +62,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     if (type.IsValueType && type.GetInterfaces().Contains(typeof(IEvent)) && !type.IsGenericType) {
                         HandleEventMeta(type);
                     }
+
+                    if (type.IsValueType && type.GetInterfaces().Contains(typeof(IEntityType)) && !type.IsGenericType) {
+                        HandleEntityTypeMeta(type);
+                    }
                 }
             }
+
+            EntityTypes.Sort((a, b) => a.Id.CompareTo(b.Id));
         }
 
         private static (string name, string fullName) NameAttribute(Type type) {
@@ -185,29 +160,53 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var (field, property, width) = FindValueAttribute(type);
             width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
 
-            Drawer.openHideFlags.Add(type.FullName);
+            Drawer.openHideFlags.Add(type.FullName!.GetHashCode());
             Components.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
                                                     new[] { GUILayout.Width(width + 68f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
             return false;
         }
 
-        public static void EnrichByWorld(IWorld world) {
-            foreach (var pool in world.GetAllComponentsRawPools()) {
-                var type = pool.GetElementType();
+        private static void HandleEntityTypeMeta(Type type) {
+            var (n, _) = NameAttribute(type);
+            var name = n ?? type.EditorTypeName();
+
+            var idField = type.GetField("Id", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
+            if (idField == null || idField.FieldType != typeof(byte)) return;
+
+            var id = (byte) idField.GetValue(null);
+
+            if (EntityTypes.Find(meta => meta.Id == id) != null) {
+                Debug.LogError($"EntityType with id `{id}` already registered, type `{type}` ignored");
+                return;
+            }
+
+            EntityTypes.Add(new EditorEntityTypeMeta(type, name, id));
+            _entityTypeNames[id] = name;
+        }
+
+        internal static string GetEntityTypeName(byte id) {
+            return _entityTypeNames.TryGetValue(id, out var name) ? name : $"Unknown({id})";
+        }
+
+        public static void EnrichByWorld(WorldHandle handle) {
+            foreach (var compHandle in handle.GetAllComponentsHandles()) {
+                if (compHandle.IsTag) continue;
+                var type = compHandle.ComponentType;
                 if (Components.Find(meta => meta.Type == type) == null) {
                     HandleComponentMeta(type);
                 }
             }
-            
-            foreach (var pool in world.GetAllTagsRawPools()) {
-                var type = pool.GetElementType();
+
+            foreach (var tagHandle in handle.GetAllComponentsHandles()) {
+                if (!tagHandle.IsTag) continue;
+                var type = tagHandle.ComponentType;
                 if (Tags.Find(meta => meta.Type == type) == null) {
                     HandleTagMeta(type);
                 }
             }
-            
-            foreach (var pool in world.GetAllEventPools()) {
-                var type = pool.GetEventType();
+
+            foreach (var eventsHandle in handle.GetAllEventsHandles()) {
+                var type = eventsHandle.EventType;
                 if (Events.Find(meta => meta.Type == type) == null) {
                     HandleEventMeta(type);
                 }
@@ -257,7 +256,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         internal static FieldInfo[] GetCachedSerializableType(Type type) {
             if (!_typesCache.TryGetValue(type, out var fields)) {
-                if (!Attribute.IsDefined(type, typeof(SerializableAttribute)) && !typeof(IComponent).IsAssignableFrom(type) && !typeof(IEvent).IsAssignableFrom(type) && !HasShowAttribute(type)) {
+                if (!Attribute.IsDefined(type, typeof(SerializableAttribute)) && !typeof(IComponent).IsAssignableFrom(type) && !typeof(IEvent).IsAssignableFrom(type) && !typeof(ISystem).IsAssignableFrom(type) && !HasShowAttribute(type)) {
                     fields = Array.Empty<FieldInfo>();
                     _typesCache[type] = fields;
                     return fields;
@@ -375,47 +374,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
     }
 
-    public interface IStaticEcsValueDrawer {
-        Type ItemType();
-        int Priority();
-        bool DrawValue(ref DrawContext ctx, string label, object value, out object newValue);
-        void DrawTableValue(object value, GUIStyle style, GUILayoutOption[] layoutOptions);
+    public class EditorEntityTypeMeta {
+        public readonly Type Type;
+        public readonly string Name;
+        public readonly byte Id;
+
+        public EditorEntityTypeMeta(Type type, string name, byte id) {
+            Type = type;
+            Name = name;
+            Id = id;
+        }
     }
 
-    public abstract class IStaticEcsValueDrawer<T> : IStaticEcsValueDrawer {
-        public Type ItemType() => typeof(T);
-        public virtual bool IsNullAllowed() => false;
-        public virtual int Priority() => 0;
-
-        public bool DrawValue(ref DrawContext ctx, string label, object value, out object newValue) {
-            if (value == null && !IsNullAllowed()) {
-                Drawer.DrawSelectableText(label, "null");
-                newValue = default;
-                return false;
-            }
-
-            var typedValue = (T) value;
-            if (DrawValue(ref ctx, label, ref typedValue)) {
-                newValue = typedValue;
-                return true;
-            }
-
-            newValue = default;
-            return false;
-        }
-        
-        public void DrawTableValue(object value, GUIStyle style, GUILayoutOption[] layoutOptions) {
-            if (value == null && !IsNullAllowed()) {
-                EditorGUILayout.SelectableLabel("null", style, layoutOptions);
-                return;
-            }
-
-            var typedValue = (T) value;
-            DrawTableValue(ref typedValue, style, layoutOptions);
-        }
-
-        public abstract void DrawTableValue(ref T value, GUIStyle style, GUILayoutOption[] layoutOptions);
-
-        public abstract bool DrawValue(ref DrawContext ctx, string label, ref T value);
-    }
 }

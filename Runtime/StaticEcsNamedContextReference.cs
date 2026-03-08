@@ -9,7 +9,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
     #endif
     [DefaultExecutionOrder(short.MinValue)]
-    public abstract class StaticEcsNamedContextReference<WorldType> : MonoBehaviour where WorldType : struct, IWorldType {
+    public abstract class StaticEcsNamedContextReference<TWorld> : MonoBehaviour where TWorld : struct, IWorldType {
         [SerializeField] private string _key;
         [SerializeField] private RegistrationType _registrationType = RegistrationType.OnAwake;
 
@@ -19,25 +19,25 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         void Awake() {
             if (_registrationType == RegistrationType.OnAwake) {
-                World<WorldType>.NamedContext.Set(_key, gameObject);
+                World<TWorld>.SetResource(_key, gameObject);
             }
         }
 
         void OnEnable() {
             if (_registrationType == RegistrationType.OnEnable) {
-                World<WorldType>.NamedContext.Set(_key, gameObject);
+                World<TWorld>.SetResource(_key, gameObject);
             }
         }
 
         void OnDisable() {
             if (_registrationType == RegistrationType.OnEnable) {
-                World<WorldType>.NamedContext.Remove(_key);
+                World<TWorld>.RemoveResource(_key);
             }
         }
 
         void OnDestroy() {
             if (_registrationType == RegistrationType.OnAwake) {
-                World<WorldType>.NamedContext.Remove(_key);
+                World<TWorld>.RemoveResource(_key);
             }
         }
 

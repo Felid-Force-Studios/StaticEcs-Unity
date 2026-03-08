@@ -1,0 +1,100 @@
+#if FFS_ECS_PHYSICS2D
+using System.Runtime.CompilerServices;
+using UnityEngine;
+using static System.Runtime.CompilerServices.MethodImplOptions;
+#if ENABLE_IL2CPP
+using Unity.IL2CPP.CompilerServices;
+#endif
+
+namespace FFS.Libraries.StaticEcs.Unity {
+
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    public abstract class Collision2DEntityProvider<TWorld> : UnityEntityEventProvider<TWorld>
+        where TWorld : struct, IWorldType {
+
+        [MethodImpl(AggressiveInlining)]
+        protected virtual void OnSendEnterEvent(Collision2D data) {
+            var cp = data.GetContact(0);
+            World<TWorld>.SendEvent(new CollisionEnter2DEntityEvent {
+                Ref = gameObject,
+                EntityGID = EntityGID,
+                Collider = data.collider,
+                Velocity = data.relativeVelocity,
+                Point = cp.point,
+                Normal = cp.normal,
+            });
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        protected virtual void OnSendExitEvent(Collision2D data) {
+            World<TWorld>.SendEvent(new CollisionExit2DEntityEvent {
+                Ref = gameObject,
+                EntityGID = EntityGID,
+                Collider = data.collider,
+                Velocity = data.relativeVelocity,
+            });
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        protected virtual void OnAddComponent(Collision2D data) {
+            var cp = data.GetContact(0);
+            SetComponentOnEntity(new Collision2DState {
+                Collider = data.collider,
+                Velocity = data.relativeVelocity,
+                Point = cp.point,
+                Normal = cp.normal,
+            });
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        protected virtual void OnRemoveComponent() {
+            DeleteComponentFromEntity<Collision2DState>();
+        }
+
+        private void OnCollisionEnter2D(Collision2D data) {
+            if (!CanSend()) return;
+            if (SendEvents) OnSendEnterEvent(data);
+            if (ManageComponents) OnAddComponent(data);
+        }
+
+        private void OnCollisionExit2D(Collision2D data) {
+            if (!CanSend()) return;
+            if (SendEvents) OnSendExitEvent(data);
+            if (ManageComponents) OnRemoveComponent();
+        }
+    }
+
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    public abstract class Collision2DEntityGIDProvider<TWorld> : Collision2DEntityProvider<TWorld>
+        where TWorld : struct, IWorldType {
+
+        [UnityEngine.SerializeField] private EntityGID entityGid;
+        protected override EntityGID EntityGID { [MethodImpl(AggressiveInlining)] get => entityGid; }
+        [MethodImpl(AggressiveInlining)]
+        public void SetEntityGID(EntityGID gid) => entityGid = gid;
+    }
+
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    public abstract class Collision2DEntityRefProvider<TWorld, TProvider> : Collision2DEntityProvider<TWorld>
+        where TWorld : struct, IWorldType
+        where TProvider : StaticEcsEntityProvider<TWorld> {
+
+        [UnityEngine.SerializeField] private TProvider entityProvider;
+        protected override EntityGID EntityGID {
+            [MethodImpl(AggressiveInlining)]
+            get => entityProvider != null ? entityProvider.EntityGid : default;
+        }
+        [MethodImpl(AggressiveInlining)]
+        public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+    }
+}
+#endif

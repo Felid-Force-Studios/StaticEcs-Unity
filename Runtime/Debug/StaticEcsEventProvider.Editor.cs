@@ -1,63 +1,66 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using System;
-using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity {
     
-    public partial class StaticEcsEventProvider {
+    public abstract partial class StaticEcsEventProvider<TWorld> {
 
-        public IEvent GetActualEvent(out bool cached) {
+        public virtual IEvent GetActualEvent(out bool cached) {
             if (RuntimeEvent.IsEmpty()) {
                 cached = false;
                 return EventTemplate;
             }
 
-            if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
+            var handle = World<TWorld>.Data.Handle;
+            if (handle.TryGetEventsHandle(RuntimeEvent.Type, out var eventsHandle)) {
                 if (RuntimeEvent.Status != EventStatus.Sent) {
                     cached = true;
                     return EventCache;
                 }
 
-                EventCache = pool.GetRaw(RuntimeEvent.InternalIdx);
+                EventCache = eventsHandle.GetRaw(RuntimeEvent.InternalIdx);
                 cached = false;
                 return EventCache;
             }
-            
-            throw new StaticEcsException("Event pool not registered");
+
+            throw new InvalidOperationException("Event pool not registered");
         }
 
-        public bool IsCached() {
+        public virtual bool IsCached() {
             return RuntimeEvent.Status != EventStatus.Sent;
         }
-        
-        public bool ShouldShowEvent(Type type, bool runtime) {
-            return !runtime || World.Events().TryGetPool(type, out var _);
+
+        public virtual bool ShouldShowEvent(Type type, bool runtime) {
+            return !runtime || (World<TWorld>.Status == WorldStatus.Initialized
+                                && World<TWorld>.Data.Handle.TryGetEventsHandle(type, out _));
         }
-        
-        public void OnSelectEvent(IEvent e) {
+
+        public virtual void OnSelectEvent(IEvent e) {
             EventTemplate = e;
         }
 
-        public bool EventIsActual(bool runtime) {
+        public virtual bool EventIsActual(bool runtime) {
             return (runtime && !RuntimeEvent.IsEmpty()) || EventTemplate != null;
         }
 
-        public void DeleteEvent() {
-            if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
-                pool.Del(RuntimeEvent.InternalIdx);
+        public virtual void DeleteEvent() {
+            var handle = World<TWorld>.Data.Handle;
+            if (handle.TryGetEventsHandle(RuntimeEvent.Type, out var eventsHandle)) {
+                eventsHandle.Delete(RuntimeEvent.InternalIdx);
             } else {
-                throw new StaticEcsException("Event pool not registered");
+                throw new InvalidOperationException("Event pool not registered");
             }
         }
 
-        public void OnChangeEvent(IEvent newValue) {
+        public virtual void OnChangeEvent(IEvent newValue) {
             if (RuntimeEvent.IsEmpty()) {
                 EventTemplate = newValue;
             } else {
-                if (World.Events().TryGetPool(RuntimeEvent.Type, out var pool)) {
-                    pool.PutRaw(RuntimeEvent.InternalIdx, newValue);
+                var handle = World<TWorld>.Data.Handle;
+                if (handle.TryGetEventsHandle(RuntimeEvent.Type, out var eventsHandle)) {
+                    eventsHandle.PutRaw(RuntimeEvent.InternalIdx, newValue);
                 } else {
-                    throw new StaticEcsException("Event pool not registered");
+                    throw new InvalidOperationException("Event pool not registered");
                 }
 
                 EventCache = newValue;

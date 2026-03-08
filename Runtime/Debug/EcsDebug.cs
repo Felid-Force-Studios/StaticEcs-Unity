@@ -1,54 +1,69 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using UnityEngine;
+using System.Runtime.CompilerServices;
 #if ENABLE_IL2CPP
 using Unity.IL2CPP.CompilerServices;
 #endif
 
+[assembly: InternalsVisibleTo("FFS.StaticEcs.Unity.Editor")]
+
 namespace FFS.Libraries.StaticEcs.Unity {
-    
     #if UNITY_EDITOR
-    public sealed class StaticEcsDebugData {
-        public static readonly Dictionary<Type, AbstractWorldData> Worlds = new();
-        public static readonly Dictionary<Type, ((ISystem system, short order, int idx)[] systems, int count, Type worldType)> Systems = new();
+    internal sealed class StaticEcsDebugData {
+        internal static readonly Dictionary<Type, AbstractWorldData> Worlds = new();
+        internal static readonly Dictionary<Type, (SystemData[] systems, int count, Type worldType)> Systems = new();
     }
     #endif
 
-    public abstract class EcsDebug<WorldType> where WorldType : struct, IWorldType {
-        public static void AddSystem<SystemsType>() where SystemsType : struct, ISystemsType {
-            #if UNITY_EDITOR
-            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
-            if (!World<WorldType>.Systems<SystemsType>.IsInitialized()) {
-                throw new StaticEcsException("StaticEcsWorldDebug Debug mode connection is possible only when systems initialized");
-            }
-            StaticEcsDebugData.Systems[typeof(SystemsType)] = (World<WorldType>.Systems<SystemsType>._allSystems, World<WorldType>.Systems<SystemsType>._allSystemsCount, typeof(WorldType));
-            #endif
-            #endif
-        }
+    public abstract class EcsDebug<TWorld> where TWorld : struct, IWorldType {
         
-        public static void AddWorld(int eventHistoryCount = 8192, Func<IEntity, string> windowEntityNameFunction = null) {
+        #if UNITY_EDITOR
+        #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+        public static DebugViewSystem<TWorld> DebugViewSystem { get; private set; }
+        #endif
+        #endif
+
+        public static void AddSystem<TSystemsType>() where TSystemsType : struct, ISystemsType {
             #if UNITY_EDITOR
             #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
-            StaticEcsWorldDebug<WorldType>.Create(eventHistoryCount, windowEntityNameFunction);
+            if (!World<TWorld>.Systems<TSystemsType>.IsInitialized) {
+                throw new InvalidOperationException("StaticEcsWorldDebug Debug mode connection is possible only when systems initialized");
+            }
+            StaticEcsDebugData.Systems[typeof(TSystemsType)] = (World<TWorld>.Systems<TSystemsType>.AllSystems, World<TWorld>.Systems<TSystemsType>.AllSystemsCount, typeof(TWorld));
             #endif
             #endif
         }
-    }
 
-    public abstract class AutoRegister<WorldType> where WorldType : struct, IWorldType {
-        public static void Apply() {
-            var methods = AppDomain.CurrentDomain
-                                   .GetAssemblies()
-                                   .SelectMany(asm => asm.GetTypes())
-                                   .SelectMany(type => type.GetMethods(
-                                                   BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
-                                   .Where(m => m.GetCustomAttribute<StaticEcsAutoRegistrationAttribute>() != null && m.GetCustomAttribute<StaticEcsAutoRegistrationAttribute>().WorldType == typeof(WorldType));
-
-            foreach (var method in methods) {
-                method.Invoke(null, null);
+        public static void AddWorld<TSystemsType>(int eventHistoryCount = 8192, Func<EntityGID, string> windowEntityNameFunction = null, short systemOrder = short.MaxValue) where TSystemsType : struct, ISystemsType {
+            #if UNITY_EDITOR
+            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+            if (World<TWorld>.Status == WorldStatus.NotCreated) {
+                throw new InvalidOperationException("StaticEcsWorldDebug Debug mode connection is possible only after world creation");
             }
+
+            var worldData = new WorldData<TWorld> {
+                Handle = World<TWorld>.Data.Handle,
+                Events = new PageRingBuffer<EventData>(Math.Max(eventHistoryCount, 8)),
+                EventsReceived = new Dictionary<Type, int>(),
+                WindowNameFunction = windowEntityNameFunction ?? (gid => $"Entity {gid.EntityID}") ,
+            };
+
+            StaticEcsDebugData.Worlds[typeof(TWorld)] = worldData;
+            World<TWorld>.Data.Instance.EventListener = worldData;
+            DebugViewSystem = new DebugViewSystem<TWorld>();
+            World<TWorld>.Systems<TSystemsType>.Add(DebugViewSystem, systemOrder);
+            #endif
+            #endif
+        }
+
+        public static void RemoveWorld() {
+            #if UNITY_EDITOR
+            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+            DebugViewSystem = null;
+            StaticEcsDebugData.Worlds.Remove(typeof(TWorld));
+            World<TWorld>.Data.Instance.EventListener = default;
+            #endif
+            #endif
         }
     }
 }

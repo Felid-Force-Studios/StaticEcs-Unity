@@ -7,7 +7,9 @@ using static UnityEditor.EditorGUILayout;
 using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
-    public class StaticEcsViewEntitiesTab : IStaticEcsViewTab {
+    public class StaticEcsViewEntitiesTab<TWorld, TEntityProvider> : IStaticEcsViewTab 
+        where TWorld : struct, IWorldType
+        where TEntityProvider : StaticEcsEntityProvider<TWorld> {
         internal enum TabType: byte {
             Table,
             EntityBuilder
@@ -17,14 +19,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly string[] _tabsNames = { "Table", "Entity builder" };
         internal TabType SelectedTab;
         
-        private readonly Dictionary<Type, EntitiesDrawer> _drawersByWorldTypeType = new();
-        private EntitiesDrawer _currentDrawer;
+        private readonly Dictionary<Type, EntitiesDrawer<TWorld, TEntityProvider>> _drawersByWorldTypeType = new();
+        private EntitiesDrawer<TWorld, TEntityProvider> _currentDrawer;
         
         public string Name() => "Entities";
         
         public void Init() {}
 
-        public void Draw(StaticEcsView view) {
+        public void Draw() {
             Ui.DrawToolbar(_tabs, ref SelectedTab, type => _tabsNames[(int) type]);
             _currentDrawer.DrawEntitiesData();
         }
@@ -36,16 +38,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         public void OnWorldChanged(AbstractWorldData newWorldData) {
-            if (!_drawersByWorldTypeType.ContainsKey(newWorldData.WorldTypeType)) {
-                _drawersByWorldTypeType[newWorldData.WorldTypeType] =  new EntitiesDrawer(this, newWorldData);
+            if (!_drawersByWorldTypeType.ContainsKey(newWorldData.Handle.WorldType)) {
+                _drawersByWorldTypeType[newWorldData.Handle.WorldType] =  new EntitiesDrawer<TWorld, TEntityProvider>(this, newWorldData);
             }
             
-            _currentDrawer = _drawersByWorldTypeType[newWorldData.WorldTypeType];
-            _drawersByWorldTypeType[newWorldData.WorldTypeType] = _currentDrawer;
+            _currentDrawer = _drawersByWorldTypeType[newWorldData.Handle.WorldType];
+            _drawersByWorldTypeType[newWorldData.Handle.WorldType] = _currentDrawer;
         }
     }
 
-    public partial class EntitiesDrawer : IForAll {
+    public partial class EntitiesDrawer<TWorld, TEntityProvider> where TWorld : struct, IWorldType where TEntityProvider : StaticEcsEntityProvider<TWorld> {
         private Vector2 verticalScrollEntitiesPosition = Vector2.zero;
         private Vector2 horizontalScrollEntitiesPosition = Vector2.zero;
 
@@ -58,66 +60,67 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly List<EditorEntityDataMetaByWorld> _tagsColumns = new();
 
         private EditorEntityDataMetaByWorld _sortIdx;
-        private readonly List<uint> _tempEntities = new();
-        private readonly List<uint> _pinedEntities = new();
+        private int _lastSnapshotCount;
+        private readonly List<EntityGID> _pinedEntities = new();
         
         private bool _gidFilterActive;
         private int _gidFilterValue;
 
-        private readonly StaticEcsEntityProvider _entityBuilder;
+        private readonly TEntityProvider _entityBuilder;
         
-        private readonly StaticEcsViewEntitiesTab _parent;
-        private readonly AbstractWorldData _worldData;
+        private readonly StaticEcsViewEntitiesTab<TWorld, TEntityProvider> _parent;
 
 
-        internal EntitiesDrawer(StaticEcsViewEntitiesTab parent, AbstractWorldData worldData) {
-            _worldData = worldData;
+        internal EntitiesDrawer(StaticEcsViewEntitiesTab<TWorld, TEntityProvider> parent, AbstractWorldData worldData) {
             _parent = parent;
             
             foreach (var val in MetaData.Components) {
-                if (worldData.World.TryGetComponentsRawPool(val.Type, out var pool)) {
-                    _components.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
+                if (worldData.Handle.TryGetComponentsHandle(val.Type, out var handle)) {
+                    _components.Add(new EditorEntityDataMetaByWorld(val, handle, null, e => handle.Has(e)));
                 }
             }
 
             foreach (var val in MetaData.Tags) {
-                if (worldData.World.TryGetTagsRawPool(val.Type, out var pool)) {
-                    _tags.Add(new EditorEntityDataMetaByWorld(val, pool, e => pool.Has(e)));
+                if (worldData.Handle.TryGetComponentsHandle(val.Type, out var handle)) {
+                    _tags.Add(new EditorEntityDataMetaByWorld(val, null, handle, e => handle.Has(e)));
                 }
             }
-            
+
+            _componentsAndTags.AddRange(_components);
+            _componentsAndTags.AddRange(_tags);
+
             ShowAllColumns(true);
 
             var go = new GameObject("StaticEcsEntityBuider") {
                 hideFlags = HideFlags.NotEditable,
             };
             Object.DontDestroyOnLoad(go);
-            _entityBuilder = go.AddComponent<StaticEcsEntityProvider>();
-            _entityBuilder.UsageType = UsageType.Manual;
-            _entityBuilder.OnCreateType = OnCreateType.None;
-            _entityBuilder.WorldTypeName = _worldData.WorldTypeTypeFullName;
-            _entityBuilder.WorldEditorName = _worldData.worldEditorName;
+            _entityBuilder = go.AddComponent<TEntityProvider>();
+            if (_entityBuilder) {
+                _entityBuilder.UsageType = UsageType.Manual;
+                _entityBuilder.OnCreateType = OnCreateType.None;
+            }
         }
 
         internal void DrawEntitiesData() {
             switch (_parent.SelectedTab) {
-                case StaticEcsViewEntitiesTab.TabType.Table:
+                case StaticEcsViewEntitiesTab<TWorld, TEntityProvider>.TabType.Table:
                     DrawEntitiesFilter();
                     DrawEntitiesTable();
                     break;
-                case StaticEcsViewEntitiesTab.TabType.EntityBuilder:
-                    var prefab = ObjectField("Prefab", _entityBuilder.Prefab, typeof(StaticEcsEntityProvider), true);
-                    if (prefab != _entityBuilder.Prefab) {
-                        _entityBuilder.Prefab = (StaticEcsEntityProvider) prefab;
+                case StaticEcsViewEntitiesTab<TWorld, TEntityProvider>.TabType.EntityBuilder:
+                    var prefab = ObjectField("Prefab", _entityBuilder.prefab, typeof(TEntityProvider), true);
+                    if (prefab != _entityBuilder.prefab) {
+                        _entityBuilder.prefab = (TEntityProvider) prefab;
                         EditorUtility.SetDirty(_entityBuilder);
                     }
-                    Drawer.DrawEntity(_entityBuilder, DrawMode.Builder, provider => {
+                    Drawer.DrawEntity<TWorld, TEntityProvider>(_entityBuilder, DrawMode.Builder, provider => {
                         provider.CreateEntity();
-                        EntityInspectorWindow.ShowWindowForEntity(provider.World, provider.Entity);
-                        provider.Entity = null;
+                        EntityInspectorHelper<TWorld, TEntityProvider>.ShowWindowForEntity(provider.Entity);
+                        provider.EntityGid = default;
                         EditorUtility.SetDirty(provider);
                     }, provider => {
-                        provider.Entity = null;
+                        provider.EntityGid = default;
                         EditorUtility.SetDirty(provider);
                     });
                     break;
@@ -159,42 +162,41 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             verticalScrollEntitiesPosition = GUILayout.BeginScrollView(verticalScrollEntitiesPosition, Ui.Width(_maxWidth + 25f));
             _currentEntityCount = 0;
+
             if (_gidFilterActive) {
-                if (_worldData.FindEntityByGid((uint) _gidFilterValue, out var entity)) {
-                    DrawEntityRow(entity.GetId(), false, false);
+                var gidEntity = new World<TWorld>.Entity((uint)_gidFilterValue);
+                if (!gidEntity.IsDestroyed) {
+                    DrawEntityRow(gidEntity, false, false);
                 }
-            } else if (IsFilterValid()) {
-                _worldData.ForAll(MakeEcsWithFilter(), this);
             } else {
-                for (var entIdx = _worldData.Capacity; entIdx > 0; entIdx--) { // TODO capacity?
-                    if (!DrawEntityRow(entIdx - 1, true, false)) {
-                        break;
+                var system = EcsDebug<TWorld>.DebugViewSystem;
+                system.MaxEntityResult = _maxEntityResult;
+                system.SetFilter(_filterActive && IsFilterValid() ? GetOrBuildFilter() : default);
+                system.SetSortHandle(_sortIdx?.ComponentHandle ?? _sortIdx?.TagHandle);
+
+                var snapshot = system.ReadSnapshot();
+                if (snapshot != null) {
+                    if (Event.current.type == EventType.Layout) {
+                        _lastSnapshotCount = snapshot.Count;
+                    }
+                    for (var i = 0; i < _lastSnapshotCount; i++) {
+                        if (!DrawEntityRow(snapshot.Entities[i], true, false)) {
+                            break;
+                        }
                     }
                 }
             }
 
-            foreach (var entIdx in _tempEntities) {
-                if (!DrawEntityRow(entIdx, false, false)) {
-                    break;
-                }
-            }
-
-            _tempEntities.Clear();
-
             GUILayout.EndScrollView();
             GUILayout.EndScrollView();
-        }
-
-        public bool ForAll(uint entityId) {
-            return DrawEntityRow(entityId, true, false);
         }
 
         private void DrawPined() {
             var count = _pinedEntities.Count;
             for (var i = count - 1; i >= 0; i--) {
-                var entIdx = _pinedEntities[i];
-                if (_worldData.IsActual(entIdx)) {
-                    DrawEntityRow(entIdx, false, true);
+                var gid = _pinedEntities[i];
+                if (gid.TryUnpack<TWorld>(out var entity)) {
+                    DrawEntityRow(entity, false, true);
                 } else {
                     _pinedEntities.RemoveAt(i);
                 }
@@ -276,36 +278,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private bool DrawEntityRow(uint entIdx, bool sorted, bool pined) {
+        private bool DrawEntityRow(World<TWorld>.Entity entity, bool sorted, bool pined) {
             if (_currentEntityCount >= _maxEntityResult && !pined) {
                 return false;
             }
 
-            if (!_worldData.IsActual(entIdx) || (!pined && _pinedEntities.Contains(entIdx))) {
+            if (entity.IsDestroyed || (!pined && _pinedEntities.Contains(entity))) {
                 return true;
-            }
-
-            if (sorted && _sortIdx != null) {
-                if (!_sortIdx.HasComponent(entIdx)) {
-                    if (_tempEntities.Count < _maxEntityResult - _currentEntityCount) {
-                        _tempEntities.Add(entIdx);
-                    }
-
-                    return true;
-                }
-
-                if (_currentEntityCount >= _sortIdx.Pool.CalculateCount() && _tempEntities.Count >= _maxEntityResult - _currentEntityCount) { // Todo CalculateCount slow
-                    return false;
-                }
             }
 
             _currentEntityCount++;
             BeginHorizontal();
             {
                 BeginHorizontal(Ui.WidthLine(97));
-                DrawViewEntityButton(entIdx);
-                DrawPinEntityButton(entIdx, pined);
-                if (DrawDeleteEntityButton(entIdx)) {
+                DrawViewEntityButton(entity);
+                DrawPinEntityButton(entity, pined);
+                if (DrawDeleteEntityButton(entity)) {
                     EndHorizontal();
                     EndHorizontal();
                     return true;
@@ -313,71 +301,74 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EndHorizontal();
 
                 Ui.DrawSeparator();
-                DrawEntityId(entIdx);
-                DrawComponents(entIdx);
+                DrawEntityId(entity);
+                DrawComponents(entity);
             }
             EndHorizontal();
             Ui.DrawHorizontalSeparator(_maxWidth);
             return true;
         }
 
-        private void DrawComponents(uint entIdx) {
+        private void DrawComponents(World<TWorld>.Entity entity) {
             _maxWidth = 180f;
             const float baseWidth = 16f;
-            DrawComponents(entIdx, _tagsColumns, 46f + baseWidth);
-            DrawComponents(entIdx, _componentsColumns, 68f + baseWidth);
+            DrawComponents(entity, _tagsColumns, 46f + baseWidth);
+            DrawComponents(entity, _componentsColumns, 68f + baseWidth);
         }
 
-        private static void DrawEntityId(uint entIdx) {
-            SelectableLabel(Ui.IntToStringD6((int) entIdx).d6, Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
+        private static void DrawEntityId(World<TWorld>.Entity entity) {
+            SelectableLabel(Ui.IntToStringD6((int) entity.ID).d6, Ui.LabelStyleThemeCenter, Ui.WidthLine(60));
             Ui.DrawSeparator();
         }
 
-        private bool DrawDeleteEntityButton(uint entIdx) {
+        private bool DrawDeleteEntityButton(World<TWorld>.Entity entity) {
             if (Ui.TrashButtonExpand) {
-                _worldData.DestroyEntity(entIdx);
+                EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
+                    Type = DebugCommandType.DestroyEntity,
+                    EntityGid = entity.GID,
+                });
                 return true;
             }
 
             return false;
         }
 
-        private void DrawPinEntityButton(uint entIdx, bool pinned) {
+        private void DrawPinEntityButton(World<TWorld>.Entity entity, bool pinned) {
             if (Ui.LockButtonExpand) {
                 if (pinned) {
-                    _pinedEntities.Remove(entIdx);
+                    _pinedEntities.Remove(entity);
                 } else {
-                    _pinedEntities.Add(entIdx);
+                    _pinedEntities.Add(entity);
                 }
             }
         }
 
-        private void DrawViewEntityButton(uint entIdx) {
+        private void DrawViewEntityButton(World<TWorld>.Entity entity) {
             LabelField(GUIContent.none, Ui.Width(10));
             if (Ui.ViewButtonExpand) {
-                EntityInspectorWindow.ShowWindowForEntity(_worldData.World, _worldData.GetEntity(entIdx));
+                EntityInspectorHelper<TWorld, TEntityProvider>.ShowWindowForEntity(entity.GID);
             }
         }
 
-        private void DrawComponents(uint entIdx, List<EditorEntityDataMetaByWorld> types, float widthAdd) {
+        private void DrawComponents(World<TWorld>.Entity entity, List<EditorEntityDataMetaByWorld> types, float widthAdd) {
             const string HasComponent = "✔";
 
             foreach (var idx in types) {
-                if (idx.HasComponent(entIdx)) {
-                    var style = idx.CopmponentsPool != null && idx.CopmponentsPool.HasDisabled(entIdx) 
-                        ? Ui.LabelStyleGreyCenter 
+                if (idx.HasComponent(entity)) {
+                    var style = idx.ComponentHandle.HasValue && idx.ComponentHandle.Value.HasDisabled(entity.ID)
+                        ? Ui.LabelStyleGreyCenter
                         : Ui.LabelStyleThemeCenter;
                     if (idx.ShowTableData) {
-                        if (MetaData.Inspectors.TryGetValue(idx.Type, out var inspector)) {
-                            inspector.DrawTableValue(idx.Pool.GetRaw(entIdx), style, idx.LayoutWithOffset);
+                        if (idx.ComponentHandle.HasValue && idx.ComponentHandle.Value.TryGetRaw(entity.ID, out var rawValue)) {
+                                if (idx.TryGetTableField(out var field)) {
+                                    Drawer.DrawField(rawValue, field, style, idx.LayoutWithOffset);
+                                } else if (idx.TryGetTableProperty(out var property)) {
+                                    Drawer.DrawProperty(rawValue, property, style, idx.LayoutWithOffset);
+                                } else {
+                                    LabelField(HasComponent, style, idx.LayoutWithOffset);
+                                }
                         } else {
-                            if (idx.TryGetTableField(out var field)) {
-                                Drawer.DrawField(idx.Pool.GetRaw(entIdx), field, style, idx.LayoutWithOffset);
-                            } else if (idx.TryGetTableProperty(out var property)) {
-                                Drawer.DrawProperty(idx.Pool.GetRaw(entIdx), property, style, idx.LayoutWithOffset);
-                            } else {
-                                LabelField(HasComponent, style, idx.LayoutWithOffset);
-                            }
+                            LabelField(HasComponent, style, idx.LayoutWithOffset);
                         }
                     } else {
                         LabelField(HasComponent, style, idx.LayoutWithOffset);
@@ -393,26 +384,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public class EditorEntityDataMetaByWorld : EditorEntityDataMeta {
-        public readonly IRawPool Pool;
-        public readonly IRawComponentPool CopmponentsPool;
-        public readonly IRawTagPool TagsPool;
+        public readonly ComponentsHandle? ComponentHandle;
+        public readonly ComponentsHandle? TagHandle;
         private readonly Func<uint, bool> _hasComponentFunc;
         public bool ShowTableData;
 
-        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, IRawPool pool, Func<uint, bool> hasComponentFunc)
+        public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, ComponentsHandle? componentHandle, ComponentsHandle? tagHandle, Func<uint, bool> hasComponentFunc)
             : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
             _hasComponentFunc = hasComponentFunc;
             ShowTableData = false;
-            Pool = pool;
-            if (Pool is IRawComponentPool componentPool) {
-                CopmponentsPool = componentPool;
-            }
-            if (Pool is IRawTagPool tagPool) {
-                TagsPool = tagPool;
-            }
+            ComponentHandle = componentHandle;
+            TagHandle = tagHandle;
         }
 
-        public bool HasComponent(uint entIdx) => _hasComponentFunc(entIdx);
+        public bool HasComponent<TWorld>(World<TWorld>.Entity entity) where TWorld : struct, IWorldType => _hasComponentFunc(entity.ID);
+
+        public uint CalculateCount() {
+            if (ComponentHandle.HasValue) return ComponentHandle.Value.CalculateCount();
+            if (TagHandle.HasValue) return TagHandle.Value.CalculateCount();
+            return 0;
+        }
     }
 }
 #endif

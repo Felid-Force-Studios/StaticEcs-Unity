@@ -1,54 +1,47 @@
-﻿using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
-    public class StaticEcsView : EditorWindow {
-        private static StaticEcsView _instance;
 
-        [MenuItem("Window/Static ECS")]
-        public static void OpenWindow() {
-            if (!_instance) {
-                _instance = CreateInstance<StaticEcsView>();
-            }
-            _instance.Show();
-            _instance.Focus();
-        }
+    public abstract class StaticEcsView<TWorld, TEntityProvider, TEventProvider> : EditorWindow 
+        where TWorld : struct, IWorldType
+        where TEntityProvider : StaticEcsEntityProvider<TWorld>
+        where TEventProvider : StaticEcsEventProvider<TWorld> {
 
         private readonly List<IStaticEcsViewTab> _tabs = new();
         private IStaticEcsViewTab _selectedTab;
 
-        private readonly Dictionary<Type, AbstractWorldData> _WorldTypeTypeToData = new();
         private AbstractWorldData _currentWorldData;
 
         internal float drawRate = 0.5f;
         internal float drawFrames = 2;
         private float _acc;
-        
+
         private bool _initialized;
 
         public void Init() {
-            if (!_instance) {
-                _instance = this;
-            }
-
             if (!_initialized || _tabs.Count == 0) {
-                titleContent = new GUIContent("Static ECS");
+                titleContent = new GUIContent($"Static ECS - {typeof(TWorld).Name}");
 
                 #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
-                _tabs.Add(new StaticEcsViewEntitiesTab());
-                _tabs.Add(new StaticEcsViewStatsTab());
-                _tabs.Add(new StaticEcsViewEventsTab());
-                _tabs.Add(new StaticEcsViewContextTab());
-                _tabs.Add(new StaticEcsViewSystemsTab());
-                _tabs.Add(new StaticEcsViewSettingsTab());
+                _tabs.Add(new StaticEcsViewEntitiesTab<TWorld, TEntityProvider>());
+                _tabs.Add(new StaticEcsViewStatsTab<TWorld>());
+                _tabs.Add(new StaticEcsViewEventsTab<TWorld, TEventProvider>());
+                _tabs.Add(new StaticEcsViewContextTab<TWorld, TEntityProvider>());
+                _tabs.Add(new StaticEcsViewSystemsTab<TWorld>());
                 #endif
-                
+
                 foreach (var tab in _tabs) {
                     tab.Init();
                 }
-                _selectedTab = _tabs[0];
+
+                if (_tabs.Count > 0) {
+                    _selectedTab = _tabs[0];
+                }
+
+                EntityInspectorRegistry.ShowEntityHandlers[typeof(TWorld)] = EntityInspectorHelper<TWorld, TEntityProvider>.ShowWindowForEntity;
+
                 _initialized = true;
             }
         }
@@ -70,35 +63,29 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.HelpBox("Data is only available in play mode", MessageType.Info);
                 return;
             }
-            
+
             Init();
 
             if (_currentWorldData == null) {
-                foreach (var typeToWorld in StaticEcsDebugData.Worlds) {
-                    SetWorldData(typeToWorld.Value, typeToWorld.Key);
-                    break;
+                if (StaticEcsDebugData.Worlds.TryGetValue(typeof(TWorld), out var worldData)) {
+                    SetWorldData(worldData);
                 }
             }
-            
-            if (_currentWorldData == null) return;
 
-            if (_currentWorldData.World.Status() != WorldStatus.Initialized) {
-                EditorGUILayout.HelpBox("World not initialized", MessageType.Info);
-            GUILayout.BeginHorizontal();
-                
-                DrawWorldSelector();
-            GUILayout.EndHorizontal();
-                
+            if (_currentWorldData == null) {
+                EditorGUILayout.HelpBox($"World {typeof(TWorld).Name} is not registered. Call EcsDebug<{typeof(TWorld).Name}>.AddWorld()", MessageType.Warning);
                 return;
             }
-            
+
+            if (_currentWorldData.Handle.Status() != WorldStatus.Initialized) {
+                EditorGUILayout.HelpBox("World not initialized", MessageType.Info);
+                return;
+            }
+
             EditorGUILayout.Space(10);
-            EditorGUILayout.BeginHorizontal();
-            DrawWorldSelector();
-            _selectedTab.DrawHeader(this);
-            EditorGUILayout.EndHorizontal();
+            _selectedTab?.DrawHeader();
             EditorGUILayout.Space(10);
-            
+
             GUILayout.BeginHorizontal(EditorStyles.toolbar);
             {
                 foreach (var tab in _tabs) {
@@ -109,54 +96,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         }
                     }
                 }
-
-
             }
             GUILayout.EndHorizontal();
             EditorGUILayout.Space();
-            
-            _selectedTab.Draw(this);
+
+            _selectedTab?.Draw();
         }
 
-        internal static void DrawWorldSelector() {
-            if (_instance == null) return;
+        private void SetWorldData(AbstractWorldData data) {
+            MetaData.EnrichByWorld(data.Handle);
 
-            // GUILayout.BeginHorizontal();
-            // {
-                using (Ui.EnabledScopeVal(MetaData.WorldsMetaData.Count > 1)) {
-                    if (GUILayout.Button(new GUIContent("World: ", EditorGUIUtility.IconContent("d_Preset.Context").image), Ui.IconButtonStretchedStyle, Ui.ExpandWidthFalse())) {
-                        var menu = new GenericMenu();
-                        foreach (var typeToWorld in StaticEcsDebugData.Worlds) {
-                            if (_instance._currentWorldData.WorldTypeTypeFullName != null && typeToWorld.Key.FullName == _instance._currentWorldData.WorldTypeTypeFullName) {
-                                continue;
-                            }
+            _currentWorldData = data;
 
-                            var editorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == typeToWorld.Key).EditorName;
-                            menu.AddItem(
-                                new GUIContent(editorName),
-                                false,
-                                () => { _instance.SetWorldData(typeToWorld.Value, typeToWorld.Key); });
-                        }
-
-                        menu.ShowAsContext();
-                    }
-                }
-
-                GUILayout.Label(_instance._currentWorldData.worldEditorName, Ui.LabelStyleThemeBold2, Ui.ExpandWidthFalse());
-            // }
-            // GUILayout.EndHorizontal();
-        }
-
-        private void SetWorldData(AbstractWorldData data, Type type) {
-            if (!_WorldTypeTypeToData.ContainsKey(type)) {
-                data.worldEditorName = MetaData.WorldsMetaData.Find(t => t.WorldTypeType == type).EditorName;
-                data.WorldTypeTypeFullName = type.FullName;
-                _WorldTypeTypeToData[type] = data;
-                MetaData.EnrichByWorld(data.World);
-            }
-            
-            _currentWorldData =  _WorldTypeTypeToData[type];
-            
             foreach (var tab in _tabs) {
                 tab.OnWorldChanged(_currentWorldData);
             }
@@ -167,19 +118,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             foreach (var tab in _tabs) {
                 tab.Destroy();
             }
-            
+
             if (Application.isPlaying) {
                 Destroy(this);
             }
-            _instance = null;
         }
     }
 
     public interface IStaticEcsViewTab {
         public string Name();
         public void OnWorldChanged(AbstractWorldData newWorldData);
-        public void Draw(StaticEcsView view);
-        public virtual void DrawHeader(StaticEcsView view) {}
+        public void Draw();
+        public void DrawHeader() {}
         public void Init();
         public void Destroy();
     }
