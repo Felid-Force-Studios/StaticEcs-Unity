@@ -50,13 +50,12 @@ ECS 运行时数据监控和管理窗口
 并指定所需的世界或系统
 ```csharp
         ClientWorld.Create(WorldConfig.Default());
-        //...
-        ClientWorld.Initialize();
-        
         ClientSystems.Create();
-        //...
+        
+        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>();
+        
+        ClientWorld.Initialize();
         ClientSystems.Initialize();
-        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>(); // 在初始化之后
 ```
 
 ### 实体提供者：

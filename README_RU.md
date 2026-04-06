@@ -50,13 +50,12 @@
 с указанием требуемого мира или систем
 ```csharp
         ClientWorld.Create(WorldConfig.Default());
-        //...
-        ClientWorld.Initialize();
-        
         ClientSystems.Create();
-        //...
+        
+        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>();
+        
+        ClientWorld.Initialize();
         ClientSystems.Initialize();
-        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>(); // После инициализации
 ```
 
 ### Провайдеры сущностей:  

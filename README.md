@@ -50,13 +50,12 @@ To connect worlds and systems to the editor window it is necessary to call a spe
 specifying the world or systems required
 ```csharp
         ClientWorld.Create(WorldConfig.Default());
-        //...
-        ClientWorld.Initialize();
-        
         ClientSystems.Create();
-        //...
+        
+        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>();
+        
+        ClientWorld.Initialize();
         ClientSystems.Initialize();
-        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>(); // After initialization
 ```
 
 ### Entity providers:

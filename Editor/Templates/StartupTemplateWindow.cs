@@ -139,6 +139,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         public string CreateTemplate() {
+            // Determine which systems type to use for EcsDebug.AddWorld
+            var debugSystemsType = updateSystems ? updateSystemsTypeName
+                : fixedUpdateSystems ? fixedUpdateSystemsTypeName
+                : lateUpdateSystems ? lateUpdateSystemsTypeName
+                : null;
+            var debugSystemsTypeAlias = updateSystems ? updateSystemsAliasName
+                : fixedUpdateSystems ? fixedUpdateSystemsAliasName
+                : lateUpdateSystems ? lateUpdateSystemsAliasName
+                : null;
+            
             var sb = new StringBuilder();
             var pad = string.IsNullOrEmpty(nameSpace) ? "" : "    ";
             sb.AppendLine("using System;");
@@ -177,16 +187,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             sb.AppendLine($"{pad}    private void Start() {{");
             sb.AppendLine($"{pad}        // ============================================ MAIN INITIALIZATION ======================================================");
             sb.AppendLine($"{pad}        {worldAliasName}.Create(WorldConfig.Default());");
+            if (debugSystemsType != null) {
+                sb.AppendLine($"{pad}        {debugSystemsTypeAlias}.Create();");
+            }
             sb.AppendLine();
             sb.AppendLine($"{pad}        // Types are auto-discovered via Types().RegisterAll()");
             sb.AppendLine($"{pad}        // For manual registration use: {worldAliasName}.Types().Component<T>().Tag<T>().Event<T>();");
             sb.AppendLine();
-
-            // Determine which systems type to use for EcsDebug.AddWorld
-            var debugSystemsType = updateSystems ? updateSystemsTypeName
-                : fixedUpdateSystems ? fixedUpdateSystemsTypeName
-                : lateUpdateSystems ? lateUpdateSystemsTypeName
-                : null;
 
             if (debugWorld && debugSystemsType != null) {
                 sb.AppendLine($"{pad}        EcsDebug<{worldTypeName}>.AddWorld<{debugSystemsType}>();");
@@ -200,7 +207,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             sb.AppendLine();
             if (updateSystems) {
                 sb.AppendLine($"{pad}        // ============================================ MAIN SYSTEMS INITIALIZATION ===============================================");
-                sb.AppendLine($"{pad}        {updateSystemsAliasName}.Create();");
+                if (updateSystemsAliasName != debugSystemsTypeAlias) {
+                    sb.AppendLine($"{pad}        {updateSystemsAliasName}.Create();");
+                }
                 sb.AppendLine($"{pad}        // {updateSystemsAliasName}.Add(new YourSystem1()).Add(new YourSystem2()).Add(new YourSystem3());");
                 sb.AppendLine();
                 sb.AppendLine($"{pad}        {updateSystemsAliasName}.Initialize();");
@@ -212,7 +221,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             if (fixedUpdateSystems) {
                 sb.AppendLine($"{pad}        // ============================================ FIXED SYSTEMS INITIALIZATION ==============================================");
-                sb.AppendLine($"{pad}        {fixedUpdateSystemsAliasName}.Create();");
+                if (fixedUpdateSystemsAliasName != debugSystemsTypeAlias) {
+                    sb.AppendLine($"{pad}        {fixedUpdateSystemsAliasName}.Create();");
+                }
                 sb.AppendLine($"{pad}        // {fixedUpdateSystemsAliasName}.Add(new YourSystem1()).Add(new YourSystem2()).Add(new YourSystem3());");
                 sb.AppendLine();
                 sb.AppendLine($"{pad}        {fixedUpdateSystemsAliasName}.Initialize();");
@@ -224,7 +235,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             if (lateUpdateSystems) {
                 sb.AppendLine($"{pad}        // ============================================ LATE SYSTEMS INITIALIZATION ==============================================");
-                sb.AppendLine($"{pad}        {lateUpdateSystemsAliasName}.Create();");
+                if (lateUpdateSystemsAliasName != debugSystemsTypeAlias) {
+                    sb.AppendLine($"{pad}        {lateUpdateSystemsAliasName}.Create();");
+                }
                 sb.AppendLine($"{pad}        // {lateUpdateSystemsAliasName}.Add(new YourSystem1()).Add(new YourSystem2()).Add(new YourSystem3());");
                 sb.AppendLine();
                 sb.AppendLine($"{pad}        {lateUpdateSystemsAliasName}.Initialize();");
