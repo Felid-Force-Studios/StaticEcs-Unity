@@ -21,6 +21,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         bool generateGUI = true;
         bool generateTMP = true;
+        bool generateMouse = true;
         bool generatePhysics3D = true;
         bool generatePhysics2D = true;
 
@@ -39,7 +40,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     worldType = MetaData.WorldsMetaData[i].WorldTypeType;
                     worldName = MetaData.WorldsMetaData[i].EditorName;
                     worldTypeName = worldType.Name;
-                    prefix = worldName;
+                    prefix = ShortName(worldName);
                     break;
                 }
             }
@@ -65,7 +66,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.Space(10);
             prefix = EditorGUILayout.TextField("Prefix", prefix);
             if (string.IsNullOrEmpty(prefix)) {
-                prefix = worldName ?? "Ecs";
+                prefix = ShortName(worldName) ?? "Ecs";
             }
 
             EditorGUILayout.Space(10);
@@ -79,6 +80,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUI.indentLevel++;
             generateGUI = EditorGUILayout.Toggle("GUI", generateGUI);
             generateTMP = EditorGUILayout.Toggle("TextMeshPro", generateTMP);
+            generateMouse = EditorGUILayout.Toggle("Mouse", generateMouse);
             generatePhysics3D = EditorGUILayout.Toggle("Physics 3D", generatePhysics3D);
             generatePhysics2D = EditorGUILayout.Toggle("Physics 2D", generatePhysics2D);
             EditorGUI.indentLevel--;
@@ -95,6 +97,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var eventCount = 0;
             if (generateGUI) eventCount += 21;
             if (generateTMP) eventCount += 9;
+            if (generateMouse) eventCount += 9;
             if (generatePhysics3D) eventCount += 11;
             if (generatePhysics2D) eventCount += 6;
             if (eventCount > 0) {
@@ -121,7 +124,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         worldType = MetaData.WorldsMetaData[i1].WorldTypeType;
                         worldName = MetaData.WorldsMetaData[i1].EditorName;
                         worldTypeName = worldType.Name;
-                        prefix = worldName;
+                        prefix = ShortName(worldName);
                         menuItemPath = "Window/" + prefix + " ECS";
                     },
                     MetaData.WorldsMetaData[i1].WorldTypeType);
@@ -156,10 +159,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         void CreateEventProviderFiles(string entityProviderName) {
-            if (!generateGUI && !generateTMP && !generatePhysics3D && !generatePhysics2D) return;
+            if (!generateGUI && !generateTMP && !generateMouse && !generatePhysics3D && !generatePhysics2D) return;
 
             var eventsPath = runtimePath + "/Events";
             EnsureFolder(eventsPath);
+
+            if (generateMouse) {
+                var path = eventsPath + "/Mouse";
+                EnsureFolder(path);
+                GenerateEventProviderTriple(path, entityProviderName, "MouseDownUp");
+                GenerateEventProviderTriple(path, entityProviderName, "MouseEnterExit");
+                GenerateEventProviderTriple(path, entityProviderName, "MouseUpAsButton");
+            }
 
             if (generatePhysics3D) {
                 var path = eventsPath + "/Physics3D";
@@ -249,6 +260,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             catch (Exception ex) {
                 Debug.LogError(ex.Message);
             }
+        }
+
+        static string ShortName(string name) {
+            if (string.IsNullOrEmpty(name)) return name;
+            var idx = name.LastIndexOf('.');
+            return idx >= 0 ? name.Substring(idx + 1) : name;
         }
 
         static string AssetPath() {

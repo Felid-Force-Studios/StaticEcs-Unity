@@ -28,7 +28,19 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 .Event<SliderChangeEntityEvent>()
                 .Component<PointerHoverState>()
                 .Component<PointerPressedState>()
-                .Component<DragState>();
+                .Component<DragState>()
+                .Event<MouseDownEvent>()
+                .Event<MouseDownEntityEvent>()
+                .Event<MouseUpEvent>()
+                .Event<MouseUpEntityEvent>()
+                .Event<MouseUpAsButtonEvent>()
+                .Event<MouseUpAsButtonEntityEvent>()
+                .Event<MouseEnterEvent>()
+                .Event<MouseEnterEntityEvent>()
+                .Event<MouseExitEvent>()
+                .Event<MouseExitEntityEvent>()
+                .Component<MouseHoverState>()
+                .Component<MousePressedState>();
 
             #if FFS_ECS_TMP
             World<TWorld>.Types()
