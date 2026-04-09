@@ -44,4 +44,23 @@ namespace FFS.Libraries.StaticEcs.Unity
         [MethodImpl(AggressiveInlining)]
         public void SetEntityGID(EntityGID gid) => entityGid = gid;
     }
+
+#if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+#endif
+    public abstract class MouseUpEntityRefProvider<TWorld, TProvider> : MouseUpEntityProvider<TWorld>
+        where TWorld : struct, IWorldType
+        where TProvider : StaticEcsEntityProvider<TWorld> {
+
+        [UnityEngine.SerializeField] private TProvider entityProvider;
+
+        protected override EntityGID EntityGID {
+            [MethodImpl(AggressiveInlining)]
+            get => entityProvider != null ? entityProvider.EntityGid : default;
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+    }
 }
