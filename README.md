@@ -153,6 +153,7 @@ The generation window allows you to configure:
 - **Event providers** - checkboxes for selecting event categories:
   - GUI - basic GUI events (Click, Drag, Drop, Pointer, ScrollView, Slider)
   - TextMeshPro - TMP widget events (Dropdown, Input)
+  - Mouse - mouse events (MouseDownUp, MouseEnterExit, MouseUpAsButton)
   - Physics 3D - 3D physics events (Collision, Trigger, ControllerColliderHit)
   - Physics 2D - 2D physics events (Collision, Trigger)
 
@@ -243,7 +244,15 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | InputChange | TMP_InputField.onValueChanged | `InputChangeEvent` |
 | InputEnd | TMP_InputField.onEndEdit | `InputEndEvent` |
 
-For entity modes, events have the `Entity` suffix: `ClickEntityEvent`, `CollisionEnter3DEntityEvent`, etc.  
+**Mouse** (requires a collider on the object):
+
+| Provider | Unity Callback | Events | State component |
+|---|---|---|---|
+| MouseDownUp | OnMouseDown/Up | `MouseDownEvent`, `MouseUpEvent` | `MousePressedState` |
+| MouseEnterExit | OnMouseEnter/Exit | `MouseEnterEvent`, `MouseExitEvent` | `MouseHoverState` |
+| MouseUpAsButton | OnMouseUpAsButton | `MouseUpAsButtonEvent` | - |
+
+For entity modes, events have the `Entity` suffix: `ClickEntityEvent`, `CollisionEnter3DEntityEvent`, `MouseDownEntityEvent`, etc.  
 These events contain an additional `EntityGID` field
 
 #### State components

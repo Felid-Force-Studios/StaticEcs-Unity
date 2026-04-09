@@ -153,6 +153,7 @@ GetComponent<MyCollision3DEntityGID>().SetEntityEventMode(EntityEventMode.All);
 - **Event providers** - 选择事件类别的复选框：
   - GUI - 基础 GUI 事件（Click、Drag、Drop、Pointer、ScrollView、Slider）
   - TextMeshPro - TMP 控件事件（Dropdown、Input）
+  - Mouse - 鼠标事件（MouseDownUp、MouseEnterExit、MouseUpAsButton）
   - Physics 3D - 3D 物理事件（Collision、Trigger、ControllerColliderHit）
   - Physics 2D - 2D 物理事件（Collision、Trigger）
 
@@ -243,7 +244,15 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | InputChange | TMP_InputField.onValueChanged | `InputChangeEvent` |
 | InputEnd | TMP_InputField.onEndEdit | `InputEndEvent` |
 
-对于带实体的模式，事件带有 `Entity` 后缀：`ClickEntityEvent`、`CollisionEnter3DEntityEvent` 等。  
+**Mouse**（需要对象上有碰撞体）：
+
+| 提供者 | Unity 回调 | 事件 | 状态组件 |
+|---|---|---|---|
+| MouseDownUp | OnMouseDown/Up | `MouseDownEvent`, `MouseUpEvent` | `MousePressedState` |
+| MouseEnterExit | OnMouseEnter/Exit | `MouseEnterEvent`, `MouseExitEvent` | `MouseHoverState` |
+| MouseUpAsButton | OnMouseUpAsButton | `MouseUpAsButtonEvent` | - |
+
+对于带实体的模式，事件带有 `Entity` 后缀：`ClickEntityEvent`、`CollisionEnter3DEntityEvent`、`MouseDownEntityEvent` 等。  
 这些事件包含额外的 `EntityGID` 字段
 
 #### 状态组件

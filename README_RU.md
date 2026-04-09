@@ -153,6 +153,7 @@ GetComponent<MyCollision3DEntityGID>().SetEntityEventMode(EntityEventMode.All);
 - **Event providers** - галочки для выбора категорий событий:
   - GUI - базовые GUI события (Click, Drag, Drop, Pointer, ScrollView, Slider)
   - TextMeshPro - события TMP виджетов (Dropdown, Input)
+  - Mouse - события мыши (MouseDownUp, MouseEnterExit, MouseUpAsButton)
   - Physics 3D - события 3D физики (Collision, Trigger, ControllerColliderHit)
   - Physics 2D - события 2D физики (Collision, Trigger)
 
@@ -243,7 +244,15 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | InputChange | TMP_InputField.onValueChanged | `InputChangeEvent` |
 | InputEnd | TMP_InputField.onEndEdit | `InputEndEvent` |
 
-Для режимов с сущностью события имеют суффикс `Entity`: `ClickEntityEvent`, `CollisionEnter3DEntityEvent` и т.д.  
+**Mouse** (требуется коллайдер на объекте):
+
+| Провайдер | Unity Callback | События | Компонент состояния |
+|---|---|---|---|
+| MouseDownUp | OnMouseDown/Up | `MouseDownEvent`, `MouseUpEvent` | `MousePressedState` |
+| MouseEnterExit | OnMouseEnter/Exit | `MouseEnterEvent`, `MouseExitEvent` | `MouseHoverState` |
+| MouseUpAsButton | OnMouseUpAsButton | `MouseUpAsButtonEvent` | - |
+
+Для режимов с сущностью события имеют суффикс `Entity`: `ClickEntityEvent`, `CollisionEnter3DEntityEvent`, `MouseDownEntityEvent` и т.д.  
 Эти события содержат дополнительное поле `EntityGID`
 
 #### Компоненты состояния
