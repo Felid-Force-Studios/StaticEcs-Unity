@@ -59,6 +59,18 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (!EntityGID.TryUnpack<TWorld>(out var entity)) return;
             World<TWorld>.Components<T>.Instance.Delete(entity);
         }
+
+        [MethodImpl(AggressiveInlining)]
+        protected void SetTagOnEntity<T>() where T : struct, ITag {
+            if (!EntityGID.TryUnpack<TWorld>(out var entity)) return;
+            World<TWorld>.Components<T>.Instance.Set(entity);
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        protected void DeleteTagFromEntity<T>() where T : struct, ITag {
+            if (!EntityGID.TryUnpack<TWorld>(out var entity)) return;
+            World<TWorld>.Components<T>.Instance.Delete(entity);
+        }
     }
 
     #if ENABLE_IL2CPP

@@ -39,8 +39,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 .Event<MouseEnterEntityEvent>()
                 .Event<MouseExitEvent>()
                 .Event<MouseExitEntityEvent>()
-                .Component<MouseHoverState>()
-                .Component<MousePressedState>();
+                .Tag<MouseHoverState>()
+                .Tag<MousePressedState>();
 
             #if FFS_ECS_TMP
             World<TWorld>.Types()

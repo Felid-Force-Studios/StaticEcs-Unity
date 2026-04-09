@@ -32,12 +32,12 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         [MethodImpl(AggressiveInlining)]
         protected virtual void OnAddComponent() {
-            SetComponentOnEntity(new MouseHoverState());
+            SetTagOnEntity<MouseHoverState>();
         }
 
         [MethodImpl(AggressiveInlining)]
         protected virtual void OnRemoveComponent() {
-            DeleteComponentFromEntity<MouseHoverState>();
+            DeleteTagFromEntity<MouseHoverState>();
         }
 
         private void OnMouseEnter() {

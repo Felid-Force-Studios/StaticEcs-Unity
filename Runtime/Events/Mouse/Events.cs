@@ -3,10 +3,10 @@ using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity {
     [Serializable]
-    public struct MouseHoverState : IComponent { }
+    public readonly struct MouseHoverState : ITag { }
 
     [Serializable]
-    public struct MousePressedState : IComponent { }
+    public readonly struct MousePressedState : ITag { }
 
     [Serializable]
     public struct MouseDownEvent : IEvent {
