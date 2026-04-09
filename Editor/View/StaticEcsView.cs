@@ -48,6 +48,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private void OnEnable() {
             EditorApplication.update += Draw;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
         private void Draw() {
@@ -66,10 +67,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             Init();
 
-            if (_currentWorldData == null) {
-                if (StaticEcsDebugData.Worlds.TryGetValue(typeof(TWorld), out var worldData)) {
+            if (StaticEcsDebugData.Worlds.TryGetValue(typeof(TWorld), out var worldData)) {
+                if (_currentWorldData != worldData) {
                     SetWorldData(worldData);
                 }
+            } else {
+                _currentWorldData = null;
             }
 
             if (_currentWorldData == null) {
@@ -113,8 +116,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
+        private void OnPlayModeStateChanged(PlayModeStateChange state) {
+            if (state == PlayModeStateChange.ExitingPlayMode) {
+                _currentWorldData = null;
+            }
+        }
+
         private void OnDisable() {
             EditorApplication.update -= Draw;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             foreach (var tab in _tabs) {
                 tab.Destroy();
             }

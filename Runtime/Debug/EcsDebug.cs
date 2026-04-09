@@ -61,6 +61,17 @@ namespace FFS.Libraries.StaticEcs.Unity {
             #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             DebugViewSystem = null;
             StaticEcsDebugData.Worlds.Remove(typeof(TWorld));
+
+            var toRemove = new List<Type>();
+            foreach (var pair in StaticEcsDebugData.Systems) {
+                if (pair.Value.worldType == typeof(TWorld)) {
+                    toRemove.Add(pair.Key);
+                }
+            }
+            foreach (var key in toRemove) {
+                StaticEcsDebugData.Systems.Remove(key);
+            }
+
             World<TWorld>.Data.Instance.EventListener = default;
             #endif
             #endif

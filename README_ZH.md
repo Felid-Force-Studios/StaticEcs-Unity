@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.0.1-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.2-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/zh/"><img src="https://img.shields.io/badge/Docs-文档-blueviolet?style=for-the-badge" alt="文档"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-核心框架-green?style=for-the-badge" alt="核心框架"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-示例-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -508,12 +508,6 @@ public struct DamageEvent : IEvent {
 显示每个系统的平均执行时间  
 
 ![Systems.png](Readme%2FSystems.png)
-
-### Settings - 编辑器设置
-
-![Settings.png](Readme%2FSettings.png)
-
-`Update per second` - 允许定义每秒更新打开标签页数据的次数
 
 # 常见问题
 ### 如何为类型创建自定义绘制方法？
