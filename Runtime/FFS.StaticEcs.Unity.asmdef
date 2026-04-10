@@ -32,6 +32,11 @@
             "name": "com.unity.ugui",
             "expression": "[2.0.0]",
             "define": "FFS_ECS_TMP"
+        },
+        {
+            "name": "com.unity.modules.animation",
+            "expression": "",
+            "define": "FFS_ECS_ANIMATION"
         }
     ],
     "noEngineReferences": false

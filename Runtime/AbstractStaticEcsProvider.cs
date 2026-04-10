@@ -9,11 +9,15 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.NullChecks, false)]
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
     #endif
+    [DefaultExecutionOrder(ushort.MaxValue)]
     public abstract class AbstractStaticEcsProvider : MonoBehaviour {
-        [SerializeField] public UsageType UsageType = UsageType.OnStart;
-        [SerializeField] public OnCreateType OnCreateType = OnCreateType.None;
+        [SerializeField]
+        public UsageType UsageType = UsageType.OnStart;
+        [SerializeField]
+        public OnCreateType OnCreateType = OnCreateType.None;
 
-        [HideInInspector] public Vector2 Scroll;
+        [HideInInspector]
+        public Vector2 Scroll;
 
         protected virtual void OnCreate() {
             switch (OnCreateType) {
@@ -32,14 +36,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
     }
 
     public enum UsageType {
-        OnStart,
-        OnAwake,
-        Manual,
+        OnStart, OnAwake, Manual,
     }
 
     public enum OnCreateType {
-        None,
-        DestroyUnityComponent,
-        DestroyGameObject,
+        None, DestroyUnityComponent, DestroyGameObject,
     }
 }

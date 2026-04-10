@@ -73,6 +73,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (EventsReceived.TryGetValue(typeIdx.Type, out var index)) {
                 index++;
             }
+
             EventsReceived[typeIdx.Type] = index;
 
             Events.Push(new EventData {
@@ -85,7 +86,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
             _eventListenerLock.Exit();
         }
-        
+
         public void OnEventReadAll<T>(World<TWorld>.Event<T> value) where T : struct, IEvent {
             OnEventDelete(value, EventStatus.Read);
         }
@@ -98,14 +99,14 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (TypeIdx.Create<T>().Type.IsIgnored()) {
                 return;
             }
-            
+
             var eventData = new EventData {
                 TypeIdx = TypeIdx.Create<T>(),
                 InternalIdx = value.EventIdx,
                 CachedData = value.Value,
                 EventStatus = eventStatus,
             };
-            
+
             Events.Change(eventData, (EventData template, ref EventData item) => {
                 item.CachedData = template.CachedData;
                 item.EventStatus = template.EventStatus;

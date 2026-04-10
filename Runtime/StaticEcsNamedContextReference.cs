@@ -10,8 +10,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #endif
     [DefaultExecutionOrder(short.MinValue)]
     public abstract class StaticEcsNamedContextReference<TWorld> : MonoBehaviour where TWorld : struct, IWorldType {
-        [SerializeField] private string _key;
-        [SerializeField] private RegistrationType _registrationType = RegistrationType.OnAwake;
+        [SerializeField]
+        private string _key;
+        [SerializeField]
+        private RegistrationType _registrationType = RegistrationType.OnAwake;
 
         public string Key() {
             return _key;
@@ -42,8 +44,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         enum RegistrationType {
-            OnAwake,
-            OnEnable
+            OnAwake, OnEnable
         }
     }
 }

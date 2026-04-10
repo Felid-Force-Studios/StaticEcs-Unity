@@ -50,6 +50,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         internal float drawRate = 0.5f;
         internal float drawFrames = 2;
         private float _acc;
+        private bool _subscribed;
 
         static EntityInspectorWindow() {
             EditorApplication.playModeStateChanged += state => {
@@ -69,11 +70,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void Draw() {
-            if (LastFocusedInspectorWindow.lastFocused != this) {
-                EditorApplication.update -= Draw;
-                return;
-            }
-
             _acc += Time.deltaTime;
             if (_acc >= drawRate) {
                 Repaint();
@@ -106,12 +102,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void OnFocus() {
-            EditorApplication.update += Draw;
             LastFocusedInspectorWindow.lastFocused = this;
+            if (!_subscribed) {
+                EditorApplication.update += Draw;
+                _subscribed = true;
+            }
         }
 
         private void OnDisable() {
-            EditorApplication.update -= Draw;
+            if (_subscribed) {
+                EditorApplication.update -= Draw;
+                _subscribed = false;
+            }
         }
 
         private void OnDestroy() {
@@ -209,6 +211,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         internal float drawRate = 0.5f;
         internal float drawFrames = 2;
         private float _acc;
+        private bool _subscribed;
 
         static EventInspectorWindow() {
             EditorApplication.playModeStateChanged += state => {
@@ -228,11 +231,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void Draw() {
-            if (LastFocusedInspectorWindow.lastFocused != this) {
-                EditorApplication.update -= Draw;
-                return;
-            }
-
             _acc += Time.deltaTime;
             if (_acc >= drawRate) {
                 Repaint();
@@ -266,12 +264,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void OnFocus() {
-            EditorApplication.update += Draw;
             LastFocusedInspectorWindow.lastFocused = this;
+            if (!_subscribed) {
+                EditorApplication.update += Draw;
+                _subscribed = true;
+            }
         }
 
         private void OnDisable() {
-            EditorApplication.update -= Draw;
+            if (_subscribed) {
+                EditorApplication.update -= Draw;
+                _subscribed = false;
+            }
         }
 
         private void OnDestroy() {

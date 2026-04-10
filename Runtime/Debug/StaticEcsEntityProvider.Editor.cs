@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity {
-    
+
     public abstract partial class StaticEcsEntityProvider<TWorld> {
         private void OnValidate() {
             if (prefab && prefab.gameObject.scene.IsValid()) {
@@ -16,7 +16,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 prefab = null;
             }
         }
-        
+
         public virtual bool EntityIsActual() {
             return World<TWorld>.Status == WorldStatus.Initialized
                    && entityGid.Status<TWorld>() == GIDStatus.Active;
@@ -27,7 +27,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public virtual bool HasComponents() {
-            return components.Count > 0;
+            return providers.Count > 0;
         }
 
         public virtual bool IsDisabled(Type componentType) {
@@ -53,144 +53,125 @@ namespace FFS.Libraries.StaticEcs.Unity {
             });
         }
 
-        public virtual void Components(List<IComponent> result) {
+        private static readonly List<ComponentProvider> _componentProviderPool = new();
+        private static readonly List<TagProvider> _tagProviderPool = new();
+        private static int _componentPoolIdx;
+        private static int _tagPoolIdx;
+
+        private static ComponentProvider RentComponentProvider(IComponent value) {
+            ComponentProvider p;
+            if (_componentPoolIdx < _componentProviderPool.Count) {
+                p = _componentProviderPool[_componentPoolIdx];
+            } else {
+                p = new ComponentProvider();
+                _componentProviderPool.Add(p);
+            }
+
+            _componentPoolIdx++;
+            p.value = value;
+            return p;
+        }
+
+        private static TagProvider RentTagProvider(ITag value) {
+            TagProvider p;
+            if (_tagPoolIdx < _tagProviderPool.Count) {
+                p = _tagProviderPool[_tagPoolIdx];
+            } else {
+                p = new TagProvider();
+                _tagProviderPool.Add(p);
+            }
+
+            _tagPoolIdx++;
+            p.value = value;
+            return p;
+        }
+
+        public static void ResetProviderPool() {
+            _componentPoolIdx = 0;
+            _tagPoolIdx = 0;
+        }
+
+        public virtual void GetProviders(List<IComponentOrTagProvider> result) {
             if (EntityIsActual()) {
+                ResetProviderPool();
                 var eid = EntityGid.Id;
-                foreach (var compHandle in World<TWorld>.Data.Handle.GetAllComponentsHandles()) {
-                    if (!compHandle.IsTag && compHandle.TryGetRaw(eid, out var comp)) {
-                        result.Add((IComponent)comp);
+                foreach (var handle in World<TWorld>.Data.Handle.GetAllComponentsHandles()) {
+                    if (handle.IsTag) {
+                        if (handle.Has(eid)) {
+                            result.Add(RentTagProvider((ITag) handle.DefaultValue()));
+                        }
+                    } else {
+                        if (handle.TryGetRaw(eid, out var comp)) {
+                            result.Add(RentComponentProvider((IComponent) comp));
+                        }
                     }
                 }
             } else {
-                result.AddRange(components);
+                result.AddRange(providers);
             }
         }
 
-        public virtual bool ShouldShowComponent(Type componentType, bool runtime) {
+        public virtual bool ShouldShowProvider(Type type, bool runtime) {
             if (!EntityIsActual() && !runtime) return true;
             return World<TWorld>.IsWorldInitialized
-                   && World<TWorld>.Data.Handle.TryGetComponentsHandle(componentType, out _);
+                   && World<TWorld>.Data.Handle.TryGetComponentsHandle(type, out _);
         }
 
-        public virtual void OnSelectComponent(IComponent component) {
+        public virtual void OnSelectProvider(IComponentOrTagProvider provider) {
             if (EntityIsActual()) {
-                EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                    Type = DebugCommandType.SetComponent,
-                    EntityGid = EntityGid,
-                    TargetType = component.GetType(),
-                    Value = component,
-                });
+                provider.Apply(Entity, true);
             } else {
-                for (var i = 0; i < components.Count; i++) {
-                    var val = components[i];
-                    if (val.GetType() == component.GetType()) {
-                        components[i] = component;
+                for (var i = 0; i < providers.Count; i++) {
+                    if (providers[i].ComponentType == provider.ComponentType) {
+                        providers[i] = provider;
                         return;
                     }
                 }
 
-                components.Add(component);
+                providers.Add(provider);
             }
         }
 
-        public virtual void OnChangeComponent(IComponent component, Type componentType) {
+        public virtual void OnChangeProvider(IComponentOrTagProvider provider, Type componentType) {
             if (EntityIsActual()) {
-                EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                    Type = DebugCommandType.SetComponent,
-                    EntityGid = EntityGid,
-                    TargetType = componentType,
-                    Value = component,
-                });
+                provider.Apply(Entity, true);
             } else {
-                for (var i = 0; i < components.Count; i++) {
-                    var val = components[i];
-                    if (val.GetType() == componentType) {
-                        components[i] = component;
+                for (var i = 0; i < providers.Count; i++) {
+                    if (providers[i].ComponentType == componentType) {
+                        providers[i] = provider;
                         return;
                     }
                 }
 
-                components.Add(component);
+                providers.Add(provider);
             }
         }
 
-        public virtual void OnDeleteComponent(Type componentType) {
+        public virtual void OnDeleteProvider(Type type) {
             if (EntityIsActual()) {
                 EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
                     Type = DebugCommandType.Delete,
                     EntityGid = EntityGid,
-                    TargetType = componentType,
+                    TargetType = type,
                 });
             } else {
-                components.RemoveAll(component => component.GetType() == componentType);
+                providers.RemoveAll(p => p.ComponentType == type);
             }
         }
 
-        public virtual void DeleteAllBrokenComponents() {
-            components.RemoveAll(val => val == null);
-        }
-
-        public virtual void Tags(List<ITag> result) {
-            if (EntityIsActual()) {
-                var eid = EntityGid.Id;
-                foreach (var tagHandle in World<TWorld>.Data.Handle.GetAllComponentsHandles()) {
-                    if (tagHandle.IsTag && tagHandle.Has(eid)) {
-                        result.Add((ITag)tagHandle.DefaultValue());
-                    }
-                }
-            } else {
-                result.AddRange(tags);
-            }
-        }
-
-        public virtual bool ShouldShowTag(Type tagType, bool runtime) {
-            if (!EntityIsActual() && !runtime) return true;
-            return World<TWorld>.Status == WorldStatus.Initialized
-                   && World<TWorld>.Data.Handle.TryGetComponentsHandle(tagType, out _);
-        }
-
-        public virtual void OnSelectTag(Type tagType) {
-            if (EntityIsActual()) {
-                EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                    Type = DebugCommandType.SetTag,
-                    EntityGid = EntityGid,
-                    TargetType = tagType,
-                });
-            } else {
-                foreach (var val in tags) {
-                    if (val.GetType() == tagType) {
-                        return;
-                    }
-                }
-
-                tags.Add((ITag) Activator.CreateInstance(tagType, true));
-            }
-        }
-
-        public virtual void OnDeleteTag(Type tagType) {
-            if (EntityIsActual()) {
-                EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                    Type = DebugCommandType.Delete,
-                    EntityGid = EntityGid,
-                    TargetType = tagType,
-                });
-            } else {
-                tags.RemoveAll(val => val.GetType() == tagType);
-            }
-        }
-
-        public virtual void DeleteAllBrokenTags() {
-            tags.RemoveAll(val => val == null);
+        public virtual void DeleteAllBrokenProviders() {
+            providers.RemoveAll(val => val == null || val.ComponentType == null);
         }
 
         public virtual void Clear() {
-            components.Clear();
-            tags.Clear();
+            providers.Clear();
             entityType = 0;
         }
 
+        public List<IComponentOrTagProvider> SerializedProviders => providers;
+
         public AbstractStaticEcsProvider GetPrefab() => prefab;
-        
+
         public void ClearPrefab() => prefab = null;
     }
 }

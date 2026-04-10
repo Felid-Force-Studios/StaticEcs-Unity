@@ -16,8 +16,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class ContactEventEntityListener<TWorld> : MonoBehaviour
         where TWorld : struct, IWorldType {
 
-        [SerializeField] private bool sendNonEntityEvents;
-        [SerializeField] private bool manageComponents;
+        [SerializeField]
+        private bool sendNonEntityEvents;
+        [SerializeField]
+        private bool manageComponents;
 
         private void OnEnable() {
             Physics.ContactEvent += OnContactEvent;

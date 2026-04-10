@@ -8,9 +8,7 @@ using Unity.IL2CPP.CompilerServices;
 namespace FFS.Libraries.StaticEcs.Unity {
 
     public enum EntityEventMode : byte {
-        All,
-        EventOnly,
-        ComponentOnly,
+        All, EventOnly, ComponentOnly,
     }
 
     #if ENABLE_IL2CPP
@@ -31,16 +29,15 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class UnityEntityEventProvider<TWorld> : UnityEventProvider<TWorld>
         where TWorld : struct, IWorldType {
 
-        [SerializeField] private EntityEventMode mode = EntityEventMode.EventOnly;
+        [SerializeField]
+        private EntityEventMode mode = EntityEventMode.EventOnly;
 
         protected bool SendEvents {
-            [MethodImpl(AggressiveInlining)]
-            get => mode != EntityEventMode.ComponentOnly;
+            [MethodImpl(AggressiveInlining)] get => mode != EntityEventMode.ComponentOnly;
         }
 
         protected bool ManageComponents {
-            [MethodImpl(AggressiveInlining)]
-            get => mode != EntityEventMode.EventOnly;
+            [MethodImpl(AggressiveInlining)] get => mode != EntityEventMode.EventOnly;
         }
 
         [MethodImpl(AggressiveInlining)]
@@ -84,8 +81,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         private EntityGID entityGid;
 
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityGid;
+            [MethodImpl(AggressiveInlining)] get => entityGid;
         }
 
         [MethodImpl(AggressiveInlining)]
@@ -104,11 +100,18 @@ namespace FFS.Libraries.StaticEcs.Unity {
         private TProvider entityProvider;
 
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityProvider != null ? entityProvider.EntityGid : default;
+            [MethodImpl(AggressiveInlining)] get => entityProvider != null ? entityProvider.EntityGid : default;
         }
 
         [MethodImpl(AggressiveInlining)]
         public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+
+        #if UNITY_EDITOR
+        protected void Reset() {
+            if (entityProvider == null) {
+                entityProvider = GetComponent<TProvider>();
+            }
+        }
+        #endif
     }
 }

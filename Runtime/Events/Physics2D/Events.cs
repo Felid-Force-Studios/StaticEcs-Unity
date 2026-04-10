@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity {
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct CollisionEnter2DEvent : IEvent {
         public GameObject Ref;
         public Collider2D Collider;
@@ -13,26 +13,26 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Vector2 Velocity;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct CollisionExit2DEvent : IEvent {
         public GameObject Ref;
         public Collider2D Collider;
         public Vector2 Velocity;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct TriggerEnter2DEvent : IEvent {
         public GameObject Ref;
         public Collider2D Collider;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct TriggerExit2DEvent : IEvent {
         public GameObject Ref;
         public Collider2D Collider;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct CollisionEnter2DEntityEvent : IEvent {
         public GameObject Ref;
         public EntityGID EntityGID;
@@ -42,7 +42,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Vector2 Velocity;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct CollisionExit2DEntityEvent : IEvent {
         public GameObject Ref;
         public EntityGID EntityGID;
@@ -50,21 +50,21 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Vector2 Velocity;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct TriggerEnter2DEntityEvent : IEvent {
         public GameObject Ref;
         public EntityGID EntityGID;
         public Collider2D Collider;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct TriggerExit2DEntityEvent : IEvent {
         public GameObject Ref;
         public EntityGID EntityGID;
         public Collider2D Collider;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct Collision2DState : IComponent {
         public Collider2D Collider;
         public Vector2 Point;
@@ -72,7 +72,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Vector2 Velocity;
     }
 
-    [Serializable]
+    [Serializable, StaticEcsEditorColor(StaticEcsEditorColorAttribute.SystemColor)]
     public struct Trigger2DState : IComponent {
         public Collider2D Collider;
     }

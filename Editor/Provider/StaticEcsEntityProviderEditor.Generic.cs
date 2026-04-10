@@ -2,33 +2,39 @@ using UnityEditor;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
+    [CanEditMultipleObjects]
     public abstract class StaticEcsEntityProviderEditor<TWorld, TSelf> : UnityEditor.Editor
         where TWorld : struct, IWorldType
         where TSelf : StaticEcsEntityProvider<TWorld> {
-        private TSelf _provider;
 
-        protected virtual void OnEnable() {
-            if (target == null) return;
-            _provider = (TSelf) target;
-        }
+        public override bool RequiresConstantRepaint() => Application.isPlaying;
 
         public override void OnInspectorGUI() {
-            if (!_provider.EntityIsActual()) {
-                DrawDefaultInspector();
-            }
+            foreach (var t in targets) {
+                var provider = (TSelf) t;
 
-            Drawer.DrawEntity<TWorld, TSelf>(_provider, DrawMode.Inspector, provider => {
-                provider.CreateEntity();
-                if (provider.IsPrefab()) {
-                    EntityInspectorHelper<TWorld, TSelf>.ShowWindowForEntity(provider.EntityGid);
-                    provider.EntityGid = default;
+                if (targets.Length > 1) {
+                    EditorGUILayout.Space();
+                    EditorGUILayout.LabelField(provider.name, EditorStyles.boldLabel);
                 }
-                provider.ClearPrefab();
-                EditorUtility.SetDirty(provider);
-            }, provider => {
-                provider.EntityGid = default;
-                EditorUtility.SetDirty(provider);
-            });
+
+                if (!provider.EntityIsActual()) {
+                    DrawDefaultInspector();
+                }
+
+                Drawer.DrawEntity<TWorld, TSelf>(provider, DrawMode.Inspector, p => {
+                    p.CreateEntity();
+                    if (p.IsPrefab()) {
+                        EntityInspectorHelper<TWorld, TSelf>.ShowWindowForEntity(p.EntityGid);
+                        p.EntityGid = default;
+                    }
+                    p.ClearPrefab();
+                    EditorUtility.SetDirty(p);
+                }, p => {
+                    p.EntityGid = default;
+                    EditorUtility.SetDirty(p);
+                });
+            }
         }
     }
 }

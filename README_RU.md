@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.0.2-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.0-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/ru/"><img src="https://img.shields.io/badge/Docs-документация-blueviolet?style=for-the-badge" alt="Документация"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-фреймворк-green?style=for-the-badge" alt="Core фреймворк"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-примеры-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -23,6 +23,7 @@
   * [Провайдеры Unity-событий](#провайдеры-unity-событий)
   * [Шаблоны](#шаблоны)
   * [Окно просмотра Static ECS](#окно-просмотра-static-ecs)
+  * [Настройки](#settings---настройки)
 * [Вопросы](#вопросы)
 * [Лицензия](#лицензия)
 
@@ -68,13 +69,13 @@
 `On create type` - действие после создания провайдера, удалить компонент `StaticEcsEntityProvider` с объекта, удалить весь объект или ничего  
 `On destroy type` - действие при уничтожении провайдера, уничтожить сущность или ничего  
 `Prefab` - позволяет ссылаться на префаб провайдера, при этом изменение данных компонентов будет заблокировано  
-`World` - тип мира в котором будет создана сущность  
-`Entity ID` - идентификатор сущности в рантайме  
 `Entity GID` - глобальный идентификатор сущности в рантайме  
-`Standard components` - стандартные данные компонентов  
+`Disable entity on create` - отключает сущность сразу после создания  
+`On enable and disable` - включает/отключает сущность при включении/отключении GameObject  
+`Entity Type` - тип сущности  
+`Cluster ID` - идентификатор кластера в рантайме  
 `Components` - данные компонентов  
-`Tags` - теги сущности  
-`Masks` - маски сущности
+`Tags` - теги сущности
 
 ### Провайдеры событий:
 Скрипт добавляющий возможность конфигурировать событие в редакторе Unity и автоматически отправлять его в мир ECS  
@@ -151,11 +152,12 @@ GetComponent<MyCollision3DEntityGID>().SetEntityEventMode(EntityEventMode.All);
 - **Namespace** - пространство имён для генерируемых классов
 - **Prefix** - префикс имён классов (по умолчанию имя мира)
 - **Event providers** - галочки для выбора категорий событий:
-  - GUI - базовые GUI события (Click, Drag, Drop, Pointer, ScrollView, Slider)
+  - GUI - базовые GUI события (Click, Drag, Drop, Pointer, ScrollView, Slider, SubmitCancel, ButtonClick)
   - TextMeshPro - события TMP виджетов (Dropdown, Input)
   - Mouse - события мыши (MouseDownUp, MouseEnterExit, MouseUpAsButton)
   - Physics 3D - события 3D физики (Collision, Trigger, ControllerColliderHit)
   - Physics 2D - события 2D физики (Collision, Trigger)
+  - Animation - события анимации (AnimationEvent, StateMachineBehaviour, StateMachineBehaviourLinker)
 
 В результате будут сгенерированы sealed классы готовые к использованию в Unity Inspector  
 Для каждого типа события генерируется 3 класса (по одному на каждый режим):
@@ -235,6 +237,8 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | Drop | IDropHandler | `DropEvent` | - |
 | ScrollView | ScrollRect.onValueChanged | `ScrollViewChangeEvent` | - |
 | SliderChange | Slider.onValueChanged | `SliderChangeEvent` | - |
+| SubmitCancel | ISubmitHandler/ICancelHandler | `SubmitEvent`, `CancelEvent` | - |
+| ButtonClick | Button.onClick | `ButtonClickEvent` | - |
 
 **GUI TMP** (требуется `com.unity.textmeshpro` или `com.unity.ugui` >= 2.0.0):
 
@@ -251,6 +255,19 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | MouseDownUp | OnMouseDown/Up | `MouseDownEvent`, `MouseUpEvent` | `MousePressedState` |
 | MouseEnterExit | OnMouseEnter/Exit | `MouseEnterEvent`, `MouseExitEvent` | `MouseHoverState` |
 | MouseUpAsButton | OnMouseUpAsButton | `MouseUpAsButtonEvent` | - |
+
+**Animation** (требуется `com.unity.modules.animation`):
+
+| Провайдер | Unity Callback | События | Компонент состояния |
+|---|---|---|---|
+| AnimationEvent | Animation Event (клип) | `AnimationEventEcsEvent` | - |
+| StateMachineBehaviour | OnStateEnter/Exit | `AnimatorStateEnterEvent`, `AnimatorStateExitEvent` | - |
+
+`AnimationEventProvider` — размещается на том же GameObject что и Animator. В анимационном клипе укажите имя функции события `OnAnimationEvent`. Событие содержит `stringParameter`, `intParameter`, `floatParameter`, `objectReferenceParameter` и `animationState`.
+
+`StaticEcsStateMachineBehaviour` — добавляется на состояния Animator Controller. Не MonoBehaviour — наследник `StateMachineBehaviour`. Entity-вариант (`StaticEcsEntityStateMachineBehaviour`) хранит сериализованное поле `EntityGID`.
+
+`StaticEcsStateMachineBehaviourLinker` — MonoBehaviour, размещается на том же GameObject что и Animator. Хранит ссылку на `StaticEcsEntityProvider` и в `Start()` автоматически вызывает `SetEntityGID()` на всех `StaticEcsEntityStateMachineBehaviour` найденных в Animator Controller. Имеет публичный метод `Link()` для ручной перепривязки (например после смены сущности в рантайме).
 
 Для режимов с сущностью события имеют суффикс `Entity`: `ClickEntityEvent`, `CollisionEnter3DEntityEvent`, `MouseDownEntityEvent` и т.д.  
 Эти события содержат дополнительное поле `EntityGID`
@@ -508,6 +525,25 @@ public struct DamageEvent : IEvent {
 Отображает среднее время выполнения каждой системы  
 
 ![Systems.png](Readme%2FSystems.png)  
+
+### Settings - настройки
+Позволяет настроить поведение окна редактора. Настройки хранятся в ScriptableObject ассете `StaticEcsViewConfig`, который автоматически создается при первом использовании.
+
+- **Config asset** — ссылка на активный конфиг. Можно создать несколько конфигов через `Assets/Create/Static ECS/View Config` и переключаться между ними
+- **Component Foldouts** — управление автоматическим раскрытием компонентов на сущностях:
+  - `ExpandAll` — все компоненты раскрыты по умолчанию
+  - `CollapseAll` — все компоненты свёрнуты по умолчанию
+  - `Custom` — только выбранные типы компонентов раскрываются автоматически
+- **Reset config to defaults** — сбрасывает все настройки текущего мира на значения по умолчанию
+
+Настройки сохраняются между сессиями. Сохраняется следующее состояние:
+- Выбранная вкладка, частота отрисовки
+- Таблица сущностей: видимые колонки, колонка сортировки, закрепленные сущности, фильтры, максимальное количество сущностей
+- Таблица событий: фильтры типов событий, режим автопрокрутки
+- Статистика: порог фрагментации, отображение незарегистрированных
+- Системы: максимальная глубина вложенности при отображении свойств систем
+
+Настройки автоматически сохраняются периодически (каждые 30 секунд) и при выходе из Play Mode.
 
 # Вопросы
 ### Как создать свой метод отрисовки для типа?

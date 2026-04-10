@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.0.2-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.0-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/en/"><img src="https://img.shields.io/badge/Docs-documentation-blueviolet?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-framework-green?style=for-the-badge" alt="Core framework"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-examples-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -23,6 +23,7 @@
   * [Unity event providers](#unity-event-providers)
   * [Templates](#templates)
   * [Static ECS view window](#static-ecs-view-window)
+  * [Settings](#settings)
 * [Questions](#questions)
 * [License](#license)
 
@@ -68,13 +69,13 @@ Add the `StaticEcsEntityProvider` script to an object in the scene:
 `On create type` - action after creating the provider, delete the `StaticEcsEntityProvider` component from the object, delete the entire object, or nothing  
 `On destroy type` - action when destroying the provider, destroy the entity or nothing  
 `Prefab` - allows referring to the provider prefab, while changing component data will be blocked  
-`World` - the type of world in which the entity will be created  
-`Entity ID` - entity identifier in runtime  
 `Entity GID` - global entity identifier in runtime  
-`Standard components` - standard component data  
+`Disable entity on create` - disables entity immediately after creation  
+`On enable and disable` - enables/disables entity when GameObject is enabled/disabled  
+`Entity Type` - entity type  
+`Cluster ID` - cluster identifier in runtime  
 `Components` - component data  
-`Tags` - entity tags  
-`Masks` - entity masks
+`Tags` - entity tags
 
 ### Event providers:
 A script that adds the ability to configure an event in the Unity editor and automatically send it to the ECS world  
@@ -151,11 +152,12 @@ The generation window allows you to configure:
 - **Namespace** - namespace for generated classes
 - **Prefix** - class name prefix (defaults to world name)
 - **Event providers** - checkboxes for selecting event categories:
-  - GUI - basic GUI events (Click, Drag, Drop, Pointer, ScrollView, Slider)
+  - GUI - basic GUI events (Click, Drag, Drop, Pointer, ScrollView, Slider, SubmitCancel, ButtonClick)
   - TextMeshPro - TMP widget events (Dropdown, Input)
   - Mouse - mouse events (MouseDownUp, MouseEnterExit, MouseUpAsButton)
   - Physics 3D - 3D physics events (Collision, Trigger, ControllerColliderHit)
   - Physics 2D - 2D physics events (Collision, Trigger)
+  - Animation - animation events (AnimationEvent, StateMachineBehaviour, StateMachineBehaviourLinker)
 
 As a result, sealed classes ready to use in Unity Inspector will be generated  
 For each event type, 3 classes are generated (one for each mode):
@@ -235,6 +237,8 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | Drop | IDropHandler | `DropEvent` | - |
 | ScrollView | ScrollRect.onValueChanged | `ScrollViewChangeEvent` | - |
 | SliderChange | Slider.onValueChanged | `SliderChangeEvent` | - |
+| SubmitCancel | ISubmitHandler/ICancelHandler | `SubmitEvent`, `CancelEvent` | - |
+| ButtonClick | Button.onClick | `ButtonClickEvent` | - |
 
 **GUI TMP** (requires `com.unity.textmeshpro` or `com.unity.ugui` >= 2.0.0):
 
@@ -251,6 +255,19 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | MouseDownUp | OnMouseDown/Up | `MouseDownEvent`, `MouseUpEvent` | `MousePressedState` |
 | MouseEnterExit | OnMouseEnter/Exit | `MouseEnterEvent`, `MouseExitEvent` | `MouseHoverState` |
 | MouseUpAsButton | OnMouseUpAsButton | `MouseUpAsButtonEvent` | - |
+
+**Animation** (requires `com.unity.modules.animation`):
+
+| Provider | Unity Callback | Events | State component |
+|---|---|---|---|
+| AnimationEvent | Animation Event (clip) | `AnimationEventEcsEvent` | - |
+| StateMachineBehaviour | OnStateEnter/Exit | `AnimatorStateEnterEvent`, `AnimatorStateExitEvent` | - |
+
+`AnimationEventProvider` — place on the same GameObject as the Animator. In the animation clip, set the event function name to `OnAnimationEvent`. The event carries `stringParameter`, `intParameter`, `floatParameter`, `objectReferenceParameter` and `animationState`.
+
+`StaticEcsStateMachineBehaviour` — add to Animator Controller states. Not a MonoBehaviour — inherits from `StateMachineBehaviour`. Entity variant (`StaticEcsEntityStateMachineBehaviour`) stores a serialized `EntityGID` field.
+
+`StaticEcsStateMachineBehaviourLinker` — a MonoBehaviour placed on the same GameObject as the Animator. Stores a reference to `StaticEcsEntityProvider` and on `Start()` automatically calls `SetEntityGID()` on all `StaticEcsEntityStateMachineBehaviour` found in the Animator Controller. Has a public `Link()` method for manual re-linking (e.g. after changing entities at runtime).
 
 For entity modes, events have the `Entity` suffix: `ClickEntityEvent`, `CollisionEnter3DEntityEvent`, `MouseDownEntityEvent`, etc.  
 These events contain an additional `EntityGID` field
@@ -508,6 +525,25 @@ Allows turning systems on and off during runtime
 Displays the average execution time of each system  
 
 ![Systems.png](Readme%2FSystems.png)
+
+### Settings
+Allows you to configure the editor window behavior. Settings are stored in a `StaticEcsViewConfig` ScriptableObject asset that is automatically created on first use.
+
+- **Config asset** — reference to the active config. You can create multiple configs via `Assets/Create/Static ECS/View Config` and switch between them
+- **Component Foldouts** — controls automatic expansion of component foldouts on entities:
+  - `ExpandAll` — all components are expanded by default
+  - `CollapseAll` — all components are collapsed by default
+  - `Custom` — only selected component types are auto-expanded
+- **Reset config to defaults** — resets all settings for the current world to defaults
+
+Settings are persisted between sessions. The following state is saved:
+- Selected tab, draw rate
+- Entity table: visible columns, sort column, pinned entities, filters, max entity count
+- Event table: event type filters, auto-scroll mode
+- Stats: fragmentation threshold, show unregistered toggle
+- Systems: max nesting depth for system property display
+
+Settings are auto-saved periodically (every 30 seconds) and on play mode exit.
 
 # Questions
 ### How to create a custom drawing method for a type?

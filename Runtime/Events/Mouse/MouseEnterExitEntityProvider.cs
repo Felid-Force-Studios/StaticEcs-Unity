@@ -88,5 +88,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         [MethodImpl(AggressiveInlining)]
         public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+
+        #if UNITY_EDITOR
+        protected void Reset() {
+            if (entityProvider == null) entityProvider = GetComponent<TProvider>();
+        }
+        #endif
     }
 }

@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.0.2-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.0-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/zh/"><img src="https://img.shields.io/badge/Docs-文档-blueviolet?style=for-the-badge" alt="文档"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-核心框架-green?style=for-the-badge" alt="核心框架"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-示例-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -23,6 +23,7 @@
   * [Unity 事件提供者](#unity-事件提供者)
   * [模板](#模板)
   * [Static ECS 查看窗口](#static-ecs-查看窗口)
+  * [设置](#settings---设置)
 * [常见问题](#常见问题)
 * [许可证](#许可证)
 
@@ -68,13 +69,13 @@ ECS 运行时数据监控和管理窗口
 `On create type` - 创建提供者后的操作，从对象删除 `StaticEcsEntityProvider` 组件、删除整个对象或不做任何操作  
 `On destroy type` - 销毁提供者时的操作，销毁实体或不做任何操作  
 `Prefab` - 允许引用提供者预制体，同时组件数据的修改将被锁定  
-`World` - 创建实体的世界类型  
-`Entity ID` - 运行时实体标识符  
 `Entity GID` - 运行时全局实体标识符  
-`Standard components` - 标准组件数据  
+`Disable entity on create` - 创建后立即禁用实体  
+`On enable and disable` - 当 GameObject 启用/禁用时启用/禁用实体  
+`Entity Type` - 实体类型  
+`Cluster ID` - 运行时集群标识符  
 `Components` - 组件数据  
-`Tags` - 实体标签  
-`Masks` - 实体掩码
+`Tags` - 实体标签
 
 ### 事件提供者：
 该脚本添加了在 Unity 编辑器中配置事件并自动发送到 ECS 世界的功能  
@@ -151,11 +152,12 @@ GetComponent<MyCollision3DEntityGID>().SetEntityEventMode(EntityEventMode.All);
 - **Namespace** - 生成类的命名空间
 - **Prefix** - 类名前缀（默认为世界名称）
 - **Event providers** - 选择事件类别的复选框：
-  - GUI - 基础 GUI 事件（Click、Drag、Drop、Pointer、ScrollView、Slider）
+  - GUI - 基础 GUI 事件（Click、Drag、Drop、Pointer、ScrollView、Slider、SubmitCancel、ButtonClick）
   - TextMeshPro - TMP 控件事件（Dropdown、Input）
   - Mouse - 鼠标事件（MouseDownUp、MouseEnterExit、MouseUpAsButton）
   - Physics 3D - 3D 物理事件（Collision、Trigger、ControllerColliderHit）
   - Physics 2D - 2D 物理事件（Collision、Trigger）
+  - Animation - 动画事件（AnimationEvent、StateMachineBehaviour、StateMachineBehaviourLinker）
 
 结果将生成可在 Unity Inspector 中使用的 sealed 类  
 每种事件类型生成 3 个类（每种模式一个）：
@@ -235,6 +237,8 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | Drop | IDropHandler | `DropEvent` | - |
 | ScrollView | ScrollRect.onValueChanged | `ScrollViewChangeEvent` | - |
 | SliderChange | Slider.onValueChanged | `SliderChangeEvent` | - |
+| SubmitCancel | ISubmitHandler/ICancelHandler | `SubmitEvent`, `CancelEvent` | - |
+| ButtonClick | Button.onClick | `ButtonClickEvent` | - |
 
 **GUI TMP**（需要 `com.unity.textmeshpro` 或 `com.unity.ugui` >= 2.0.0）：
 
@@ -251,6 +255,19 @@ public struct ContactEnter3DEntityEvent : IEvent {
 | MouseDownUp | OnMouseDown/Up | `MouseDownEvent`, `MouseUpEvent` | `MousePressedState` |
 | MouseEnterExit | OnMouseEnter/Exit | `MouseEnterEvent`, `MouseExitEvent` | `MouseHoverState` |
 | MouseUpAsButton | OnMouseUpAsButton | `MouseUpAsButtonEvent` | - |
+
+**Animation**（需要 `com.unity.modules.animation`）：
+
+| 提供者 | Unity 回调 | 事件 | 状态组件 |
+|---|---|---|---|
+| AnimationEvent | Animation Event（动画剪辑） | `AnimationEventEcsEvent` | - |
+| StateMachineBehaviour | OnStateEnter/Exit | `AnimatorStateEnterEvent`, `AnimatorStateExitEvent` | - |
+
+`AnimationEventProvider` — 放置在与 Animator 相同的 GameObject 上。在动画剪辑中将事件函数名设置为 `OnAnimationEvent`。事件包含 `stringParameter`、`intParameter`、`floatParameter`、`objectReferenceParameter` 和 `animationState`。
+
+`StaticEcsStateMachineBehaviour` — 添加到 Animator Controller 状态上。非 MonoBehaviour — 继承自 `StateMachineBehaviour`。实体变体（`StaticEcsEntityStateMachineBehaviour`）存储序列化的 `EntityGID` 字段。
+
+`StaticEcsStateMachineBehaviourLinker` — MonoBehaviour，放置在与 Animator 相同的 GameObject 上。存储对 `StaticEcsEntityProvider` 的引用，在 `Start()` 中自动对 Animator Controller 中找到的所有 `StaticEcsEntityStateMachineBehaviour` 调用 `SetEntityGID()`。提供公共 `Link()` 方法用于手动重新链接（例如在运行时更换实体后）。
 
 对于带实体的模式，事件带有 `Entity` 后缀：`ClickEntityEvent`、`CollisionEnter3DEntityEvent`、`MouseDownEntityEvent` 等。  
 这些事件包含额外的 `EntityGID` 字段
@@ -508,6 +525,25 @@ public struct DamageEvent : IEvent {
 显示每个系统的平均执行时间  
 
 ![Systems.png](Readme%2FSystems.png)
+
+### Settings - 设置
+允许配置编辑器窗口行为。设置存储在 `StaticEcsViewConfig` ScriptableObject 资产中，首次使用时自动创建。
+
+- **Config asset** — 当前活动配置的引用。可以通过 `Assets/Create/Static ECS/View Config` 创建多个配置并在它们之间切换
+- **Component Foldouts** — 控制实体上组件折叠的自动展开：
+  - `ExpandAll` — 默认展开所有组件
+  - `CollapseAll` — 默认折叠所有组件
+  - `Custom` — 仅自动展开选定的组件类型
+- **Reset config to defaults** — 将当前世界的所有设置重置为默认值
+
+设置在会话之间持久保存。保存以下状态：
+- 选定的标签页、绘制频率
+- 实体表：可见列、排序列、固定实体、过滤器、最大实体数量
+- 事件表：事件类型过滤器、自动滚动模式
+- 统计：碎片化阈值、显示未注册切换
+- 系统：系统属性显示的最大嵌套深度
+
+设置每30秒自动保存一次，退出 Play Mode 时也会保存。
 
 # 常见问题
 ### 如何为类型创建自定义绘制方法？

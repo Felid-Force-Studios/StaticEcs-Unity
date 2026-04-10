@@ -112,6 +112,20 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
         
         private static GUIStyle _headerStyleTheme;
+
+        public static GUIStyle FoldoutStyleTheme {
+            [MethodImpl(AggressiveInlining)]
+            get {
+                _foldoutStyleTheme ??= new GUIStyle(EditorStyles.foldout) {
+                    fontSize = 14,
+                    normal = { textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black },
+                    fontStyle = FontStyle.Bold
+                };
+                return _foldoutStyleTheme;
+            }
+        }
+
+        private static GUIStyle _foldoutStyleTheme;
         
         public static GUIStyle LabelStyleThemeCenter {
             [MethodImpl(AggressiveInlining)]

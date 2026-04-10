@@ -13,14 +13,9 @@ using Unity.IL2CPP.CompilerServices;
 namespace FFS.Libraries.StaticEcs.Unity {
 
     public enum QueryMethodType {
-        ALL,
-        ALL_ONLY_DISABLED,
-        ALL_WITH_DISABLED,
-        NONE,
-        NONE_WITH_DISABLED,
-        ANY,
-        ANY_ONLY_DISABLED,
-        ANY_WITH_DISABLED,
+        ALL, ALL_ONLY_DISABLED, ALL_WITH_DISABLED,
+        NONE, NONE_WITH_DISABLED, ANY,
+        ANY_ONLY_DISABLED, ANY_WITH_DISABLED,
     }
 
     public struct HandleComponentsFilter : IQueryFilter {
@@ -42,6 +37,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     foreach (var handle in Handles) {
                         allMask &= handle.HeuristicChunk(chunkIdx).NotEmptyBlocks.Value;
                     }
+
                     return allMask;
                 case QueryMethodType.NONE:
                 case QueryMethodType.NONE_WITH_DISABLED:
@@ -49,6 +45,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     foreach (var handle in Handles) {
                         noneMask &= ~handle.HeuristicChunk(chunkIdx).FullBlocks.Value;
                     }
+
                     return noneMask;
                 case QueryMethodType.ANY:
                 case QueryMethodType.ANY_ONLY_DISABLED:
@@ -57,6 +54,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     foreach (var handle in Handles) {
                         anyMask |= handle.HeuristicChunk(chunkIdx).NotEmptyBlocks.Value;
                     }
+
                     return anyMask;
                 default:
                     return ulong.MaxValue;
@@ -70,48 +68,56 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     foreach (var handle in Handles) {
                         mask &= handle.EnabledMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return mask;
                 case QueryMethodType.ALL_ONLY_DISABLED:
                     ulong maskD = ulong.MaxValue;
                     foreach (var handle in Handles) {
                         maskD &= handle.DisabledMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return maskD;
                 case QueryMethodType.ALL_WITH_DISABLED:
                     ulong maskA = ulong.MaxValue;
                     foreach (var handle in Handles) {
                         maskA &= handle.AnyMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return maskA;
                 case QueryMethodType.NONE:
                     ulong nMask = ulong.MaxValue;
                     foreach (var handle in Handles) {
                         nMask &= ~handle.EnabledMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return nMask;
                 case QueryMethodType.NONE_WITH_DISABLED:
                     ulong nMaskA = ulong.MaxValue;
                     foreach (var handle in Handles) {
                         nMaskA &= ~handle.AnyMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return nMaskA;
                 case QueryMethodType.ANY:
                     ulong aMask = 0;
                     foreach (var handle in Handles) {
                         aMask |= handle.EnabledMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return aMask;
                 case QueryMethodType.ANY_ONLY_DISABLED:
                     ulong aMaskD = 0;
                     foreach (var handle in Handles) {
                         aMaskD |= handle.DisabledMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return aMaskD;
                 case QueryMethodType.ANY_WITH_DISABLED:
                     ulong aMaskA = 0;
                     foreach (var handle in Handles) {
                         aMaskA |= handle.AnyMask(segmentIdx, segmentBlockIdx);
                     }
+
                     return aMaskA;
                 default:
                     return ulong.MaxValue;
@@ -119,9 +125,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public void PushQueryData<TWorld>(QueryData data) where TWorld : struct, IWorldType { }
+
         public void PopQueryData<TWorld>() where TWorld : struct, IWorldType { }
         #if FFS_ECS_DEBUG
         public void Assert<TWorld>() where TWorld : struct, IWorldType { }
+
         public void Block<TWorld>(int val) where TWorld : struct, IWorldType { }
         #endif
 
@@ -155,6 +163,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             foreach (var filter in _filters) {
                 mask &= filter.FilterChunk<TWorld>(chunkIdx);
             }
+
             return mask;
         }
 
@@ -163,6 +172,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             foreach (var filter in _filters) {
                 mask &= filter.FilterEntities<TWorld>(segmentIdx, segmentBlockIdx);
             }
+
             return mask;
         }
 
@@ -191,7 +201,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
         }
         #endif
-        
+
         #if FFS_ECS_BURST
         [MethodImpl(AggressiveInlining)]
         public ulong BurstFilterChunk<TWorld>(uint chunkIdx) where TWorld : struct, IWorldType => throw new Exception();

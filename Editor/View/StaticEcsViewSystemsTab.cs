@@ -57,6 +57,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             SysIdType = typeToSystem.Key,
                             Systems = typeToSystem.Value,
                         };
+                        if (_savedSettings != null) _currentDrawer.LoadFromConfig(_savedSettings);
 
                         _drawersBySystemIdType[typeToSystem.Key] = _currentDrawer;
                         break;
@@ -65,11 +66,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
+        private SystemsSettings _savedSettings;
+
         public void Destroy() { }
 
         public void OnWorldChanged(AbstractWorldData newWorldData) {
             _currentWorldData = newWorldData;
             _currentDrawer = null;
+        }
+
+        public void SaveState(WorldViewSettings settings) {
+            _currentDrawer?.SaveToConfig(settings.systems);
+        }
+
+        public void LoadState(WorldViewSettings settings) {
+            _savedSettings = settings.systems;
+            _currentDrawer?.LoadFromConfig(settings.systems);
         }
 
         internal void DrawSystemsSelector() {
@@ -108,6 +120,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static Dictionary<int, string> _formattedTime = new();
         private Vector2 verticalScroll = Vector2.zero;
         private int _drawLevel = 10;
+
+        internal void SaveToConfig(SystemsSettings settings) {
+            settings.drawLevel = _drawLevel;
+        }
+
+        internal void LoadFromConfig(SystemsSettings settings) {
+            _drawLevel = settings.drawLevel;
+        }
 
         private static string FormatTime(float avgTime) {
             var key = (int)(avgTime * 100);

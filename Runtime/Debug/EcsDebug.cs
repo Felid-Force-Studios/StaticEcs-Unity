@@ -16,7 +16,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #endif
 
     public abstract class EcsDebug<TWorld> where TWorld : struct, IWorldType {
-        
+
         #if UNITY_EDITOR
         #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
         public static DebugViewSystem<TWorld> DebugViewSystem { get; private set; }
@@ -29,12 +29,14 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (!World<TWorld>.Systems<TSystemsType>.IsInitialized) {
                 throw new InvalidOperationException("StaticEcsWorldDebug Debug mode connection is possible only when systems initialized");
             }
+
             StaticEcsDebugData.Systems[typeof(TSystemsType)] = (World<TWorld>.Systems<TSystemsType>.AllSystems, World<TWorld>.Systems<TSystemsType>.AllSystemsCount, typeof(TWorld));
             #endif
             #endif
         }
 
-        public static void AddWorld<TSystemsType>(int eventHistoryCount = 8192, Func<EntityGID, string> windowEntityNameFunction = null, short systemOrder = short.MaxValue) where TSystemsType : struct, ISystemsType {
+        public static void AddWorld<TSystemsType>(int eventHistoryCount = 8192, Func<EntityGID, string> windowEntityNameFunction = null, short systemOrder = short.MaxValue)
+            where TSystemsType : struct, ISystemsType {
             #if UNITY_EDITOR
             #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             if (World<TWorld>.Status == WorldStatus.NotCreated) {
@@ -45,7 +47,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 Handle = World<TWorld>.Data.Handle,
                 Events = new PageRingBuffer<EventData>(Math.Max(eventHistoryCount, 8)),
                 EventsReceived = new Dictionary<Type, int>(),
-                WindowNameFunction = windowEntityNameFunction ?? (gid => $"Entity {gid.EntityID}") ,
+                WindowNameFunction = windowEntityNameFunction,
             };
 
             StaticEcsDebugData.Worlds[typeof(TWorld)] = worldData;
@@ -68,6 +70,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                     toRemove.Add(pair.Key);
                 }
             }
+
             foreach (var key in toRemove) {
                 StaticEcsDebugData.Systems.Remove(key);
             }

@@ -7,28 +7,103 @@ using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static partial class Drawer {
-        private static readonly List<IComponent> _componentsCache = new();
 
-        private static void DrawComponents<TWorld>(List<IComponent> components, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void ApplyFoldoutConfig(int foldoutKey, Type componentType, Type worldType) {
+            var config = StaticEcsViewConfig.Active;
+            var worldSettings = config.GetOrCreate(worldType.FullName);
+            switch (worldSettings.entities.foldoutMode) {
+                case ComponentFoldoutMode.ExpandAll:
+                    openHideFlags.Add(foldoutKey);
+                    break;
+                case ComponentFoldoutMode.CollapseAll:
+                    break;
+                case ComponentFoldoutMode.Custom:
+                    if (worldSettings.entities.autoExpandComponentTypes.Contains(componentType.FullName)) {
+                        openHideFlags.Add(foldoutKey);
+                    }
+                    break;
+            }
+        }
+
+        private static readonly List<int> _sortOrderCache = new();
+
+        private static List<int> BuildProviderSortedOrder(List<IComponentOrTagProvider> providers) {
+            var order = _sortOrderCache;
+            order.Clear();
+            for (var i = 0; i < providers.Count; i++) order.Add(i);
+            order.Sort((a, b) => {
+                var pa = providers[a];
+                var pb = providers[b];
+                if (pa?.ComponentType == null) return pb?.ComponentType == null ? 0 : 1;
+                if (pb?.ComponentType == null) return -1;
+                var aSys = pa.ComponentType.IsSystemType();
+                var bSys = pb.ComponentType.IsSystemType();
+                if (aSys != bSys) return aSys ? 1 : -1;
+                var aHasColor = pa.ComponentType.EditorTypeColor(out var aColor);
+                var bHasColor = pb.ComponentType.EditorTypeColor(out var bColor);
+                if (aHasColor != bHasColor) return aHasColor ? -1 : 1;
+                if (aHasColor) {
+                    var cr = aColor.r.CompareTo(bColor.r); if (cr != 0) return cr;
+                    var cg = aColor.g.CompareTo(bColor.g); if (cg != 0) return cg;
+                    var cb = aColor.b.CompareTo(bColor.b); if (cb != 0) return cb;
+                }
+                return string.Compare(pa.ComponentType.EditorTypeName(), pb.ComponentType.EditorTypeName(), StringComparison.Ordinal);
+            });
+            return order;
+        }
+
+        private static void SortSerializedProviders<TWorld>(StaticEcsEntityProvider<TWorld> provider, Object obj) where TWorld : struct, IWorldType {
+            var list = provider.SerializedProviders;
+            list.Sort((a, b) => {
+                if (a?.ComponentType == null) return b?.ComponentType == null ? 0 : 1;
+                if (b?.ComponentType == null) return -1;
+                var aTag = a.Kind.IsTag();
+                var bTag = b.Kind.IsTag();
+                if (aTag != bTag) return aTag ? 1 : -1;
+                var aSys = a.ComponentType.IsSystemType();
+                var bSys = b.ComponentType.IsSystemType();
+                if (aSys != bSys) return aSys ? 1 : -1;
+                var aHasColor = a.ComponentType.EditorTypeColor(out var aColor);
+                var bHasColor = b.ComponentType.EditorTypeColor(out var bColor);
+                if (aHasColor != bHasColor) return aHasColor ? -1 : 1;
+                if (aHasColor) {
+                    var cr = aColor.r.CompareTo(bColor.r); if (cr != 0) return cr;
+                    var cg = aColor.g.CompareTo(bColor.g); if (cg != 0) return cg;
+                    var cb = aColor.b.CompareTo(bColor.b); if (cb != 0) return cb;
+                }
+                return string.Compare(a.ComponentType.EditorTypeName(), b.ComponentType.EditorTypeName(), StringComparison.Ordinal);
+            });
+            EditorUtility.SetDirty(obj);
+        }
+
+        private static void DrawComponents<TWorld>(List<IComponentOrTagProvider> providers, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
+
             EditorGUILayout.BeginHorizontal();
             {
-                var hasAll = MetaData.Components.Count == components.Count;
+                var hasAll = worldMeta.Components.Count == providers.Count;
                 using (Ui.EnabledScopeVal(!hasAll && GUI.enabled)) {
                     if (Ui.PlusDropDownButton && !hasAll) {
-                        DrawComponentsMenu(components, obj, provider);
+                        DrawComponentsMenu(providers, obj, provider);
                     }
                 }
                 EditorGUILayout.LabelField(" Components:", Ui.HeaderStyleTheme);
+                if (!provider.EntityIsActual() && providers.Count >= 2 && GUILayout.Button("Sort", Ui.ButtonStyleThemeMini, Ui.WidthLine(40))) {
+                    SortSerializedProviders(provider, obj);
+                }
             }
             EditorGUILayout.EndHorizontal();
 
-            for (int i = 0, iMax = components.Count; i < iMax; i++) {
-                var component = components[i];
+            var sorted = provider.EntityIsActual();
+            var order = sorted ? BuildProviderSortedOrder(providers) : null;
+            for (var o = 0; o < providers.Count; o++) {
+                var i = sorted ? order[o] : o;
+                var prov = providers[i];
 
-                if (component == null) {
+                if (prov == null || prov.ComponentType == null) {
                     EditorGUILayout.LabelField($"Broken component - is null, index {i}", EditorStyles.boldLabel);
                     if (GUILayout.Button("Delete all broken components", Ui.ButtonStyleTheme, Ui.ExpandWidthFalse())) {
-                        provider.DeleteAllBrokenComponents();
+                        provider.DeleteAllBrokenProviders();
                         EditorUtility.SetDirty(obj);
                     }
 
@@ -36,7 +111,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     continue;
                 }
 
-                var type = component.GetType();
+                var type = prov.ComponentType;
                 var colored = type.EditorTypeColor(out var color);
                 var typeName = type.EditorTypeName();
                 var disabled = provider.IsDisabled(type);
@@ -45,12 +120,18 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
 
                 bool show;
+                var foldoutKey = HashCode.Combine(provider, type.FullName);
+                if (!initializedFoldouts.Contains(foldoutKey)) {
+                    initializedFoldouts.Add(foldoutKey);
+                    ApplyFoldoutConfig(foldoutKey, type, typeof(TWorld));
+                }
+
                 EditorGUILayout.BeginHorizontal(GUI.skin.box);
                 {
                     if (colored) {
-                        DrawFoldoutBox(HashCode.Combine(provider, type.FullName), typeName, typeName, out show, color);
+                        DrawFoldoutBox(foldoutKey, typeName, typeName, out show, color);
                     } else {
-                        DrawFoldoutBox(HashCode.Combine(provider, type.FullName), typeName, typeName, out show);
+                        DrawFoldoutBox(foldoutKey, typeName, typeName, out show);
                     }
                     if (Ui.MenuButton) {
                         var menu = new GenericMenu();
@@ -68,7 +149,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             }
                         }
                         menu.AddItem(new GUIContent("Delete"), false, () => {
-                            provider.OnDeleteComponent(type);
+                            provider.OnDeleteProvider(type);
                             EditorUtility.SetDirty(obj);
                         });
                         menu.ShowAsContext();
@@ -79,11 +160,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 if (show) {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
 
-                    if (!TryDrawSpecialComponent(component, type)) {
+                    IComponent componentValue = null;
+                    if (prov is ComponentProvider cp) componentValue = cp.value;
+                    else if (prov is LinkProvider lp) componentValue = (IComponent)lp.value;
+                    else if (prov is LinksProvider lsp) componentValue = (IComponent)lsp.value;
+                    else if (prov is MultiProvider mp) componentValue = mp.value;
+
+                    if (componentValue != null && !TryDrawSpecialComponent(componentValue, type, prov, provider)) {
                         var wrapper = ComponentDrawerWrapper.Instance;
                         var so = new SerializedObject(wrapper);
                         var prop = so.FindProperty("value");
-                        prop.managedReferenceValue = component;
+                        prop.managedReferenceValue = componentValue;
                         so.ApplyModifiedProperties();
                         so.Update();
                         prop = so.FindProperty("value");
@@ -92,7 +179,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                             DrawSerializedPropertyChildren(prop);
 
                             if (so.ApplyModifiedProperties()) {
-                                provider.OnChangeComponent(wrapper.value, type);
+                                var newProv = CreateProviderForComponent(type, wrapper.value);
+                                provider.OnChangeProvider(newProv, type);
                                 EditorUtility.SetDirty(obj);
                             }
                         }
@@ -127,13 +215,25 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return false;
         }
 
-        private static bool TryDrawSpecialComponent(IComponent component, Type type) {
+        internal static IComponentOrTagProvider CreateProviderForComponent(Type type, IComponent component) {
+            if (IsWorldWrapperType(type, out var baseName)) {
+                switch (baseName) {
+                    case "Link":  return new LinkProvider { value = (ILinkComponent) component };
+                    case "Links": return new LinksProvider { value = (ILinksComponent) component };
+                    case "Multi": return new MultiProvider { value = component };
+                }
+            }
+
+            return new ComponentProvider { value = component };
+        }
+
+        private static bool TryDrawSpecialComponent<TWorld>(IComponent component, Type type, IComponentOrTagProvider prov, StaticEcsEntityProvider<TWorld> entityProvider) where TWorld : struct, IWorldType {
             if (!IsWorldWrapperType(type, out var baseName)) return false;
 
             if (baseName == "Link") {
-                DrawLinkComponent(component, type);
+                DrawLinkComponent(component, type, prov, entityProvider);
             } else if (baseName == "Links") {
-                DrawLinksComponent(component, type);
+                DrawLinksComponent(component, type, prov, entityProvider);
             } else if (baseName == "Multi") {
                 DrawMultiComponent(component, type);
             }
@@ -141,16 +241,85 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             return true;
         }
 
-        private static void DrawLinkComponent(IComponent component, Type type) {
+        private static bool ValidateLinkTarget(AbstractStaticEcsEntityProvider target) {
+            if (target == null) return true;
+            return target.gameObject.scene.IsValid();
+        }
+
+        private static TProvider FindProvider<TWorld, TProvider>(StaticEcsEntityProvider<TWorld> entityProvider, Type componentType)
+            where TWorld : struct, IWorldType
+            where TProvider : class, IComponentOrTagProvider {
+            var providers = entityProvider.SerializedProviders;
+            if (providers == null) return null;
+            for (var i = 0; i < providers.Count; i++) {
+                if (providers[i] is TProvider typed && typed.ComponentType == componentType) {
+                    return typed;
+                }
+            }
+            return null;
+        }
+
+        private static void DrawLinkComponent<TWorld>(IComponent component, Type type, IComponentOrTagProvider prov, StaticEcsEntityProvider<TWorld> entityProvider) where TWorld : struct, IWorldType {
+            if (!entityProvider.EntityIsActual()) {
+                var lp = prov as LinkProvider ?? FindProvider<TWorld, LinkProvider>(entityProvider, type);
+                if (lp != null) {
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.PrefixLabel("Target");
+                    EditorGUI.BeginChangeCheck();
+                    var newTarget = (AbstractStaticEcsEntityProvider) EditorGUILayout.ObjectField(
+                        lp.target, typeof(AbstractStaticEcsEntityProvider), true);
+                    if (EditorGUI.EndChangeCheck()) {
+                        if (ValidateLinkTarget(newTarget)) {
+                            lp.target = newTarget;
+                            EditorUtility.SetDirty(entityProvider);
+                        } else {
+                            Debug.LogWarning("Link target must be a scene object, not a prefab.");
+                        }
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+                return;
+            }
+
             var valueProp = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
             if (valueProp == null) return;
             var gid = (EntityGID) valueProp.GetValue(component);
             DrawEntityGIDField("Value", gid);
         }
 
-        private static void DrawLinksComponent(IComponent component, Type type) {
-            if (!Application.isPlaying) {
-                EditorGUILayout.LabelField("Runtime only", EditorStyles.centeredGreyMiniLabel);
+        private static void DrawLinksComponent<TWorld>(IComponent component, Type type, IComponentOrTagProvider prov, StaticEcsEntityProvider<TWorld> entityProvider) where TWorld : struct, IWorldType {
+            if (!entityProvider.EntityIsActual()) {
+                var lsp = prov as LinksProvider ?? FindProvider<TWorld, LinksProvider>(entityProvider, type);
+                if (lsp != null) {
+                    lsp.targets ??= new();
+
+                    for (var i = 0; i < lsp.targets.Count; i++) {
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.PrefixLabel($"Target [{i}]");
+                        EditorGUI.BeginChangeCheck();
+                        var newTarget = (AbstractStaticEcsEntityProvider) EditorGUILayout.ObjectField(
+                            lsp.targets[i], typeof(AbstractStaticEcsEntityProvider), true);
+                        if (EditorGUI.EndChangeCheck()) {
+                            if (ValidateLinkTarget(newTarget)) {
+                                lsp.targets[i] = newTarget;
+                                EditorUtility.SetDirty(entityProvider);
+                            } else {
+                                Debug.LogWarning("Link target must be a scene object, not a prefab.");
+                            }
+                        }
+                        if (GUILayout.Button("-", EditorStyles.miniButton, GUILayout.Width(20))) {
+                            lsp.targets.RemoveAt(i);
+                            EditorUtility.SetDirty(entityProvider);
+                            i--;
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
+
+                    if (GUILayout.Button("+ Target", EditorStyles.miniButton)) {
+                        lsp.targets.Add(null);
+                        EditorUtility.SetDirty(entityProvider);
+                    }
+                }
                 return;
             }
 
@@ -196,55 +365,62 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
+        internal static (string text, bool actual, Type worldType) ResolveEntityGIDDisplay(EntityGID gid) {
+            if (gid.Raw == 0) return ("Empty", false, null);
+
+            Type worldType = null;
+            var actual = false;
+            foreach (var kvp in StaticEcsDebugData.Worlds) {
+                if (kvp.Value.Handle.GIDStatus(gid) == GIDStatus.Active) {
+                    actual = true;
+                    worldType = kvp.Key;
+                    break;
+                }
+            }
+
+            string text;
+            if (actual && worldType != null) {
+                var worldData = StaticEcsDebugData.Worlds[worldType];
+                text = worldData.WindowNameFunction?.Invoke(gid) ?? gid.ToString();
+            } else {
+                text = gid.ToString();
+                if (!actual) text += " (Not actual)";
+            }
+
+            return (text, actual, worldType);
+        }
+
+        internal static bool DrawInspectEntityButton(EntityGID gid, Type worldType) {
+            if (!Application.isPlaying || worldType == null) return false;
+            if (!EntityInspectorRegistry.ShowEntityHandlers.TryGetValue(worldType, out var handler)) return false;
+            if (GUILayout.Button("\u2299", EditorStyles.miniButton, GUILayout.Width(20))) {
+                handler(gid);
+                return true;
+            }
+            return false;
+        }
+
         private static void DrawEntityGIDField(string label, EntityGID gid) {
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.PrefixLabel(label);
 
-            var empty = gid.Raw == 0;
-            string text;
-            var actual = false;
-
-            if (empty) {
-                text = "Empty";
-            } else {
-                text = gid.ToString();
-
-                foreach (var kvp in StaticEcsDebugData.Worlds) {
-                    if (kvp.Value.Handle.GIDStatus(gid) == GIDStatus.Active) {
-                        actual = true;
-                        break;
-                    }
-                }
-
-                if (!actual) {
-                    text += " (Not actual)";
-                }
-            }
-
+            var (text, actual, worldType) = ResolveEntityGIDDisplay(gid);
             EditorGUILayout.SelectableLabel(text, GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight));
 
-            if (Application.isPlaying && actual) {
-                if (GUILayout.Button("\u2299", EditorStyles.miniButton, GUILayout.Width(20))) {
-                    foreach (var kvp in StaticEcsDebugData.Worlds) {
-                        if (kvp.Value.Handle.GIDStatus(gid) == GIDStatus.Active) {
-                            if (EntityInspectorRegistry.ShowEntityHandlers.TryGetValue(kvp.Key, out var handler)) {
-                                handler(gid);
-                            }
-                            break;
-                        }
-                    }
-                }
+            if (actual) {
+                DrawInspectEntityButton(gid, worldType);
             }
 
             EditorGUILayout.EndHorizontal();
         }
 
-        private static void DrawComponentsMenu<TWorld>(List<IComponent> actualComponents, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void DrawComponentsMenu<TWorld>(List<IComponentOrTagProvider> actualProviders, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
             var menu = new GenericMenu();
-            foreach (var component in MetaData.Components) {
+            foreach (var component in worldMeta.Components) {
                 var has = false;
-                foreach (var actual in actualComponents) {
-                    if (actual.GetType() == component.Type) {
+                foreach (var actual in actualProviders) {
+                    if (actual != null && actual.ComponentType == component.Type) {
                         has = true;
                         break;
                     }
@@ -252,10 +428,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (has) continue;
 
-                if (provider.ShouldShowComponent(component.Type, Application.isPlaying)) {
+                if (provider.ShouldShowProvider(component.Type, Application.isPlaying)) {
                     menu.AddItem(new GUIContent(component.FullName), false, objType => {
-                                     var objRaw = Activator.CreateInstance((Type) objType, true);
-                                     provider.OnSelectComponent((IComponent) objRaw);
+                                     var t = (Type) objType;
+                                     var objRaw = (IComponent) Activator.CreateInstance(t, true);
+                                     var prov = CreateProviderForComponent(t, objRaw);
+                                     provider.OnSelectProvider(prov);
                                      EditorUtility.SetDirty(obj);
                                  },
                                  component.Type);

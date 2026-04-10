@@ -23,22 +23,35 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly Dictionary<Type, EventsDrawer<TWorld, TEventsProvider>> _drawersByWorldTypeType = new();
         private EventsDrawer<TWorld, TEventsProvider> _currentDrawer;
         
+        private EventsSettings _savedSettings;
+
         public string Name() => "Events";
         public void Init() {}
 
         public void Draw() {
             Ui.DrawToolbar(_tabs, ref SelectedTab, type => _tabsNames[(int) type]);
-            _currentDrawer.Draw();
+            _currentDrawer?.Draw();
         }
         public void Destroy() {}
 
         public void OnWorldChanged(AbstractWorldData newWorldData) {
             if (!_drawersByWorldTypeType.ContainsKey(newWorldData.Handle.WorldType)) {
-                _drawersByWorldTypeType[newWorldData.Handle.WorldType] =  new EventsDrawer<TWorld, TEventsProvider>(this, newWorldData);
+                _drawersByWorldTypeType[newWorldData.Handle.WorldType] = new EventsDrawer<TWorld, TEventsProvider>(this, newWorldData, _savedSettings);
             }
-            
+
             _currentDrawer = _drawersByWorldTypeType[newWorldData.Handle.WorldType];
             _drawersByWorldTypeType[newWorldData.Handle.WorldType] = _currentDrawer;
+        }
+
+        public void SaveState(WorldViewSettings settings) {
+            settings.events.selectedTab = (int) SelectedTab;
+            _currentDrawer?.SaveToConfig(settings.events);
+        }
+
+        public void LoadState(WorldViewSettings settings) {
+            _savedSettings = settings.events;
+            SelectedTab = (TabType) settings.events.selectedTab;
+            _currentDrawer?.LoadFromConfig(settings.events);
         }
     }
 
@@ -67,12 +80,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         // filter
         private readonly List<EditorEventDataMetaByWorld> _filterTypes = new();
 
-        internal EventsDrawer(StaticEcsViewEventsTab<TWorld, TEventProvider> parent, AbstractWorldData worldData) {
+        internal EventsDrawer(StaticEcsViewEventsTab<TWorld, TEventProvider> parent, AbstractWorldData worldData, EventsSettings savedSettings) {
             _parent = parent;
             _worldData = worldData;
-            _eventsMeta = new EditorEventDataMetaByWorld[MetaData.Events.Count];
-            for (var i = 0; i < MetaData.Events.Count; i++) {
-                _eventsMeta[i] = new EditorEventDataMetaByWorld(MetaData.Events[i]);
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
+            _eventsMeta = new EditorEventDataMetaByWorld[worldMeta.Events.Count];
+            for (var i = 0; i < worldMeta.Events.Count; i++) {
+                _eventsMeta[i] = new EditorEventDataMetaByWorld(worldMeta.Events[i]);
                 _eventsByType[_eventsMeta[i].Type] = _eventsMeta[i];
             }
             _builder = CreateEventView();
@@ -93,6 +107,34 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     });
                 }
             });
+
+            if (savedSettings != null) {
+                LoadFromConfig(savedSettings);
+            }
+        }
+
+        internal void SaveToConfig(EventsSettings settings) {
+            settings.latest = Latest;
+            settings.filterTypeNames.Clear();
+            foreach (var meta in _filterTypes) {
+                settings.filterTypeNames.Add(meta.FullName);
+            }
+        }
+
+        internal void LoadFromConfig(EventsSettings settings) {
+            Latest = settings.latest;
+            _filterTypes.Clear();
+            foreach (var name in settings.filterTypeNames) {
+                foreach (var meta in _eventsMeta) {
+                    if (meta.FullName == name) {
+                        _filterTypes.Add(meta);
+                        break;
+                    }
+                }
+            }
+            if (_filterTypes.Count > 0) {
+                UpdateFilteredPage();
+            }
         }
 
         internal void Draw() {

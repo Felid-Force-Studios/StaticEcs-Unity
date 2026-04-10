@@ -13,7 +13,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
     #endif
     public abstract class DragEntityProvider<TWorld> : GUIEntityEventProvider<TWorld>,
-        IBeginDragHandler, IDragHandler, IEndDragHandler
+                                                       IBeginDragHandler, IDragHandler, IEndDragHandler
         where TWorld : struct, IWorldType {
 
         [MethodImpl(AggressiveInlining)]
@@ -101,8 +101,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class DragEntityGIDProvider<TWorld> : DragEntityProvider<TWorld>
         where TWorld : struct, IWorldType {
 
-        [SerializeField] private EntityGID entityGid;
-        protected override EntityGID EntityGID { [MethodImpl(AggressiveInlining)] get => entityGid; }
+        [SerializeField]
+        private EntityGID entityGid;
+
+        protected override EntityGID EntityGID {
+            [MethodImpl(AggressiveInlining)] get => entityGid;
+        }
+
         [MethodImpl(AggressiveInlining)]
         public void SetEntityGID(EntityGID gid) => entityGid = gid;
     }
@@ -115,12 +120,20 @@ namespace FFS.Libraries.StaticEcs.Unity {
         where TWorld : struct, IWorldType
         where TProvider : StaticEcsEntityProvider<TWorld> {
 
-        [SerializeField] private TProvider entityProvider;
+        [SerializeField]
+        private TProvider entityProvider;
+
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityProvider != null ? entityProvider.EntityGid : default;
+            [MethodImpl(AggressiveInlining)] get => entityProvider != null ? entityProvider.EntityGid : default;
         }
+
         [MethodImpl(AggressiveInlining)]
         public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+
+        #if UNITY_EDITOR
+        protected void Reset() {
+            if (entityProvider == null) entityProvider = GetComponent<TProvider>();
+        }
+        #endif
     }
 }

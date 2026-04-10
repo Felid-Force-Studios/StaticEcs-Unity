@@ -1,12 +1,12 @@
 ﻿using System;
 
 namespace FFS.Libraries.StaticEcs.Unity {
-   
+
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public sealed class StaticEcsEditorNameAttribute : Attribute {
         public readonly string Name;
         public readonly string FullName;
-        
+
         public StaticEcsEditorNameAttribute(string name, string fullName = null) {
             Name = name;
             FullName = fullName;
@@ -18,6 +18,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public class StaticEcsEditorColorAttribute : Attribute {
+        public const string SystemColor = "A0AEA1";
+
         public readonly float R;
         public readonly float G;
         public readonly float B;
@@ -52,7 +54,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             B = Convert.ToByte(hex.Substring(4, 2), 16) / 255f;
         }
     }
-    
+
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
     public sealed class StaticEcsEditorTableValueAttribute : Attribute {
         public readonly float ColumnWidth;

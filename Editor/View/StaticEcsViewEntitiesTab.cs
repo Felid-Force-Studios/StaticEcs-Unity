@@ -22,13 +22,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly Dictionary<Type, EntitiesDrawer<TWorld, TEntityProvider>> _drawersByWorldTypeType = new();
         private EntitiesDrawer<TWorld, TEntityProvider> _currentDrawer;
         
+        private EntitiesSettings _savedSettings;
+
         public string Name() => "Entities";
-        
+
         public void Init() {}
 
         public void Draw() {
             Ui.DrawToolbar(_tabs, ref SelectedTab, type => _tabsNames[(int) type]);
-            _currentDrawer.DrawEntitiesData();
+            _currentDrawer?.DrawEntitiesData();
         }
 
         public void Destroy() {
@@ -39,11 +41,22 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         public void OnWorldChanged(AbstractWorldData newWorldData) {
             if (!_drawersByWorldTypeType.ContainsKey(newWorldData.Handle.WorldType)) {
-                _drawersByWorldTypeType[newWorldData.Handle.WorldType] =  new EntitiesDrawer<TWorld, TEntityProvider>(this, newWorldData);
+                _drawersByWorldTypeType[newWorldData.Handle.WorldType] = new EntitiesDrawer<TWorld, TEntityProvider>(this, newWorldData, _savedSettings);
             }
-            
+
             _currentDrawer = _drawersByWorldTypeType[newWorldData.Handle.WorldType];
             _drawersByWorldTypeType[newWorldData.Handle.WorldType] = _currentDrawer;
+        }
+
+        public void SaveState(WorldViewSettings settings) {
+            settings.entities.selectedTab = (int) SelectedTab;
+            _currentDrawer?.SaveToConfig(settings.entities);
+        }
+
+        public void LoadState(WorldViewSettings settings) {
+            _savedSettings = settings.entities;
+            SelectedTab = (TabType) settings.entities.selectedTab;
+            _currentDrawer?.LoadFromConfig(settings.entities);
         }
     }
 
@@ -71,16 +84,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly StaticEcsViewEntitiesTab<TWorld, TEntityProvider> _parent;
 
 
-        internal EntitiesDrawer(StaticEcsViewEntitiesTab<TWorld, TEntityProvider> parent, AbstractWorldData worldData) {
+        internal EntitiesDrawer(StaticEcsViewEntitiesTab<TWorld, TEntityProvider> parent, AbstractWorldData worldData, EntitiesSettings savedSettings) {
             _parent = parent;
-            
-            foreach (var val in MetaData.Components) {
+
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
+            foreach (var val in worldMeta.Components) {
                 if (worldData.Handle.TryGetComponentsHandle(val.Type, out var handle)) {
                     _components.Add(new EditorEntityDataMetaByWorld(val, handle, null, e => handle.Has(e)));
                 }
             }
 
-            foreach (var val in MetaData.Tags) {
+            foreach (var val in worldMeta.Tags) {
                 if (worldData.Handle.TryGetComponentsHandle(val.Type, out var handle)) {
                     _tags.Add(new EditorEntityDataMetaByWorld(val, null, handle, e => handle.Has(e)));
                 }
@@ -89,7 +103,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _componentsAndTags.AddRange(_components);
             _componentsAndTags.AddRange(_tags);
 
-            ShowAllColumns(true);
+            if (savedSettings != null) {
+                LoadFromConfig(savedSettings);
+            } else {
+                ShowAllColumns(true);
+            }
 
             var go = new GameObject("StaticEcsEntityBuider") {
                 hideFlags = HideFlags.NotEditable,
@@ -145,6 +163,106 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void ShowNoneColumns() {
             _componentsColumns.Clear();
             _tagsColumns.Clear();
+        }
+
+        internal void SaveToConfig(EntitiesSettings settings) {
+            settings.componentColumns.Clear();
+            foreach (var col in _componentsColumns) settings.componentColumns.Add(col.FullName);
+
+            settings.tagColumns.Clear();
+            foreach (var col in _tagsColumns) settings.tagColumns.Add(col.FullName);
+
+            settings.showTableDataTypes.Clear();
+            foreach (var col in _componentsColumns) {
+                if (col.ShowTableData) settings.showTableDataTypes.Add(col.FullName);
+            }
+
+            settings.sortByType = _sortIdx?.FullName ?? "";
+            settings.maxEntityResult = _maxEntityResult;
+            settings.filterActive = _filterActive;
+            settings.gidFilterActive = _gidFilterActive;
+            settings.gidFilterValue = _gidFilterValue;
+
+            settings.pinnedEntities.Clear();
+            foreach (var gid in _pinedEntities) settings.pinnedEntities.Add(gid.Raw);
+
+            SaveFilterList(settings.filterAll, _all);
+            SaveFilterList(settings.filterAllOnlyDisabled, _allOnlyDisabled);
+            SaveFilterList(settings.filterAllWithDisabled, _allWithDisabled);
+            SaveFilterList(settings.filterNone, _none);
+            SaveFilterList(settings.filterNoneWithDisabled, _noneWithDisabled);
+            SaveFilterList(settings.filterAny, _any);
+            SaveFilterList(settings.filterAnyOnlyDisabled, _anyOnlyDisabled);
+            SaveFilterList(settings.filterAnyWithDisabled, _anyWithDisabled);
+        }
+
+        private static void SaveFilterList(List<string> target, List<EditorEntityDataMetaByWorld> source) {
+            target.Clear();
+            foreach (var item in source) target.Add(item.FullName);
+        }
+
+        internal void LoadFromConfig(EntitiesSettings settings) {
+            _componentsColumns.Clear();
+            _tagsColumns.Clear();
+
+            var hasColumns = settings.componentColumns.Count > 0 || settings.tagColumns.Count > 0;
+            if (!hasColumns) {
+                ShowAllColumns(true);
+                return;
+            }
+
+            foreach (var name in settings.componentColumns) {
+                var meta = FindByFullName(_components, name);
+                if (meta != null) _componentsColumns.Add(meta);
+            }
+
+            foreach (var name in settings.tagColumns) {
+                var meta = FindByFullName(_tags, name);
+                if (meta != null) _tagsColumns.Add(meta);
+            }
+
+            foreach (var name in settings.showTableDataTypes) {
+                var meta = FindByFullName(_components, name);
+                if (meta != null) meta.ShowTableData = true;
+            }
+
+            if (!string.IsNullOrEmpty(settings.sortByType)) {
+                _sortIdx = FindByFullName(_componentsAndTags, settings.sortByType);
+            }
+
+            _maxEntityResult = settings.maxEntityResult;
+            _filterActive = settings.filterActive;
+            _gidFilterActive = settings.gidFilterActive;
+            _gidFilterValue = settings.gidFilterValue;
+
+            foreach (var raw in settings.pinnedEntities) {
+                _pinedEntities.Add(new EntityGID(raw));
+            }
+
+            LoadFilterList(settings.filterAll, _all);
+            LoadFilterList(settings.filterAllOnlyDisabled, _allOnlyDisabled);
+            LoadFilterList(settings.filterAllWithDisabled, _allWithDisabled);
+            LoadFilterList(settings.filterNone, _none);
+            LoadFilterList(settings.filterNoneWithDisabled, _noneWithDisabled);
+            LoadFilterList(settings.filterAny, _any);
+            LoadFilterList(settings.filterAnyOnlyDisabled, _anyOnlyDisabled);
+            LoadFilterList(settings.filterAnyWithDisabled, _anyWithDisabled);
+            _filterDirty = true;
+        }
+
+        private void LoadFilterList(List<string> source, List<EditorEntityDataMetaByWorld> target) {
+            target.Clear();
+            foreach (var name in source) {
+                var meta = FindByFullName(_componentsAndTags, name);
+                if (meta != null) target.Add(meta);
+            }
+        }
+
+        private static EditorEntityDataMetaByWorld FindByFullName(List<EditorEntityDataMetaByWorld> list, string fullName) {
+            foreach (var item in list) {
+                if (item.FullName == fullName) return item;
+            }
+            return null;
         }
 
         internal void Destroy() {

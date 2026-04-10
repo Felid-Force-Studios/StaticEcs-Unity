@@ -12,7 +12,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
     #endif
     public abstract class DragProvider<TWorld> : GUIEventProvider<TWorld>,
-        IBeginDragHandler, IDragHandler, IEndDragHandler
+                                                 IBeginDragHandler, IDragHandler, IEndDragHandler
         where TWorld : struct, IWorldType {
 
         [MethodImpl(AggressiveInlining)]

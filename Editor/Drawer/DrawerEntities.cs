@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -12,6 +13,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     }
 
     public static partial class Drawer {
+        private static readonly List<IComponentOrTagProvider> _providersCache = new();
+        private static readonly List<IComponentOrTagProvider> _componentProvidersCache = new();
+        private static readonly List<IComponentOrTagProvider> _tagProvidersCache = new();
+
         public static void DrawEntity<TWorld, TEntityProvider>(
             TEntityProvider provider, DrawMode mode, Action<TEntityProvider> onClickSpawn, Action<TEntityProvider> onClose
         ) where TEntityProvider : StaticEcsEntityProvider<TWorld> where TWorld : struct, IWorldType {
@@ -101,22 +106,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     if (Ui.MenuButton) { }
 
                     EditorGUILayout.LabelField("Entity Type:", Ui.WidthLine(90));
+                    var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
                     if (active.EntityIsActual()) {
                         var entity = active.EntityGid.Unpack<TWorld>();
                         var entityTypeByte = entity.EntityType;
-                        var typeName = MetaData.GetEntityTypeName(entityTypeByte);
+                        var typeName = worldMeta.GetEntityTypeName(entityTypeByte);
                         EditorGUILayout.SelectableLabel($"{typeName} ({entityTypeByte})", Ui.LabelStyleThemeBold, Ui.WidthLine(120));
                     } else {
-                        if (MetaData.EntityTypes.Count > 0) {
-                            var currentIdx = MetaData.EntityTypes.FindIndex(et => et.Id == active.entityType);
+                        if (worldMeta != null && worldMeta.EntityTypes.Count > 0) {
+                            var currentIdx = worldMeta.EntityTypes.FindIndex(et => et.Id == active.entityType);
                             if (currentIdx < 0) currentIdx = 0;
-                            var names = new string[MetaData.EntityTypes.Count];
-                            for (var i = 0; i < MetaData.EntityTypes.Count; i++) {
-                                names[i] = $"{MetaData.EntityTypes[i].Name} ({MetaData.EntityTypes[i].Id})";
+                            var names = new string[worldMeta.EntityTypes.Count];
+                            for (var i = 0; i < worldMeta.EntityTypes.Count; i++) {
+                                names[i] = $"{worldMeta.EntityTypes[i].Name} ({worldMeta.EntityTypes[i].Id})";
                             }
                             var newIdx = EditorGUILayout.Popup(currentIdx, names, Ui.WidthLine(120));
                             if (newIdx != currentIdx) {
-                                active.entityType = MetaData.EntityTypes[newIdx].Id;
+                                active.entityType = worldMeta.EntityTypes[newIdx].Id;
                                 EditorUtility.SetDirty(activeBase);
                             }
                         } else {
@@ -157,15 +163,27 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static void DrawEntity<TWorld>(Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
             EditorGUILayout.Space(10);
 
-            provider.Components(_componentsCache);
-            EditorGUILayout.Space(10);
-            DrawComponents(_componentsCache, obj, provider);
-            _componentsCache.Clear();
+            provider.GetProviders(_providersCache);
 
-            provider.Tags(_tagsCache);
+            _componentProvidersCache.Clear();
+            _tagProvidersCache.Clear();
+            for (var i = 0; i < _providersCache.Count; i++) {
+                var p = _providersCache[i];
+                if (p != null && p.Kind.IsTag()) {
+                    _tagProvidersCache.Add(p);
+                } else {
+                    _componentProvidersCache.Add(p);
+                }
+            }
+            _providersCache.Clear();
+
             EditorGUILayout.Space(10);
-            DrawTags(_tagsCache, obj, provider);
-            _tagsCache.Clear();
+            DrawComponents(_componentProvidersCache, obj, provider);
+            _componentProvidersCache.Clear();
+
+            EditorGUILayout.Space(10);
+            DrawTags(_tagProvidersCache, obj, provider);
+            _tagProvidersCache.Clear();
         }
     }
 }

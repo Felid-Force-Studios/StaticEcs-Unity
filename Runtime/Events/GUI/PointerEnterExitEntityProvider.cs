@@ -13,7 +13,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
     #endif
     public abstract class PointerEnterExitEntityProvider<TWorld> : GUIEntityEventProvider<TWorld>,
-        IPointerEnterHandler, IPointerExitHandler
+                                                                   IPointerEnterHandler, IPointerExitHandler
         where TWorld : struct, IWorldType {
 
         [MethodImpl(AggressiveInlining)]
@@ -34,12 +34,12 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         [MethodImpl(AggressiveInlining)]
         protected virtual void OnAddComponent(PointerEventData data) {
-            SetComponentOnEntity(new PointerHoverState());
+            SetTagOnEntity<PointerHoverState>();
         }
 
         [MethodImpl(AggressiveInlining)]
         protected virtual void OnRemoveComponent() {
-            DeleteComponentFromEntity<PointerHoverState>();
+            DeleteTagFromEntity<PointerHoverState>();
         }
 
         public void OnPointerEnter(PointerEventData data) {
@@ -62,8 +62,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class PointerEnterExitEntityGIDProvider<TWorld> : PointerEnterExitEntityProvider<TWorld>
         where TWorld : struct, IWorldType {
 
-        [SerializeField] private EntityGID entityGid;
-        protected override EntityGID EntityGID { [MethodImpl(AggressiveInlining)] get => entityGid; }
+        [SerializeField]
+        private EntityGID entityGid;
+
+        protected override EntityGID EntityGID {
+            [MethodImpl(AggressiveInlining)] get => entityGid;
+        }
+
         [MethodImpl(AggressiveInlining)]
         public void SetEntityGID(EntityGID gid) => entityGid = gid;
     }
@@ -76,12 +81,20 @@ namespace FFS.Libraries.StaticEcs.Unity {
         where TWorld : struct, IWorldType
         where TProvider : StaticEcsEntityProvider<TWorld> {
 
-        [SerializeField] private TProvider entityProvider;
+        [SerializeField]
+        private TProvider entityProvider;
+
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityProvider != null ? entityProvider.EntityGid : default;
+            [MethodImpl(AggressiveInlining)] get => entityProvider != null ? entityProvider.EntityGid : default;
         }
+
         [MethodImpl(AggressiveInlining)]
         public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+
+        #if UNITY_EDITOR
+        protected void Reset() {
+            if (entityProvider == null) entityProvider = GetComponent<TProvider>();
+        }
+        #endif
     }
 }

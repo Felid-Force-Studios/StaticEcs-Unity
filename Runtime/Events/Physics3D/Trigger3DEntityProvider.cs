@@ -65,11 +65,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class Trigger3DEntityGIDProvider<TWorld> : Trigger3DEntityProvider<TWorld>
         where TWorld : struct, IWorldType {
 
-        [UnityEngine.SerializeField] private EntityGID entityGid;
+        [UnityEngine.SerializeField]
+        private EntityGID entityGid;
 
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityGid;
+            [MethodImpl(AggressiveInlining)] get => entityGid;
         }
 
         [MethodImpl(AggressiveInlining)]
@@ -84,15 +84,21 @@ namespace FFS.Libraries.StaticEcs.Unity {
         where TWorld : struct, IWorldType
         where TProvider : StaticEcsEntityProvider<TWorld> {
 
-        [UnityEngine.SerializeField] private TProvider entityProvider;
+        [UnityEngine.SerializeField]
+        private TProvider entityProvider;
 
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityProvider != null ? entityProvider.EntityGid : default;
+            [MethodImpl(AggressiveInlining)] get => entityProvider != null ? entityProvider.EntityGid : default;
         }
 
         [MethodImpl(AggressiveInlining)]
         public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+
+        #if UNITY_EDITOR
+        protected void Reset() {
+            if (entityProvider == null) entityProvider = GetComponent<TProvider>();
+        }
+        #endif
     }
 }
 #endif

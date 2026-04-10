@@ -37,6 +37,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public bool IsActual => Parent.Pages[Index].PageId == PageId;
         public ref int Count => ref Parent.Pages[Index].Count;
         public int PageSize => Parent.PageSize;
+
         public PageViewEnumerator<T> GetEnumerator() => new(this);
 
         public bool HasNewer => PageId + 1 <= Parent.LastPage && Parent.GetPageView(PageId + 1).Count > 0;

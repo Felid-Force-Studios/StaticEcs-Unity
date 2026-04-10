@@ -12,6 +12,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private const int MaxFieldToStringLength = 128;
 
         internal static readonly HashSet<int> openHideFlags = new();
+        internal static readonly HashSet<int> initializedFoldouts = new();
 
         public static void DrawFoldoutBox(int keyHash, string open, string close, out bool show) {
             var style = new GUIStyle(EditorStyles.boldLabel) {

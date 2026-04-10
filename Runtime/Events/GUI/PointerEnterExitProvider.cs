@@ -12,7 +12,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
     #endif
     public abstract class PointerEnterExitProvider<TWorld> : GUIEventProvider<TWorld>,
-        IPointerEnterHandler, IPointerExitHandler
+                                                             IPointerEnterHandler, IPointerExitHandler
         where TWorld : struct, IWorldType {
 
         [MethodImpl(AggressiveInlining)]

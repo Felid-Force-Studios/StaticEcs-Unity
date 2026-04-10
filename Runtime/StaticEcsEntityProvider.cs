@@ -6,50 +6,53 @@ using Unity.IL2CPP.CompilerServices;
 #endif
 
 namespace FFS.Libraries.StaticEcs.Unity {
-    
-    public interface IOnProvideComponent {
-        void OnProvide(GameObject go);
-    }
 
     public enum OnDestroyType {
-        None,
-        DestroyEntity
+        None, DestroyEntity
     }
 
     #if ENABLE_IL2CPP
     [Il2CppSetOption(Option.NullChecks, false)]
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
     #endif
-    public abstract partial class StaticEcsEntityProvider<TWorld> : AbstractStaticEcsProvider
+    public abstract partial class StaticEcsEntityProvider<TWorld> : AbstractStaticEcsEntityProvider
         where TWorld : struct, IWorldType {
-        
+
         public OnDestroyType onDestroyType = OnDestroyType.None;
         public bool disableEntityOnCreate;
         public bool onEnableAndDisable = true;
         public AbstractStaticEcsProvider prefab;
-        
-        [SerializeReference, HideInInspector] protected List<IComponent> components = new();
-        [SerializeReference, HideInInspector] protected List<ITag> tags = new();
-        [HideInInspector] public byte entityType;
-        [HideInInspector] public EntityGID entityGid;
-        
-        public EntityGID EntityGid {
+
+        [SerializeReference, HideInInspector]
+        protected List<IComponentOrTagProvider> providers = new();
+        [HideInInspector]
+        public byte entityType;
+        [HideInInspector]
+        public EntityGID entityGid;
+
+        public override EntityGID EntityGid {
             get => entityGid;
             set => entityGid = value;
         }
-        
+
         public World<TWorld>.Entity Entity => entityGid.Unpack<TWorld>();
 
         protected void Awake() {
             if (UsageType == UsageType.OnAwake) {
-                CreateEntity();
+                if (CreateEntity(onCreateEntity: false)) {
+                    PostEntityProviderCreate.Instance.Register(this);
+                }
+
                 prefab = null;
             }
         }
 
         protected void Start() {
             if (UsageType == UsageType.OnStart) {
-                CreateEntity();
+                if (CreateEntity(onCreateEntity: false)) {
+                    PostEntityProviderCreate.Instance.Register(this);
+                }
+
                 prefab = null;
             }
         }
@@ -96,42 +99,18 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 return false;
             }
 
-            ref var world = ref World<TWorld>.Data.Handle;
             var entity = World<TWorld>.NewEntity(entityType);
-
             entityGid = entity;
 
-            var eid = entity.ID;
-            if (components != null) {
-                for (var i = 0; i < components.Count; i++) {
-                    var value = components[i];
-                    if (value != null) {
-                        if (value is IOnProvideComponent e) {
-                            e.OnProvide(gameObject);
-                        }
-
-                        if (world.TryGetComponentsHandle(value.GetType(), out var handle)) {
-                            handle.SetRaw(eid, value);
-                        }
+            if (providers != null) {
+                for (var i = 0; i < providers.Count; i++) {
+                    var provider = providers[i];
+                    if (provider != null) {
+                        provider.Apply<TWorld>(entity);
                     }
                     #if DEBUG
                     else {
-                        throw new StaticEcsException("[StaticEcsEntityProvider] NULL component");
-                    }
-                    #endif
-                }
-            }
-
-            if (tags != null) {
-                foreach (var value in tags) {
-                    if (value != null) {
-                        if (world.TryGetComponentsHandle(value.GetType(), out var handle)) {
-                            handle.Set(eid);
-                        }
-                    }
-                    #if DEBUG
-                    else {
-                        throw new StaticEcsException("[StaticEcsEntityProvider] NULL tag");
+                        throw new StaticEcsException("[StaticEcsEntityProvider] NULL component or tag");
                     }
                     #endif
                 }
@@ -146,6 +125,41 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
 
             return true;
+        }
+
+        public override void ResolveLinks() {
+            if (providers == null) return;
+            if (World<TWorld>.Status != WorldStatus.Initialized) return;
+            if (entityGid.Status<TWorld>() != GIDStatus.Active) return;
+
+            var entity = entityGid.Unpack<TWorld>();
+            ref var world = ref World<TWorld>.Data.Handle;
+
+            for (var i = 0; i < providers.Count; i++) {
+                var provider = providers[i];
+
+                if (provider is LinkProvider { target: not null } lp) {
+                    lp.value.SetValue(lp.target.EntityGid);
+                    if (world.TryGetComponentsHandle(lp.value.GetType(), out var handle)) {
+                        handle.SetRaw(entity.ID, (IComponentOrTag) lp.value);
+                    }
+                } else if (provider is LinksProvider { targets: not null } lsp && lsp.targets.Count > 0 && lsp.value != null) {
+                    if (world.TryGetComponentsHandle(lsp.value.GetType(), out var handle)) {
+                        handle.SetRaw(entity.ID, (IComponentOrTag) lsp.value);
+                        var hasRaw = handle.TryGetRaw(entity.ID, out var raw);
+                        if (hasRaw && raw is ILinksComponent linksComponent) {
+                            for (var j = 0; j < lsp.targets.Count; j++) {
+                                var t = lsp.targets[j];
+                                if (t != null) {
+                                    linksComponent.AddLink(t.EntityGid);
+                                }
+                            }
+
+                            handle.SetRawDirect(entity.ID, raw);
+                        }
+                    }
+                }
+            }
         }
     }
 }

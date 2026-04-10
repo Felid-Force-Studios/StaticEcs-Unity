@@ -22,9 +22,21 @@ namespace FFS.Libraries.StaticEcs.Unity {
             if (dt == null || !dt.IsGenericType) return false;
             if (dt.GetGenericTypeDefinition().FullName != "FFS.Libraries.StaticEcs.World`1") return false;
             var n = type.Name;
-            if (n.StartsWith("Link`")) { baseName = "Link"; return true; }
-            if (n.StartsWith("Links`")) { baseName = "Links"; return true; }
-            if (n.StartsWith("Multi`")) { baseName = "Multi"; return true; }
+            if (n.StartsWith("Link`")) {
+                baseName = "Link";
+                return true;
+            }
+
+            if (n.StartsWith("Links`")) {
+                baseName = "Links";
+                return true;
+            }
+
+            if (n.StartsWith("Multi`")) {
+                baseName = "Multi";
+                return true;
+            }
+
             return false;
         }
 
@@ -47,6 +59,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                         if (constraints.Length > 0) constraints += ", ";
                         constraints += args[i].EditorTypeName();
                     }
+
                     name = $"{baseName}<{constraints}>";
                 } else {
                     var constraints = "";
@@ -75,6 +88,10 @@ namespace FFS.Libraries.StaticEcs.Unity {
             return name;
         }
 
+        public static bool IsSystemType(this Type type) {
+            return type.Namespace == "FFS.Libraries.StaticEcs.Unity";
+        }
+
         public static bool EditorTypeColor(this Type type, out Color color) {
             if (!_colorsCache.TryGetValue(type, out color)) {
                 var authAttrType = typeof(StaticEcsEditorColorAttribute);
@@ -91,13 +108,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
                         }
                     }
                 }
-                
+
                 return false;
             }
 
             return true;
         }
-        
+
         public static bool IsIgnored(this Type type) {
             if (!_ignoredEventsCache.TryGetValue(type, out var ignored)) {
                 var authAttrType = typeof(StaticEcsIgnoreEventAttribute);

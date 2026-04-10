@@ -6,7 +6,7 @@ using Unity.IL2CPP.CompilerServices;
 #endif
 
 namespace FFS.Libraries.StaticEcs.Unity {
-    
+
     #if ENABLE_IL2CPP
     [Il2CppSetOption(Option.NullChecks, false)]
     [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
@@ -27,9 +27,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     }
 
     public enum EventStatus : byte {
-        Sent,
-        Read,
-        Suppressed
+        Sent, Read, Suppressed
     }
 
     #if ENABLE_IL2CPP
@@ -38,8 +36,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #endif
     public abstract partial class StaticEcsEventProvider<TWorld> : AbstractStaticEcsProvider
         where TWorld : struct, IWorldType {
-        
-        [SerializeReference, HideInInspector] private IEvent eventTemplate;
+
+        [SerializeReference, HideInInspector]
+        private IEvent eventTemplate;
 
         public IEvent EventTemplate {
             get => eventTemplate;

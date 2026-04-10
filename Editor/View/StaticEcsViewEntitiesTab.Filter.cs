@@ -26,12 +26,27 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly List<EditorEntityDataMetaByWorld> _componentsAndTags = new();
 
         private void DrawEntitiesFilter() {
+            SegmentFilter();
             ComponentsFilter();
             GidFilter();
             ColumnsFilter();
             DataShowFilter();
             EntityResultCountFilter();
             EditorGUILayout.Space(10);
+        }
+
+        private void SegmentFilter() {
+            var system = EcsDebug<TWorld>.DebugViewSystem;
+            if (system == null || !system.IsSegmentFilterActive) return;
+
+            EditorGUILayout.BeginHorizontal();
+            {
+                EditorGUILayout.LabelField($"Segment: {system.SegmentFilterIdx}", Ui.WidthLine(200));
+                if (GUILayout.Button("Clear", Ui.ButtonStyleTheme, Ui.WidthLine(60))) {
+                    system.ClearSegmentFilter();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
         }
 
         private void ComponentsFilter() {

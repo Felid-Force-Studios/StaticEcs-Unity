@@ -24,6 +24,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         bool generateMouse = true;
         bool generatePhysics3D = true;
         bool generatePhysics2D = true;
+        bool generateAnimation = true;
 
         [MenuItem("Assets/Create/Static ECS/Providers", false, -215)]
         static void ShowWindow() {
@@ -83,6 +84,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             generateMouse = EditorGUILayout.Toggle("Mouse", generateMouse);
             generatePhysics3D = EditorGUILayout.Toggle("Physics 3D", generatePhysics3D);
             generatePhysics2D = EditorGUILayout.Toggle("Physics 2D", generatePhysics2D);
+            generateAnimation = EditorGUILayout.Toggle("Animation", generateAnimation);
             EditorGUI.indentLevel--;
 
             EditorGUILayout.Space(10);
@@ -95,11 +97,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.LabelField("ECS View:", prefix + "EcsView");
 
             var eventCount = 0;
-            if (generateGUI) eventCount += 21;
+            if (generateGUI) eventCount += 27;
             if (generateTMP) eventCount += 9;
             if (generateMouse) eventCount += 9;
             if (generatePhysics3D) eventCount += 11;
             if (generatePhysics2D) eventCount += 6;
+            if (generateAnimation) eventCount += 6;
             if (eventCount > 0) {
                 EditorGUILayout.LabelField("Events:", $"Events/ ({eventCount} providers)");
             }
@@ -159,7 +162,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         void CreateEventProviderFiles(string entityProviderName) {
-            if (!generateGUI && !generateTMP && !generateMouse && !generatePhysics3D && !generatePhysics2D) return;
+            if (!generateGUI && !generateTMP && !generateMouse && !generatePhysics3D && !generatePhysics2D && !generateAnimation) return;
 
             var eventsPath = runtimePath + "/Events";
             EnsureFolder(eventsPath);
@@ -188,6 +191,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 GenerateEventProviderTriple(path, entityProviderName, "Trigger2D");
             }
 
+            if (generateAnimation) {
+                var path = eventsPath + "/Animation";
+                EnsureFolder(path);
+                GenerateEventProviderTriple(path, entityProviderName, "AnimationEvent");
+                GenerateStateMachineBehaviourGroup(path, entityProviderName);
+            }
+
             if (generateGUI || generateTMP) {
                 var path = eventsPath + "/GUI";
                 EnsureFolder(path);
@@ -200,6 +210,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     GenerateEventProviderTriple(path, entityProviderName, "Drop");
                     GenerateEventProviderTriple(path, entityProviderName, "ScrollView");
                     GenerateEventProviderTriple(path, entityProviderName, "SliderChange");
+                    GenerateEventProviderTriple(path, entityProviderName, "SubmitCancel");
+                    GenerateEventProviderTriple(path, entityProviderName, "ButtonClick");
                 }
 
                 if (generateTMP) {
@@ -221,6 +233,19 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             WriteFile(dir, className + "EntityRef",
                 CreateSealedProviderFile(className + "EntityRef", $"{name}EntityRefProvider<{worldTypeName}, {entityProviderName}>"));
+        }
+
+        void GenerateStateMachineBehaviourGroup(string dir, string entityProviderName) {
+            var className = prefix + "StateMachine";
+
+            WriteFile(dir, className,
+                CreateSealedProviderFile(className, $"StaticEcsStateMachineBehaviour<{worldTypeName}>"));
+
+            WriteFile(dir, className + "Entity",
+                CreateSealedProviderFile(className + "Entity", $"StaticEcsEntityStateMachineBehaviour<{worldTypeName}>"));
+
+            WriteFile(dir, className + "Linker",
+                CreateSealedProviderFile(className + "Linker", $"StaticEcsStateMachineBehaviourLinker<{worldTypeName}, {entityProviderName}>"));
         }
 
         void GenerateContactColliderProviderPair(string dir, string entityProviderName) {
@@ -313,7 +338,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
             sb.AppendLine();
             sb.AppendLine($"namespace {nameSpace}.Editor {{", !string.IsNullOrEmpty(nameSpace));
-            sb.AppendLine($"{pad}[CustomEditor(typeof({providerName}))]");
+            sb.AppendLine($"{pad}[CustomEditor(typeof({providerName})), CanEditMultipleObjects]");
             sb.AppendLine($"{pad}public class {editorName} : StaticEcsEntityProviderEditor<{worldTypeName}, {providerName}> {{ }}");
             sb.AppendLine("}", !string.IsNullOrEmpty(nameSpace));
             return sb.ToString();
@@ -329,7 +354,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
             sb.AppendLine();
             sb.AppendLine($"namespace {nameSpace}.Editor {{", !string.IsNullOrEmpty(nameSpace));
-            sb.AppendLine($"{pad}[CustomEditor(typeof({providerName}))]");
+            sb.AppendLine($"{pad}[CustomEditor(typeof({providerName})), CanEditMultipleObjects]");
             sb.AppendLine($"{pad}public class {editorName} : StaticEcsEvenTEntityProviderEditor<{worldTypeName}, {providerName}> {{ }}");
             sb.AppendLine("}", !string.IsNullOrEmpty(nameSpace));
             return sb.ToString();

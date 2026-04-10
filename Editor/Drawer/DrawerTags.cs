@@ -6,28 +6,35 @@ using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static partial class Drawer {
-        private static readonly List<ITag> _tagsCache = new();
 
-        private static void DrawTags<TWorld>(List<ITag> tags, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void DrawTags<TWorld>(List<IComponentOrTagProvider> providers, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
+
             EditorGUILayout.BeginHorizontal();
             {
-                var hasAll = MetaData.Tags.Count == tags.Count;
+                var hasAll = worldMeta.Tags.Count == providers.Count;
                 using (Ui.EnabledScopeVal(!hasAll && GUI.enabled)) {
                     if (Ui.PlusDropDownButton && !hasAll) {
-                        DrawTagsMenu(tags, obj, provider);
+                        DrawTagsMenu(providers, obj, provider);
                     }
                 }
 
-                EditorGUILayout.LabelField(" Tags:", Ui.HeaderStyleTheme, Ui.ExpandWidthFalse());
+                EditorGUILayout.LabelField(" Tags:", Ui.HeaderStyleTheme);
+                if (!provider.EntityIsActual() && providers.Count >= 2 && GUILayout.Button("Sort", Ui.ButtonStyleThemeMini, Ui.WidthLine(40))) {
+                    SortSerializedProviders(provider, obj);
+                }
             }
             EditorGUILayout.EndHorizontal();
 
-            for (int i = 0, iMax = tags.Count; i < iMax; i++) {
-                var tag = tags[i];
-                if (tag == null) {
+            var sorted = provider.EntityIsActual();
+            var order = sorted ? BuildProviderSortedOrder(providers) : null;
+            for (var o = 0; o < providers.Count; o++) {
+                var i = sorted ? order[o] : o;
+                var prov = providers[i];
+                if (prov == null || prov.ComponentType == null) {
                     EditorGUILayout.LabelField($"Broken tag - is null, index {i}", EditorStyles.boldLabel);
                     if (GUILayout.Button("Delete all broken tags", Ui.ButtonStyleTheme, Ui.ExpandWidthFalse())) {
-                        provider.DeleteAllBrokenTags();
+                        provider.DeleteAllBrokenProviders();
                         EditorUtility.SetDirty(obj);
                     }
 
@@ -35,7 +42,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     continue;
                 }
 
-                var type = tag.GetType();
+                var type = prov.ComponentType;
                 var colored = type.EditorTypeColor(out var color);
 
                 EditorGUI.indentLevel++;
@@ -51,7 +58,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         EditorGUILayout.SelectableLabel(type.EditorTypeName(), EditorStyles.boldLabel, GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight));
                     }
                     if (Ui.TrashButton) {
-                        provider.OnDeleteTag(type);
+                        provider.OnDeleteProvider(type);
                         EditorUtility.SetDirty(obj);
                     }
                 }
@@ -61,12 +68,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawTagsMenu<TWorld>(List<ITag> actualTags, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void DrawTagsMenu<TWorld>(List<IComponentOrTagProvider> actualProviders, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
             var menu = new GenericMenu();
-            foreach (var tag in MetaData.Tags) {
+            foreach (var tag in worldMeta.Tags) {
                 var has = false;
-                foreach (var actual in actualTags) {
-                    if (actual.GetType() == tag.Type) {
+                foreach (var actual in actualProviders) {
+                    if (actual != null && actual.ComponentType == tag.Type) {
                         has = true;
                         break;
                     }
@@ -74,9 +82,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (has) continue;
 
-                if (provider.ShouldShowTag(tag.Type, Application.isPlaying)) {
+                if (provider.ShouldShowProvider(tag.Type, Application.isPlaying)) {
                     menu.AddItem(new GUIContent(tag.FullName), false, objType => {
-                                     provider.OnSelectTag((Type) objType);
+                                     var tagInstance = (ITag) Activator.CreateInstance((Type) objType, true);
+                                     provider.OnSelectProvider(new TagProvider { value = tagInstance });
                                      EditorUtility.SetDirty(obj);
                                  },
                                  tag.Type);

@@ -17,7 +17,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class ContactColliderProvider<TWorld> : MonoBehaviour
         where TWorld : struct, IWorldType {
 
-        [SerializeField] private bool registerChildColliders;
+        [SerializeField]
+        private bool registerChildColliders;
 
         private Collider[] _colliders;
 
@@ -37,9 +38,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 Debug.LogWarning($"[ContactColliderProvider] You're trying to register colliders in an uninitialized world {typeof(TWorld).Name}");
                 return;
             }
+
             if (!World<TWorld>.HasResource<ContactColliderEntityMap>()) {
                 World<TWorld>.SetResource(new ContactColliderEntityMap { Map = new Dictionary<int, EntityGID>() });
             }
+
             ref var map = ref World<TWorld>.GetResource<ContactColliderEntityMap>();
 
             _colliders = registerChildColliders
@@ -77,11 +80,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
     public abstract class ContactColliderGIDProvider<TWorld> : ContactColliderProvider<TWorld>
         where TWorld : struct, IWorldType {
 
-        [SerializeField] private EntityGID entityGid;
+        [SerializeField]
+        private EntityGID entityGid;
 
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityGid;
+            [MethodImpl(AggressiveInlining)] get => entityGid;
         }
 
         [MethodImpl(AggressiveInlining)]
@@ -96,15 +99,23 @@ namespace FFS.Libraries.StaticEcs.Unity {
         where TWorld : struct, IWorldType
         where TProvider : StaticEcsEntityProvider<TWorld> {
 
-        [SerializeField] private TProvider entityProvider;
+        [SerializeField]
+        private TProvider entityProvider;
 
         protected override EntityGID EntityGID {
-            [MethodImpl(AggressiveInlining)]
-            get => entityProvider != null ? entityProvider.EntityGid : default;
+            [MethodImpl(AggressiveInlining)] get => entityProvider != null ? entityProvider.EntityGid : default;
         }
 
         [MethodImpl(AggressiveInlining)]
         public void SetEntityProvider(TProvider provider) => entityProvider = provider;
+
+        #if UNITY_EDITOR
+        protected void Reset() {
+            if (entityProvider == null) {
+                entityProvider = GetComponent<TProvider>();
+            }
+        }
+        #endif
     }
 }
 #endif

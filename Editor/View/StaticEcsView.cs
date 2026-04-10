@@ -4,13 +4,17 @@ using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
-    public abstract class StaticEcsView<TWorld, TEntityProvider, TEventProvider> : EditorWindow 
+    public abstract class StaticEcsView<TWorld, TEntityProvider, TEventProvider> : EditorWindow, IStaticEcsViewNavigation
+        #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+        , IStaticEcsViewConfigHost
+        #endif
         where TWorld : struct, IWorldType
         where TEntityProvider : StaticEcsEntityProvider<TWorld>
         where TEventProvider : StaticEcsEventProvider<TWorld> {
 
         private readonly List<IStaticEcsViewTab> _tabs = new();
         private IStaticEcsViewTab _selectedTab;
+        private string _pendingTabSwitch;
 
         private AbstractWorldData _currentWorldData;
 
@@ -19,10 +23,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private float _acc;
 
         private bool _initialized;
+        private string _worldKey;
+
+        private const float SaveInterval = 30f;
+        private float _saveAcc;
 
         public void Init() {
             if (!_initialized || _tabs.Count == 0) {
                 titleContent = new GUIContent($"Static ECS - {typeof(TWorld).Name}");
+                _worldKey = typeof(TWorld).FullName;
 
                 #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
                 _tabs.Add(new StaticEcsViewEntitiesTab<TWorld, TEntityProvider>());
@@ -30,13 +39,25 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 _tabs.Add(new StaticEcsViewEventsTab<TWorld, TEventProvider>());
                 _tabs.Add(new StaticEcsViewContextTab<TWorld, TEntityProvider>());
                 _tabs.Add(new StaticEcsViewSystemsTab<TWorld>());
+                _tabs.Add(new StaticEcsViewSettingsTab<TWorld>(this));
                 #endif
 
+                var config = StaticEcsViewConfig.Active;
+                var worldSettings = config.GetOrCreate(_worldKey);
+                drawRate = worldSettings.main.drawRate;
+                drawFrames = worldSettings.main.drawFrames;
+
                 foreach (var tab in _tabs) {
+                    tab.SetNavigation(this);
                     tab.Init();
+                    tab.LoadState(worldSettings);
                 }
 
-                if (_tabs.Count > 0) {
+                if (!string.IsNullOrEmpty(worldSettings.main.selectedTabName)) {
+                    _pendingTabSwitch = worldSettings.main.selectedTabName;
+                }
+
+                if (_pendingTabSwitch == null && _tabs.Count > 0) {
                     _selectedTab = _tabs[0];
                 }
 
@@ -56,6 +77,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (_acc >= drawRate) {
                 Repaint();
                 _acc = 0f;
+            }
+
+            _saveAcc += Time.deltaTime;
+            if (_saveAcc >= SaveInterval) {
+                _saveAcc = 0f;
+                SaveAllTabs();
             }
         }
 
@@ -85,6 +112,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 return;
             }
 
+            if (_pendingTabSwitch != null) {
+                foreach (var tab in _tabs) {
+                    if (tab.Name() == _pendingTabSwitch) {
+                        _selectedTab = tab;
+                        break;
+                    }
+                }
+                _pendingTabSwitch = null;
+            }
+
             EditorGUILayout.Space(10);
             _selectedTab?.DrawHeader();
             EditorGUILayout.Space(10);
@@ -106,6 +143,19 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _selectedTab?.Draw();
         }
 
+        public void ReloadFromConfig(StaticEcsViewConfig config) {
+            if (!_initialized || _worldKey == null) return;
+            var worldSettings = config.GetOrCreate(_worldKey);
+            foreach (var tab in _tabs) {
+                tab.LoadState(worldSettings);
+            }
+            drawRate = worldSettings.main.drawRate;
+            drawFrames = worldSettings.main.drawFrames;
+            if (!string.IsNullOrEmpty(worldSettings.main.selectedTabName)) {
+                _pendingTabSwitch = worldSettings.main.selectedTabName;
+            }
+        }
+
         private void SetWorldData(AbstractWorldData data) {
             MetaData.EnrichByWorld(data.Handle);
 
@@ -116,8 +166,24 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
+        public void SaveAllTabs() {
+            if (!_initialized || _worldKey == null) return;
+            var config = StaticEcsViewConfig.Active;
+            var worldSettings = config.GetOrCreate(_worldKey);
+            worldSettings.main.selectedTabName = _selectedTab?.Name();
+            worldSettings.main.drawRate = drawRate;
+            worldSettings.main.drawFrames = drawFrames;
+            foreach (var tab in _tabs) {
+                tab.SaveState(worldSettings);
+            }
+            config.Save();
+        }
+
         private void OnPlayModeStateChanged(PlayModeStateChange state) {
             if (state == PlayModeStateChange.ExitingPlayMode) {
+                SaveAllTabs();
+                Drawer.openHideFlags.Clear();
+                Drawer.initializedFoldouts.Clear();
                 _currentWorldData = null;
             }
         }
@@ -125,6 +191,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private void OnDisable() {
             EditorApplication.update -= Draw;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            SaveAllTabs();
             foreach (var tab in _tabs) {
                 tab.Destroy();
             }
@@ -133,6 +200,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 Destroy(this);
             }
         }
+
+        public void SelectTab(string tabName) {
+            _pendingTabSwitch = tabName;
+        }
+    }
+
+    public interface IStaticEcsViewNavigation {
+        void SelectTab(string tabName);
     }
 
     public interface IStaticEcsViewTab {
@@ -142,5 +217,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public void DrawHeader() {}
         public void Init();
         public void Destroy();
+        public void SetNavigation(IStaticEcsViewNavigation navigation) {}
+        public void SaveState(WorldViewSettings settings) {}
+        public void LoadState(WorldViewSettings settings) {}
     }
 }

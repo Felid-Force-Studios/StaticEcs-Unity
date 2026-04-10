@@ -116,8 +116,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private static void DrawEventsMenu<TWorld, TEntityProvider>(TEntityProvider provider) where TEntityProvider : StaticEcsEventProvider<TWorld> where TWorld : struct, IWorldType {
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
             var menu = new GenericMenu();
-            foreach (var eventDataMeta in MetaData.Events) {
+            foreach (var eventDataMeta in worldMeta.Events) {
                 if (provider.EventTemplate != null && provider.EventTemplate.GetType() == eventDataMeta.Type) {
                     continue;
                 }

@@ -2,7 +2,7 @@
 using System;
 
 namespace FFS.Libraries.StaticEcs.Unity {
-    
+
     public abstract partial class StaticEcsEventProvider<TWorld> {
 
         public virtual IEvent GetActualEvent(out bool cached) {
