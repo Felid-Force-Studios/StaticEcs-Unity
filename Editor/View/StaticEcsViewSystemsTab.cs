@@ -51,16 +51,16 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
 
                 foreach (var typeToSystem in StaticEcsDebugData.Systems) {
-                    if (typeToSystem.Value.worldType == _currentWorldData.Handle.WorldType) {
-                        _currentDrawer = new SystemDrawer<TWorld> {
+                    if (typeToSystem.Value.worldType == _currentWorldData.Handle.WorldType && !_drawersBySystemIdType.ContainsKey(typeToSystem.Key)) {
+                        var drawer = new SystemDrawer<TWorld> {
                             Parent = this,
                             SysIdType = typeToSystem.Key,
                             Systems = typeToSystem.Value,
                         };
-                        if (_savedSettings != null) _currentDrawer.LoadFromConfig(_savedSettings);
+                        if (_savedSettings != null) drawer.LoadFromConfig(_savedSettings);
 
-                        _drawersBySystemIdType[typeToSystem.Key] = _currentDrawer;
-                        break;
+                        _drawersBySystemIdType[typeToSystem.Key] = drawer;
+                        _currentDrawer ??= drawer;
                     }
                 }
             }
@@ -101,6 +101,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                                 SysIdType = typeToSystem.Key,
                                 Systems = typeToSystem.Value,
                             };
+                            if (_savedSettings != null) _currentDrawer.LoadFromConfig(_savedSettings);
 
                             _drawersBySystemIdType[typeToSystem.Key] = _currentDrawer;
                         });

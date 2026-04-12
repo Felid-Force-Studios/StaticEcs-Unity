@@ -59,6 +59,22 @@
         ClientSystems.Initialize();
 ```
 
+Для добавления дополнительных групп систем в окно отладки используйте `AddSystem` после инициализации систем:
+```csharp
+        ClientWorld.Create(WorldConfig.Default());
+        ClientSystems.Create();
+        ClientAdditionalSystems.Create();
+        
+        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>();
+        
+        ClientWorld.Initialize();
+        ClientSystems.Initialize();
+        ClientAdditionalSystems.Initialize();
+        
+        EcsDebug<ClientWorldType>.AddSystem<ClientAdditionalSystemsType>();
+```
+Примечание: `AddWorld` необходимо вызывать до `Initialize` (регистрирует debug-систему), а `AddSystem` — после `Initialize` (системы должны быть уже инициализированы)
+
 ### Провайдеры сущностей:  
 Скрипт добавляющий возможность конфигурировать сущность в редакторе Unity и автоматически создавать ее в мире ECS  
 Добавьте скрипт `StaticEcsEntityProvider` на объект в сцене:

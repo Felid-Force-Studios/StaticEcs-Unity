@@ -59,6 +59,22 @@ specifying the world or systems required
         ClientSystems.Initialize();
 ```
 
+To add additional system groups to the debug window, use `AddSystem` after the systems are initialized:
+```csharp
+        ClientWorld.Create(WorldConfig.Default());
+        ClientSystems.Create();
+        ClientAdditionalSystems.Create();
+        
+        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>();
+        
+        ClientWorld.Initialize();
+        ClientSystems.Initialize();
+        ClientAdditionalSystems.Initialize();
+        
+        EcsDebug<ClientWorldType>.AddSystem<ClientAdditionalSystemsType>();
+```
+Note: `AddWorld` must be called before `Initialize` (it registers the debug system), while `AddSystem` must be called after `Initialize` (systems must already be initialized)
+
 ### Entity providers:
 A script that adds the ability to configure an entity in the Unity editor and automatically create it in the ECS world  
 Add the `StaticEcsEntityProvider` script to an object in the scene:

@@ -59,6 +59,22 @@ ECS 运行时数据监控和管理窗口
         ClientSystems.Initialize();
 ```
 
+要将额外的系统组添加到调试窗口，请在系统初始化后使用 `AddSystem`：
+```csharp
+        ClientWorld.Create(WorldConfig.Default());
+        ClientSystems.Create();
+        ClientAdditionalSystems.Create();
+        
+        EcsDebug<ClientWorldType>.AddWorld<ClientSystemsType>();
+        
+        ClientWorld.Initialize();
+        ClientSystems.Initialize();
+        ClientAdditionalSystems.Initialize();
+        
+        EcsDebug<ClientWorldType>.AddSystem<ClientAdditionalSystemsType>();
+```
+注意：`AddWorld` 必须在 `Initialize` 之前调用（注册调试系统），而 `AddSystem` 必须在 `Initialize` 之后调用（系统必须已初始化）
+
 ### 实体提供者：
 该脚本添加了在 Unity 编辑器中配置实体并自动在 ECS 世界中创建实体的功能  
 将 `StaticEcsEntityProvider` 脚本添加到场景中的对象上：
