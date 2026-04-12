@@ -73,6 +73,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void Draw() {
+            if (!Application.isPlaying) return;
             _acc += Time.deltaTime;
             if (_acc >= drawRate) {
                 Repaint();
