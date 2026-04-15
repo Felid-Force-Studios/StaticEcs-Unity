@@ -258,11 +258,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static EditorEntityTypeMeta CreateEntityTypeMeta(Type type) {
             var (n, _) = NameAttribute(type);
             var name = n ?? type.EditorTypeName();
-
-            var idField = type.GetField("Id", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
-            if (idField == null || idField.FieldType != typeof(byte)) return null;
-
-            var id = (byte) idField.GetValue(null);
+            var id = (byte) type.GetMethod("Id")!.Invoke(Activator.CreateInstance(type), null);
             return new EditorEntityTypeMeta(type, name, id);
         }
 
