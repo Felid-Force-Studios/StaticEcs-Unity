@@ -109,7 +109,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             get {
                 if (_monoStyle == null) {
                     _monoStyle = new GUIStyle(EditorStyles.label) {
-                        font = Font.CreateDynamicFontFromOSFont("Consolas", 11),
+                        font = GetFont(),
                         fontSize = 11,
                         alignment = TextAnchor.MiddleLeft,
                         padding = new RectOffset(0, 0, 0, 0),
@@ -556,6 +556,19 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             Space(20);
+        }
+
+        public static UnityEngine.Font GetFont()
+        {
+            switch (Application.platform)
+            {
+                case RuntimePlatform.WindowsEditor:
+                    return Font.CreateDynamicFontFromOSFont("Consolas", 11);
+                case RuntimePlatform.OSXEditor:
+                    return Font.CreateDynamicFontFromOSFont("Menlo", 11);
+                default:
+                    return null; // default unity font
+            }
         }
     }
 }
