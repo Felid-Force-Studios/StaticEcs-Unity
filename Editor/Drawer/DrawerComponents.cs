@@ -76,7 +76,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorUtility.SetDirty(obj);
         }
 
-        private static void DrawComponents<TWorld>(List<IComponentOrTagProvider> providers, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void DrawComponents<TWorld>(List<IComponentOrTagProvider> providers, Object obj, StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
             var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
 
             EditorGUILayout.BeginHorizontal();
@@ -167,7 +167,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     else if (prov is MultiProvider mp) componentValue = mp.value;
 
                     if (componentValue != null && !TryDrawSpecialComponent(componentValue, type, prov, provider)) {
-                        var wrapper = ComponentDrawerWrapper.Instance;
+                        var wrapper = ComponentDrawerWrapper.GetFor(obj.GetInstanceID());
                         var so = new SerializedObject(wrapper);
                         var prop = so.FindProperty("value");
                         prop.managedReferenceValue = componentValue;
@@ -180,7 +180,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                             if (so.ApplyModifiedProperties()) {
                                 var newProv = CreateProviderForComponent(type, wrapper.value);
-                                provider.OnChangeProvider(newProv, type);
+                                provider.OnChangeProvider(newProv, type, deferred: mode != DrawMode.Inspector);
                                 EditorUtility.SetDirty(obj);
                             }
                         }

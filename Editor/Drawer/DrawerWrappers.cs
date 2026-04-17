@@ -1,35 +1,34 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     internal class ComponentDrawerWrapper : ScriptableObject {
         [SerializeReference] public IComponent value;
 
-        private static ComponentDrawerWrapper _instance;
+        private static readonly Dictionary<int, ComponentDrawerWrapper> _pool = new();
 
-        public static ComponentDrawerWrapper Instance {
-            get {
-                if (!_instance) {
-                    _instance = CreateInstance<ComponentDrawerWrapper>();
-                    _instance.hideFlags = HideFlags.DontSave;
-                }
-                return _instance;
+        public static ComponentDrawerWrapper GetFor(int key) {
+            if (!_pool.TryGetValue(key, out var w) || w == null) {
+                w = CreateInstance<ComponentDrawerWrapper>();
+                w.hideFlags = HideFlags.DontSave;
+                _pool[key] = w;
             }
+            return w;
         }
     }
 
     internal class EventDrawerWrapper : ScriptableObject {
         [SerializeReference] public IEvent value;
 
-        private static EventDrawerWrapper _instance;
+        private static readonly Dictionary<int, EventDrawerWrapper> _pool = new();
 
-        public static EventDrawerWrapper Instance {
-            get {
-                if (!_instance) {
-                    _instance = CreateInstance<EventDrawerWrapper>();
-                    _instance.hideFlags = HideFlags.DontSave;
-                }
-                return _instance;
+        public static EventDrawerWrapper GetFor(int key) {
+            if (!_pool.TryGetValue(key, out var w) || w == null) {
+                w = CreateInstance<EventDrawerWrapper>();
+                w.hideFlags = HideFlags.DontSave;
+                _pool[key] = w;
             }
+            return w;
         }
     }
 

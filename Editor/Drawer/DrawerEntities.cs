@@ -152,7 +152,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.HelpBox("Please, provide at least one component", MessageType.Warning, true);
                 }
 
-                DrawEntity(activeBase, active);
+                DrawEntity(activeBase, active, mode);
 
                 if (mode != DrawMode.Inspector) {
                     EditorGUILayout.EndScrollView();
@@ -160,7 +160,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawEntity<TWorld>(Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void DrawEntity<TWorld>(Object obj, StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
             EditorGUILayout.Space(10);
 
             provider.GetProviders(_providersCache);
@@ -178,7 +178,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _providersCache.Clear();
 
             EditorGUILayout.Space(10);
-            DrawComponents(_componentProvidersCache, obj, provider);
+            DrawComponents(_componentProvidersCache, obj, provider, mode);
             _componentProvidersCache.Clear();
 
             EditorGUILayout.Space(10);

@@ -132,9 +132,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
         }
 
-        public virtual void OnChangeProvider(IComponentOrTagProvider provider, Type componentType) {
+        public virtual void OnChangeProvider(IComponentOrTagProvider provider, Type componentType, bool deferred = true) {
             if (EntityIsActual()) {
-                provider.Apply(Entity, true);
+                provider.Apply(Entity, deferred);
             } else {
                 for (var i = 0; i < providers.Count; i++) {
                     if (providers[i].ComponentType == componentType) {

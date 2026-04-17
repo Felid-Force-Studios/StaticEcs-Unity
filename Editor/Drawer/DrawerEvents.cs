@@ -98,7 +98,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             using (Ui.EnabledScopeVal(!cached)) {
                 EditorGUILayout.BeginVertical(GUI.skin.box);
                 {
-                    var wrapper = EventDrawerWrapper.Instance;
+                    var wrapper = EventDrawerWrapper.GetFor(provider.GetInstanceID());
                     wrapper.value = eventValue;
                     var so = new SerializedObject(wrapper);
                     so.Update();
