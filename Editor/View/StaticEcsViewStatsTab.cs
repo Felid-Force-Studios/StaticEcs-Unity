@@ -387,8 +387,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             BeginHorizontal();
-            GUILayout.Space(16);
-            SelectableLabel("Name", Ui.LabelStyleThemeCenter, Ui.WidthLine(184));
+            SelectableLabel("Name", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
             SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
@@ -451,8 +450,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             BeginHorizontal();
-            GUILayout.Space(16);
-            SelectableLabel("Name", Ui.LabelStyleThemeCenter, Ui.WidthLine(184));
+            SelectableLabel("Name", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
             SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();
@@ -511,8 +509,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             BeginHorizontal();
-            GUILayout.Space(16);
-            SelectableLabel("Name", Ui.LabelStyleThemeCenter, Ui.WidthLine(184));
+            SelectableLabel("Name", Ui.LabelStyleThemeCenter, Ui.WidthLine(200));
             Ui.DrawSeparator();
             SelectableLabel("Count", Ui.LabelStyleThemeCenter, Ui.WidthLine(90));
             Ui.DrawSeparator();

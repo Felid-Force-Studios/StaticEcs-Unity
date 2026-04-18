@@ -9,7 +9,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             var rawProp = property.FindPropertyRelative("Raw");
             var raw = rawProp != null ? (ulong) rawProp.longValue : 0UL;
-            var gid = new EntityGID(raw);
+            var gid = raw == 0 ? default : new EntityGID(raw);
 
             var (text, actual, worldType) = Drawer.ResolveEntityGIDDisplay(gid);
 

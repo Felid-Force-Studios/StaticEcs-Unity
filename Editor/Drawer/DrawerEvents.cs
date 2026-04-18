@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,6 +18,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.HelpBox("Please, provide event type", MessageType.Warning, true);
             }
 
+            Type knownEventType = null;
+            if (!provider.RuntimeEvent.IsEmpty()) {
+                knownEventType = provider.RuntimeEvent.Type;
+            } else if (provider.EventTemplate != null) {
+                knownEventType = provider.EventTemplate.GetType();
+            }
+
             EditorGUILayout.BeginHorizontal();
             {
                 var allowChangeEventType = provider.RuntimeEvent.IsEmpty();
@@ -28,9 +36,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 EditorGUILayout.LabelField("Type:", Ui.WidthLine(60));
                 if (!provider.RuntimeEvent.IsEmpty()) {
-                    EditorGUILayout.LabelField(provider.RuntimeEvent.Type.EditorTypeName(), Ui.LabelStyleThemeBold);
+                    EditorGUILayout.LabelField(knownEventType.EditorTypeName(), Ui.LabelStyleThemeBold);
                 } else if (provider.EventTemplate != null) {
-                    EditorGUILayout.LabelField(provider.EventTemplate.GetType().EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(200));
+                    EditorGUILayout.LabelField(knownEventType.EditorTypeName(), Ui.LabelStyleThemeBold, Ui.WidthLine(200));
                     if (Application.isPlaying && GUILayout.Button("Send", Ui.ButtonStyleYellow, Ui.WidthLine(60))) {
                         onClickBuild(provider);
                     }
@@ -80,6 +88,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.Space();
             Ui.DrawHorizontalSeparator();
 
+            if (knownEventType != null) {
+                EditorGUILayout.BeginVertical(GUI.skin.box);
+                TypeSourceNavigator.DrawScriptField(knownEventType);
+                EditorGUILayout.EndVertical();
+            }
+
             if (provider.EventIsActual(Application.isPlaying)) {
                 EditorGUILayout.Space(10);
                 DrawEventValue<TWorld, TProvider>(provider);
@@ -117,25 +131,21 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static void DrawEventsMenu<TWorld, TEntityProvider>(TEntityProvider provider) where TEntityProvider : StaticEcsEventProvider<TWorld> where TWorld : struct, IWorldType {
             var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
-            var menu = new GenericMenu();
+            var items = new List<SearchableDropdown.Item>(worldMeta.Events.Count);
             foreach (var eventDataMeta in worldMeta.Events) {
                 if (provider.EventTemplate != null && provider.EventTemplate.GetType() == eventDataMeta.Type) {
                     continue;
                 }
 
-                if (provider.ShouldShowEvent(eventDataMeta.Type, Application.isPlaying)) {
-                    menu.AddItem(new GUIContent(eventDataMeta.FullName), false, objType => {
-                                     var objRaw = Activator.CreateInstance((Type) objType, true);
-                                     provider.OnSelectEvent((IEvent) objRaw);
-                                     EditorUtility.SetDirty(provider);
-                                 },
-                                 eventDataMeta.Type);
-                } else {
-                    menu.AddDisabledItem(new GUIContent(eventDataMeta.FullName));
-                }
+                var enabled = provider.ShouldShowEvent(eventDataMeta.Type, Application.isPlaying);
+                items.Add(new SearchableDropdown.Item(eventDataMeta.FullName, eventDataMeta.Type, enabled));
             }
 
-            menu.ShowAsContext();
+            SearchableDropdown.Show("Events", items, payload => {
+                var objRaw = Activator.CreateInstance((Type) payload, true);
+                provider.OnSelectEvent((IEvent) objRaw);
+                EditorUtility.SetDirty(provider);
+            });
         }
     }
 }

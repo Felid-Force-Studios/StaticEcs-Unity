@@ -47,6 +47,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     var cg = aColor.g.CompareTo(bColor.g); if (cg != 0) return cg;
                     var cb = aColor.b.CompareTo(bColor.b); if (cb != 0) return cb;
                 }
+                var aTag = pa.Kind.IsTag();
+                var bTag = pb.Kind.IsTag();
+                if (aTag != bTag) return aTag ? 1 : -1;
                 return string.Compare(pa.ComponentType.EditorTypeName(), pb.ComponentType.EditorTypeName(), StringComparison.Ordinal);
             });
             return order;
@@ -57,9 +60,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             list.Sort((a, b) => {
                 if (a?.ComponentType == null) return b?.ComponentType == null ? 0 : 1;
                 if (b?.ComponentType == null) return -1;
-                var aTag = a.Kind.IsTag();
-                var bTag = b.Kind.IsTag();
-                if (aTag != bTag) return aTag ? 1 : -1;
                 var aSys = a.ComponentType.IsSystemType();
                 var bSys = b.ComponentType.IsSystemType();
                 if (aSys != bSys) return aSys ? 1 : -1;
@@ -71,20 +71,23 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     var cg = aColor.g.CompareTo(bColor.g); if (cg != 0) return cg;
                     var cb = aColor.b.CompareTo(bColor.b); if (cb != 0) return cb;
                 }
+                var aTag = a.Kind.IsTag();
+                var bTag = b.Kind.IsTag();
+                if (aTag != bTag) return aTag ? 1 : -1;
                 return string.Compare(a.ComponentType.EditorTypeName(), b.ComponentType.EditorTypeName(), StringComparison.Ordinal);
             });
             EditorUtility.SetDirty(obj);
         }
 
-        private static void DrawComponents<TWorld>(List<IComponentOrTagProvider> providers, Object obj, StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
+        private static void DrawProviders<TWorld>(List<IComponentOrTagProvider> providers, Object obj, StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
             var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
 
             EditorGUILayout.BeginHorizontal();
             {
-                var hasAll = worldMeta.Components.Count == providers.Count;
+                var hasAll = worldMeta.Components.Count + worldMeta.Tags.Count == providers.Count;
                 using (Ui.EnabledScopeVal(!hasAll && GUI.enabled)) {
                     if (Ui.PlusDropDownButton && !hasAll) {
-                        DrawComponentsMenu(providers, obj, provider);
+                        DrawProvidersMenu(providers, obj, provider);
                     }
                 }
                 EditorGUILayout.LabelField(" Components:", Ui.HeaderStyleTheme);
@@ -101,8 +104,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 var prov = providers[i];
 
                 if (prov == null || prov.ComponentType == null) {
-                    EditorGUILayout.LabelField($"Broken component - is null, index {i}", EditorStyles.boldLabel);
-                    if (GUILayout.Button("Delete all broken components", Ui.ButtonStyleTheme, Ui.ExpandWidthFalse())) {
+                    EditorGUILayout.LabelField($"Broken provider - is null, index {i}", EditorStyles.boldLabel);
+                    if (GUILayout.Button("Delete all broken providers", Ui.ButtonStyleTheme, Ui.ExpandWidthFalse())) {
                         provider.DeleteAllBrokenProviders();
                         EditorUtility.SetDirty(obj);
                     }
@@ -113,6 +116,39 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 var type = prov.ComponentType;
                 var colored = type.EditorTypeColor(out var color);
+
+                if (prov.Kind.IsTag()) {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.BeginHorizontal(GUI.skin.box);
+                    {
+                        var labelStyle = colored
+                            ? new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = color } }
+                            : EditorStyles.boldLabel;
+                        GUILayout.Label(type.EditorTypeName(), labelStyle, GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight));
+                        var labelRect = GUILayoutUtility.GetLastRect();
+                        var evt = Event.current;
+                        if (evt.type == EventType.MouseDown && evt.button == 0 && labelRect.Contains(evt.mousePosition)) {
+                            var script = TypeSourceNavigator.FindScript(type);
+                            if (script != null) {
+                                if (evt.clickCount >= 2) AssetDatabase.OpenAsset(script);
+                                else EditorGUIUtility.PingObject(script);
+                                evt.Use();
+                            }
+                        }
+                        if (evt.type == EventType.Repaint) {
+                            EditorGUIUtility.AddCursorRect(labelRect, MouseCursor.Link);
+                        }
+                        if (Ui.TrashButton) {
+                            provider.OnDeleteProvider(type);
+                            EditorUtility.SetDirty(obj);
+                        }
+                    }
+                    EditorGUILayout.EndHorizontal();
+                    EditorGUI.indentLevel--;
+                    EditorGUILayout.Space(2);
+                    continue;
+                }
+
                 var typeName = type.EditorTypeName();
                 var disabled = provider.IsDisabled(type);
                 if (disabled) {
@@ -159,6 +195,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (show) {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
+                    TypeSourceNavigator.DrawScriptField(type);
 
                     IComponent componentValue = null;
                     if (prov is ComponentProvider cp) componentValue = cp.value;
@@ -192,6 +229,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         internal static void DrawSerializedPropertyChildren(SerializedProperty property) {
+            if (property.propertyType == SerializedPropertyType.ManagedReference) {
+                var refType = ResolveManagedReferenceType(property.managedReferenceFullTypename);
+                if (refType != null && CustomPropertyDrawerRegistry.HasDrawerFor(refType)) {
+                    EditorGUILayout.PropertyField(property, GUIContent.none, true);
+                    return;
+                }
+            }
+
             var iterator = property.Copy();
             var end = property.GetEndProperty();
             if (!iterator.NextVisible(true)) return;
@@ -199,6 +244,20 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             while (!SerializedProperty.EqualContents(iterator, end)) {
                 EditorGUILayout.PropertyField(iterator, true);
                 if (!iterator.NextVisible(false)) break;
+            }
+        }
+
+        private static Type ResolveManagedReferenceType(string fullTypeName) {
+            if (string.IsNullOrEmpty(fullTypeName)) return null;
+            var sp = fullTypeName.IndexOf(' ');
+            if (sp <= 0) return null;
+            var asmName = fullTypeName.Substring(0, sp);
+            var typeName = fullTypeName.Substring(sp + 1);
+            try {
+                var asm = Assembly.Load(asmName);
+                return asm?.GetType(typeName);
+            } catch {
+                return null;
             }
         }
 
@@ -414,9 +473,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.EndHorizontal();
         }
 
-        private static void DrawComponentsMenu<TWorld>(List<IComponentOrTagProvider> actualProviders, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+        private static void DrawProvidersMenu<TWorld>(List<IComponentOrTagProvider> actualProviders, Object obj, StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
             var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
-            var menu = new GenericMenu();
+            var items = new List<SearchableDropdown.Item>(worldMeta.Components.Count + worldMeta.Tags.Count);
+
             foreach (var component in worldMeta.Components) {
                 var has = false;
                 foreach (var actual in actualProviders) {
@@ -428,21 +488,37 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (has) continue;
 
-                if (provider.ShouldShowProvider(component.Type, Application.isPlaying)) {
-                    menu.AddItem(new GUIContent(component.FullName), false, objType => {
-                                     var t = (Type) objType;
-                                     var objRaw = (IComponent) Activator.CreateInstance(t, true);
-                                     var prov = CreateProviderForComponent(t, objRaw);
-                                     provider.OnSelectProvider(prov);
-                                     EditorUtility.SetDirty(obj);
-                                 },
-                                 component.Type);
-                } else {
-                    menu.AddDisabledItem(new GUIContent(component.FullName));
-                }
+                var enabled = provider.ShouldShowProvider(component.Type, Application.isPlaying);
+                items.Add(new SearchableDropdown.Item(component.FullName, component.Type, enabled));
             }
 
-            menu.ShowAsContext();
+            foreach (var tag in worldMeta.Tags) {
+                var has = false;
+                foreach (var actual in actualProviders) {
+                    if (actual != null && actual.ComponentType == tag.Type) {
+                        has = true;
+                        break;
+                    }
+                }
+
+                if (has) continue;
+
+                var enabled = provider.ShouldShowProvider(tag.Type, Application.isPlaying);
+                items.Add(new SearchableDropdown.Item(tag.FullName, tag.Type, enabled));
+            }
+
+            SearchableDropdown.Show("Components & Tags", items, payload => {
+                var t = (Type) payload;
+                IComponentOrTagProvider prov;
+                if (typeof(ITag).IsAssignableFrom(t)) {
+                    prov = new TagProvider { value = (ITag) Activator.CreateInstance(t, true) };
+                } else {
+                    var objRaw = (IComponent) Activator.CreateInstance(t, true);
+                    prov = CreateProviderForComponent(t, objRaw);
+                }
+                provider.OnSelectProvider(prov);
+                EditorUtility.SetDirty(obj);
+            });
         }
     }
 }

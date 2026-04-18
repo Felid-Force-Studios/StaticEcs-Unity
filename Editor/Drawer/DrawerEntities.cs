@@ -14,8 +14,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public static partial class Drawer {
         private static readonly List<IComponentOrTagProvider> _providersCache = new();
-        private static readonly List<IComponentOrTagProvider> _componentProvidersCache = new();
-        private static readonly List<IComponentOrTagProvider> _tagProvidersCache = new();
 
         public static void DrawEntity<TWorld, TEntityProvider>(
             TEntityProvider provider, DrawMode mode, Action<TEntityProvider> onClickSpawn, Action<TEntityProvider> onClose
@@ -165,25 +163,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             provider.GetProviders(_providersCache);
 
-            _componentProvidersCache.Clear();
-            _tagProvidersCache.Clear();
-            for (var i = 0; i < _providersCache.Count; i++) {
-                var p = _providersCache[i];
-                if (p != null && p.Kind.IsTag()) {
-                    _tagProvidersCache.Add(p);
-                } else {
-                    _componentProvidersCache.Add(p);
-                }
-            }
+            EditorGUILayout.Space(10);
+            DrawProviders(_providersCache, obj, provider, mode);
             _providersCache.Clear();
-
-            EditorGUILayout.Space(10);
-            DrawComponents(_componentProvidersCache, obj, provider, mode);
-            _componentProvidersCache.Clear();
-
-            EditorGUILayout.Space(10);
-            DrawTags(_tagProvidersCache, obj, provider);
-            _tagProvidersCache.Clear();
         }
     }
 }

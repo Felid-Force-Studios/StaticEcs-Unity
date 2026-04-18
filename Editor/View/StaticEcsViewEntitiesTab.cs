@@ -79,6 +79,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private bool _gidFilterActive;
         private int _gidFilterValue;
 
+        private EntityGID _selectedEntityGid;
+        private bool _hasSelectedEntity;
+        private static readonly Color _selectedRowColor = new(0.3f, 0.5f, 0.9f, 0.18f);
+
         private readonly TEntityProvider _entityBuilder;
         
         private readonly StaticEcsViewEntitiesTab<TWorld, TEntityProvider> _parent;
@@ -186,19 +190,30 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             settings.pinnedEntities.Clear();
             foreach (var gid in _pinedEntities) settings.pinnedEntities.Add(gid.Raw);
 
-            SaveFilterList(settings.filterAll, _all);
-            SaveFilterList(settings.filterAllOnlyDisabled, _allOnlyDisabled);
-            SaveFilterList(settings.filterAllWithDisabled, _allWithDisabled);
-            SaveFilterList(settings.filterNone, _none);
-            SaveFilterList(settings.filterNoneWithDisabled, _noneWithDisabled);
-            SaveFilterList(settings.filterAny, _any);
-            SaveFilterList(settings.filterAnyOnlyDisabled, _anyOnlyDisabled);
-            SaveFilterList(settings.filterAnyWithDisabled, _anyWithDisabled);
-        }
+            settings.filterAll.Clear();
+            settings.filterAllOnlyDisabled.Clear();
+            settings.filterAllWithDisabled.Clear();
+            settings.filterNone.Clear();
+            settings.filterNoneWithDisabled.Clear();
+            settings.filterAny.Clear();
+            settings.filterAnyOnlyDisabled.Clear();
+            settings.filterAnyWithDisabled.Clear();
 
-        private static void SaveFilterList(List<string> target, List<EditorEntityDataMetaByWorld> source) {
-            target.Clear();
-            foreach (var item in source) target.Add(item.FullName);
+            foreach (var entry in _filters) {
+                var method = ToQueryMethod(entry.Mode, entry.Variant);
+                var bucket = method switch {
+                    QueryMethodType.ALL => settings.filterAll,
+                    QueryMethodType.ALL_ONLY_DISABLED => settings.filterAllOnlyDisabled,
+                    QueryMethodType.ALL_WITH_DISABLED => settings.filterAllWithDisabled,
+                    QueryMethodType.NONE => settings.filterNone,
+                    QueryMethodType.NONE_WITH_DISABLED => settings.filterNoneWithDisabled,
+                    QueryMethodType.ANY => settings.filterAny,
+                    QueryMethodType.ANY_ONLY_DISABLED => settings.filterAnyOnlyDisabled,
+                    QueryMethodType.ANY_WITH_DISABLED => settings.filterAnyWithDisabled,
+                    _ => settings.filterAll,
+                };
+                bucket.Add(entry.Meta.FullName);
+            }
         }
 
         internal void LoadFromConfig(EntitiesSettings settings) {
@@ -236,25 +251,28 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             _gidFilterValue = settings.gidFilterValue;
 
             foreach (var raw in settings.pinnedEntities) {
+                if (raw == 0) continue;
                 _pinedEntities.Add(new EntityGID(raw));
             }
 
-            LoadFilterList(settings.filterAll, _all);
-            LoadFilterList(settings.filterAllOnlyDisabled, _allOnlyDisabled);
-            LoadFilterList(settings.filterAllWithDisabled, _allWithDisabled);
-            LoadFilterList(settings.filterNone, _none);
-            LoadFilterList(settings.filterNoneWithDisabled, _noneWithDisabled);
-            LoadFilterList(settings.filterAny, _any);
-            LoadFilterList(settings.filterAnyOnlyDisabled, _anyOnlyDisabled);
-            LoadFilterList(settings.filterAnyWithDisabled, _anyWithDisabled);
+            _filters.Clear();
+            LoadFilterBucket(settings.filterAll, FilterMode.All, FilterVariant.Default);
+            LoadFilterBucket(settings.filterAllOnlyDisabled, FilterMode.All, FilterVariant.OnlyDisabled);
+            LoadFilterBucket(settings.filterAllWithDisabled, FilterMode.All, FilterVariant.WithDisabled);
+            LoadFilterBucket(settings.filterNone, FilterMode.None, FilterVariant.Default);
+            LoadFilterBucket(settings.filterNoneWithDisabled, FilterMode.None, FilterVariant.WithDisabled);
+            LoadFilterBucket(settings.filterAny, FilterMode.Any, FilterVariant.Default);
+            LoadFilterBucket(settings.filterAnyOnlyDisabled, FilterMode.Any, FilterVariant.OnlyDisabled);
+            LoadFilterBucket(settings.filterAnyWithDisabled, FilterMode.Any, FilterVariant.WithDisabled);
             _filterDirty = true;
         }
 
-        private void LoadFilterList(List<string> source, List<EditorEntityDataMetaByWorld> target) {
-            target.Clear();
+        private void LoadFilterBucket(List<string> source, FilterMode mode, FilterVariant variant) {
             foreach (var name in source) {
                 var meta = FindByFullName(_componentsAndTags, name);
-                if (meta != null) target.Add(meta);
+                if (meta != null) {
+                    _filters.Add(new FilterEntry { Meta = meta, Mode = mode, Variant = variant });
+                }
             }
         }
 
@@ -423,6 +441,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 DrawComponents(entity);
             }
             EndHorizontal();
+            var rowRect = GUILayoutUtility.GetLastRect();
+            var evt = Event.current;
+            if (_hasSelectedEntity && _selectedEntityGid.Equals(entity.GID) && evt.type == EventType.Repaint) {
+                EditorGUI.DrawRect(rowRect, _selectedRowColor);
+            }
+            if (evt.type == EventType.MouseDown && evt.button == 0 && rowRect.Contains(evt.mousePosition)) {
+                EntityInspectorHelper<TWorld, TEntityProvider>.ShowInInspector(entity.GID);
+                _selectedEntityGid = entity.GID;
+                _hasSelectedEntity = true;
+                evt.Use();
+            }
             Ui.DrawHorizontalSeparator(_maxWidth);
             return true;
         }

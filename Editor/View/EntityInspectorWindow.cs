@@ -8,6 +8,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public static class EntityInspectorRegistry {
         public static readonly Dictionary<Type, Func<EntityGID, bool>> ShowEntityHandlers = new();
+        public static readonly List<Action> PlayModeCleanup = new();
     }
 
     internal static class LastFocusedInspectorWindow {
@@ -63,6 +64,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
 
                     data.Clear();
+
+                    foreach (var cleanup in EntityInspectorRegistry.PlayModeCleanup) {
+                        try { cleanup?.Invoke(); } catch (Exception e) { Debug.LogException(e); }
+                    }
                 }
 
                 LastFocusedInspectorWindow.lastFocused = null;
@@ -143,6 +148,55 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static class EntityInspectorHelper<TWorld, TProvider>
         where TWorld : struct, IWorldType
         where TProvider : StaticEcsEntityProvider<TWorld> {
+
+        private static TProvider _inspectorAnchor;
+        private static bool _cleanupRegistered;
+
+        public static void ShowInInspector(EntityGID gid) {
+            if (gid.Status<TWorld>() != GIDStatus.Active) {
+                return;
+            }
+
+            if (_inspectorAnchor == null || !_inspectorAnchor) {
+                _inspectorAnchor = CreateAnchor();
+                if (!_cleanupRegistered) {
+                    _cleanupRegistered = true;
+                    EntityInspectorRegistry.PlayModeCleanup.Add(DestroyAnchor);
+                }
+            }
+
+            _inspectorAnchor.EntityGid = gid;
+            _inspectorAnchor.gameObject.name = BuildAnchorName(gid, hasEntity: true);
+            Selection.activeGameObject = _inspectorAnchor.gameObject;
+            EditorGUIUtility.PingObject(_inspectorAnchor.gameObject);
+        }
+
+        private static TProvider CreateAnchor() {
+            var go = new GameObject(BuildAnchorName(default, hasEntity: false)) {
+                hideFlags = HideFlags.DontSave,
+            };
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            var p = go.AddComponent<TProvider>();
+            p.UsageType = UsageType.Manual;
+            p.OnCreateType = OnCreateType.None;
+            p.onEnableAndDisable = false;
+            return p;
+        }
+
+        private static void DestroyAnchor() {
+            if (_inspectorAnchor != null && _inspectorAnchor) {
+                UnityEngine.Object.DestroyImmediate(_inspectorAnchor.gameObject);
+            }
+            _inspectorAnchor = null;
+        }
+
+        private static string BuildAnchorName(EntityGID gid, bool hasEntity) {
+            if (!hasEntity) {
+                return $"[StaticEcs:{typeof(TWorld).Name}]";
+            }
+            var fn = StaticEcsDebugData.Worlds.TryGetValue(typeof(TWorld), out var worldData) ? worldData.WindowNameFunction : null;
+            return $"[StaticEcs:{typeof(TWorld).Name}] — " + (fn?.Invoke(gid) ?? $"Entity {gid.Id}");
+        }
 
         public static bool ShowWindowForEntity(EntityGID gid) {
             if (gid.Status<TWorld>() != GIDStatus.Active) {
