@@ -72,7 +72,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (_filterActive) {
                     GUILayout.Space(6);
-                    if (GUILayout.Button(new GUIContent(" + ", EditorGUIUtility.IconContent("d_Toolbar Plus").image),
+                    if (GUILayout.Button(new GUIContent(EditorGUIUtility.IconContent("d_Toolbar Plus").image),
                                          Ui.ButtonStyleTheme, Ui.WidthLine(110))) {
                         ShowAddFilterMenu();
                     }
