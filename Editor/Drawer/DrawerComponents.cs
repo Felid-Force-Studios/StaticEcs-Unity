@@ -145,7 +145,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     }
                     EditorGUILayout.EndHorizontal();
                     EditorGUI.indentLevel--;
-                    EditorGUILayout.Space(2);
                     continue;
                 }
 
