@@ -405,8 +405,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public static bool ViewButtonExpand => GUILayout.Button(_iconView ??= EditorGUIUtility.IconContent("ViewToolOrbit"), EditorStyles.iconButton, ExpandWidthTrue());
         private static GUIContent _iconView;
         
-        public static bool LockButtonExpand => GUILayout.Button(_iconLock ??= EditorGUIUtility.IconContent("AssemblyLock"), EditorStyles.iconButton, ExpandWidthTrue());
+        public static bool LockButtonExpand => GUILayout.Button(_iconLock ??= EditorGUIUtility.IconContent("IN LockButton on@2x"), EditorStyles.iconButton, ExpandWidthTrue());
         private static GUIContent _iconLock;
+        
+        public static bool UnlockButtonExpand => GUILayout.Button(_iconUnlock ??= EditorGUIUtility.IconContent("IN LockButton act@2x"), EditorStyles.iconButton, ExpandWidthTrue());
+        private static GUIContent _iconUnlock;
         
         public static void DrawToolbar<T>(T[] tabs, ref T current, Func<T, string> tabName) {
             GUILayout.BeginHorizontal(EditorStyles.toolbar);

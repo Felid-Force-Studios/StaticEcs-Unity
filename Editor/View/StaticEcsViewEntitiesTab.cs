@@ -481,10 +481,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private void DrawPinEntityButton(World<TWorld>.Entity entity, bool pinned) {
-            if (Ui.LockButtonExpand) {
-                if (pinned) {
+            if (pinned) {
+                if (Ui.UnlockButtonExpand) {
                     _pinedEntities.Remove(entity);
-                } else {
+                }
+            }
+            else {
+                if (Ui.LockButtonExpand) {
                     _pinedEntities.Add(entity);
                 }
             }
