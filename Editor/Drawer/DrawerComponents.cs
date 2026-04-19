@@ -26,6 +26,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private static readonly List<int> _sortOrderCache = new();
+        private static readonly Dictionary<int, string> _componentFilters = new();
 
         private static List<int> BuildProviderSortedOrder(List<IComponentOrTagProvider> providers) {
             var order = _sortOrderCache;
@@ -97,6 +98,30 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
             EditorGUILayout.EndHorizontal();
 
+            var filterKey = obj.GetInstanceID();
+            _componentFilters.TryGetValue(filterKey, out var filter);
+            filter ??= string.Empty;
+
+            EditorGUILayout.Space(2);
+            EditorGUILayout.BeginHorizontal();
+            {
+                var searchStyle = GUI.skin.FindStyle("ToolbarSearchTextField") ?? EditorStyles.toolbarTextField;
+                var hasFilter = filter.Length > 0;
+                var cancelStyle = GUI.skin.FindStyle(hasFilter ? "ToolbarSearchCancelButton" : "ToolbarSearchCancelButtonEmpty") ?? EditorStyles.toolbarButton;
+                var newFilter = EditorGUILayout.TextField(filter, searchStyle);
+                if (GUILayout.Button(GUIContent.none, cancelStyle) && hasFilter) {
+                    newFilter = string.Empty;
+                    GUI.FocusControl(null);
+                }
+                if (newFilter != filter) {
+                    if (string.IsNullOrEmpty(newFilter)) _componentFilters.Remove(filterKey);
+                    else _componentFilters[filterKey] = newFilter;
+                    filter = newFilter;
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(2);
+
             var sorted = provider.EntityIsActual();
             var order = sorted ? BuildProviderSortedOrder(providers) : null;
             for (var o = 0; o < providers.Count; o++) {
@@ -115,6 +140,10 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
 
                 var type = prov.ComponentType;
+                
+                if (filter.Length > 0 && type.EditorTypeName().IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) 
+                    continue;
+                
                 var colored = type.EditorTypeColor(out var color);
 
                 if (prov.Kind.IsTag()) {
