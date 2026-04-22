@@ -39,20 +39,14 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         protected void Awake() {
             if (UsageType == UsageType.OnAwake) {
-                if (CreateEntity(onCreateEntity: false)) {
-                    PostEntityProviderCreate.Instance.Register(this);
-                }
-
+                CreateEntity();
                 prefab = null;
             }
         }
 
         protected void Start() {
             if (UsageType == UsageType.OnStart) {
-                if (CreateEntity(onCreateEntity: false)) {
-                    PostEntityProviderCreate.Instance.Register(this);
-                }
-
+                CreateEntity();
                 prefab = null;
             }
         }
@@ -83,9 +77,9 @@ namespace FFS.Libraries.StaticEcs.Unity {
             entityGid = default;
         }
 
-        public virtual bool CreateEntity(bool onCreateEntity = true) {
+        public override bool CreateEntity() {
             if (prefab && prefab is StaticEcsEntityProvider<TWorld> prefabProvider) {
-                if (prefabProvider.CreateEntity(onCreateEntity)) {
+                if (prefabProvider.CreateEntity()) {
                     entityGid = prefabProvider.EntityGid;
                     prefabProvider.EntityGid = default;
                     return true;
@@ -106,7 +100,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 for (var i = 0; i < providers.Count; i++) {
                     var provider = providers[i];
                     if (provider != null) {
-                        provider.Apply<TWorld>(entity);
+                        provider.Apply(entity);
                     }
                     #if DEBUG
                     else {
@@ -120,10 +114,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 entityGid.Unpack<TWorld>().Disable();
             }
 
-            if (onCreateEntity) {
-                OnCreate();
-            }
-
+            PostEntityProviderCreate.Instance.Register(this);
             return true;
         }
 
