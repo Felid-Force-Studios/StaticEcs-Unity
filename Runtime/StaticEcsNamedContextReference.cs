@@ -21,13 +21,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         void Awake() {
             if (_registrationType == RegistrationType.OnAwake) {
-                World<TWorld>.SetResource(_key, gameObject);
+                World<TWorld>.SetResource(_key, new GameObjectResource(gameObject));
             }
         }
 
         void OnEnable() {
             if (_registrationType == RegistrationType.OnEnable) {
-                World<TWorld>.SetResource(_key, gameObject);
+                World<TWorld>.SetResource(_key, new GameObjectResource(gameObject));
             }
         }
 

@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.1.4-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.2.0-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/zh/"><img src="https://img.shields.io/badge/Docs-文档-blueviolet?style=for-the-badge" alt="文档"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-核心框架-green?style=for-the-badge" alt="核心框架"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-示例-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -24,6 +24,7 @@
   * [模板](#模板)
   * [Static ECS 查看窗口](#static-ecs-查看窗口)
   * [设置](#settings---设置)
+  * [修复损坏的引用](#修复损坏的引用)
 * [常见问题](#常见问题)
 * [许可证](#许可证)
 
@@ -59,7 +60,7 @@ ECS 运行时数据监控和管理窗口
         ClientSystems.Initialize();
 ```
 
-要将额外的系统组添加到调试窗口，请在系统初始化后使用 `AddSystem`：
+在世界中创建的所有系统组都会自动出现在调试窗口中，无需额外注册：
 ```csharp
         ClientWorld.Create(WorldConfig.Default());
         ClientSystems.Create();
@@ -70,10 +71,8 @@ ECS 运行时数据监控和管理窗口
         ClientWorld.Initialize();
         ClientSystems.Initialize();
         ClientAdditionalSystems.Initialize();
-        
-        EcsDebug<ClientWorldType>.AddSystem<ClientAdditionalSystemsType>();
 ```
-注意：`AddWorld` 必须在 `Initialize` 之前调用（注册调试系统），而 `AddSystem` 必须在 `Initialize` 之后调用（系统必须已初始化）
+注意：`AddWorld` 必须在 `Initialize` 之前调用（注册调试系统）。Systems 标签页通过世界句柄发现所有 `Systems<TSystemsType>` 流水线。
 
 ### 实体提供者：
 该脚本添加了在 Unity 编辑器中配置实体并自动在 ECS 世界中创建实体的功能  
@@ -455,6 +454,16 @@ public struct Velocity : IComponent {
     public float Val;
 }
 ```
+要在实体检查器中将相关组件和标签分组到可折叠的部分，请设置 `StaticEcsEditorGroup` 特性。共享相同组名的所有组件和标签都会渲染在同一个折叠（foldout）内，按组名字母顺序排序，并放置在未分组组件之前。组名可以选择性地配合颜色（RGB 或 HEX），显示为彩色竖条和粗体标题。每个组的展开/折叠状态会按世界保存到视图配置中。
+```csharp
+[StaticEcsEditorGroup("Movement", "00FF00")]
+public struct Velocity : IComponent {
+    public float Val;
+}
+
+[StaticEcsEditorGroup("Movement")]
+public struct Frozen : ITag { }
+```
 
 还提供实体控制按钮  
 - 眼睛图标 - 打开实体进行查看
@@ -560,6 +569,29 @@ public struct DamageEvent : IEvent {
 - 系统：系统属性显示的最大嵌套深度
 
 设置每30秒自动保存一次，退出 Play Mode 时也会保存。
+
+## 修复损坏的引用
+窗口：`Tools > Static ECS > Fix Broken Providers`
+
+当组件、标签、事件、link、multi 或包装器类被重命名、移动到其他程序集或删除时，Unity 提供者（场景和预制件中）内对应的 `SerializeReference` 槽会变成 "missing types"。此窗口可批量恢复它们。
+
+### 功能
+- **两种扫描模式**：
+  - `Active Scene` — 仅扫描当前活动场景（其他已加载的场景被跳过；检测到 multi-scene editing 时会显示提示）。
+  - `Prefabs Folder` — 扫描所选文件夹下的所有 `.prefab`（包括 prefab variants）。默认为 `Assets/`。
+- **Auto-fix all by GUID** — 对每个 missing 标识与 `StaticEcsTypeGuidRegistry` 中已知类型 GUID 匹配的组，将所有受影响的槽重写为当前类型。重命名和程序集迁移可自动恢复。
+- **Replace group with…** — 手动为整个组选择新类型。如果无法推断包装器 kind（包装器类本身丢失），下拉列表将展示所有 kind 下的全部已注册类型。
+- **Auto-fix group / Remove group** — 单组操作。Remove 会从 `providers` 数组 / `eventTemplate` 中删除槽，并通过 `PrefabUtility.SavePrefabAsset` 保存受影响的预制件资源。
+
+### 工作原理
+窗口对每个提供者调用 `SerializationUtility.GetManagedReferencesWithMissingTypes`，按 `(class, namespace, assembly, kind)` 分组 missing 记录，并按 `referenceId` 就地重写受影响场景 / 预制件文件的 YAML。成功修复的条目会立即从 UI 中消失 —— 无需手动 rescan。
+
+单槽就地修复也可在单个提供者组件的检视面板中使用：损坏槽会直接显示带有 `Replace…` / `Apply`（auto-match）/ `Remove` 按钮的行。
+
+### 备注
+- 扫描仅在窗口打开时和按下 `Rescan` 按钮时运行 —— 没有对场景/资源变化的自动订阅。
+- 为获得最佳自动恢复效果，确保所有组件/标签/事件/link 都进入类型 GUID 注册表；这样 `Auto-fix by GUID` 即可自动处理重命名。
+- 内置去重：通过多个预制件（嵌套预制件、变体）可达的同一物理损坏槽只显示一次。
 
 # 常见问题
 ### 如何为类型创建自定义绘制方法？

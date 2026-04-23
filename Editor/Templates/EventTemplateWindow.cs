@@ -163,16 +163,21 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]", withColor);
-            sb.AppendLine($"{pad}public struct {eventName} : IEvent {{");
+            sb.AppendLine($"{pad}public struct {eventName} : IEvent, IEventConfig<{eventName}> {{");
             sb.AppendLine($"{pad}    // TODO Write your event fields");
             sb.AppendLine("");
             sb.AppendLine($"{pad}    [StaticEcsEditorTableValue] public string Debug => \"Not implemented\"; // TODO implement this", ignoreInEditor);
             sb.AppendLine("", ignoreInEditor);
-            if (serialization) {
-                sb.AppendLine($"{pad}    public static readonly EventTypeConfig<{eventName}> Config = new(");
-                sb.AppendLine($"{pad}        guid: new(\"{GUID.Generate().ToString()}\")");
+            if (serialization && unmanaged) {
+                sb.AppendLine($"{pad}    public EventTypeConfig<{eventName}> Config() => new(");
+                sb.AppendLine($"{pad}        guid: new(\"{GUID.Generate().ToString()}\"),");
+                sb.AppendLine($"{pad}        readWriteStrategy: new UnmanagedPackArrayStrategy<{eventName}>()");
                 sb.AppendLine($"{pad}    );");
-                sb.AppendLine();
+            } else {
+                sb.AppendLine($"{pad}    public EventTypeConfig<{eventName}> Config() => new(guid: new(\"{GUID.Generate().ToString()}\"));");
+            }
+            sb.AppendLine();
+            if (serialization) {
                 sb.AppendLine($"{pad}    public void Write(ref BinaryPackWriter writer) {{");
                 sb.AppendLine($"{pad}        throw new NotImplementedException(); // TODO implement this");
                 sb.AppendLine($"{pad}    }}");

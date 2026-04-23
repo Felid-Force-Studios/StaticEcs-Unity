@@ -97,7 +97,38 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         private static GUIStyle _buttonStyleThemeMini;
         #endregion
-        
+
+        #region TABS
+        public static GUIStyle TabStyle {
+            [MethodImpl(AggressiveInlining)]
+            get {
+                if (_tabStyle == null) {
+                    var inactive = EditorGUIUtility.isProSkin ? new Color(0.72f, 0.72f, 0.72f) : new Color(0.30f, 0.30f, 0.30f);
+                    var active = EditorGUIUtility.isProSkin ? Color.white : Color.black;
+                    _tabStyle = new GUIStyle(EditorStyles.label) {
+                        fontSize = 12,
+                        alignment = TextAnchor.MiddleCenter,
+                        padding = new RectOffset(14, 14, 6, 6),
+                        margin = new RectOffset(0, 0, 0, 0),
+                        normal = { textColor = inactive },
+                        hover = { textColor = active },
+                        onNormal = { textColor = active },
+                        onHover = { textColor = active },
+                        onActive = { textColor = active }
+                    };
+                }
+                return _tabStyle;
+            }
+        }
+        private static GUIStyle _tabStyle;
+
+        public static Color TabAccentColor => new(0.30f, 0.55f, 0.95f, 1f);
+        public static Color TabActiveBg => EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.06f) : new Color(0f, 0f, 0f, 0.05f);
+        public static Color TabHoverBg => EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.03f) : new Color(0f, 0f, 0f, 0.025f);
+        public static Color TabStripBg => EditorGUIUtility.isProSkin ? new Color(0f, 0f, 0f, 0.18f) : new Color(0f, 0f, 0f, 0.05f);
+        public static Color TabSeparator => EditorGUIUtility.isProSkin ? new Color(0f, 0f, 0f, 0.5f) : new Color(0f, 0f, 0f, 0.2f);
+        #endregion
+
         public static GUIStyle HeaderStyleTheme {
             [MethodImpl(AggressiveInlining)]
             get {

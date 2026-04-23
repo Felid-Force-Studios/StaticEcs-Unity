@@ -123,25 +123,54 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 _pendingTabSwitch = null;
             }
 
-            EditorGUILayout.Space(10);
-            _selectedTab?.DrawHeader();
-            EditorGUILayout.Space(10);
-
-            GUILayout.BeginHorizontal(EditorStyles.toolbar);
-            {
-                foreach (var tab in _tabs) {
-                    if (GUILayout.Toggle(_selectedTab == tab, tab.Name(), Ui.ButtonStyleTheme, Ui.WidthLine(90))) {
-                        if (_selectedTab != tab) {
-                            GUI.FocusControl("");
-                            _selectedTab = tab;
-                        }
-                    }
-                }
-            }
-            GUILayout.EndHorizontal();
+            DrawTabStrip();
             EditorGUILayout.Space();
 
             _selectedTab?.Draw();
+        }
+
+        private void DrawTabStrip() {
+            const float Height = 28f;
+            const float AccentThickness = 2f;
+            var stripRect = GUILayoutUtility.GetRect(0, Height, GUILayout.ExpandWidth(true));
+            var evt = Event.current;
+            var style = Ui.TabStyle;
+
+            if (evt.type == EventType.Repaint) {
+                EditorGUI.DrawRect(stripRect, Ui.TabStripBg);
+                EditorGUI.DrawRect(new Rect(stripRect.x, stripRect.yMax - 1, stripRect.width, 1), Ui.TabSeparator);
+            }
+
+            var x = stripRect.x;
+            foreach (var tab in _tabs) {
+                var content = new GUIContent(tab.Name());
+                var size = style.CalcSize(content);
+                var tabRect = new Rect(x, stripRect.y, size.x, stripRect.height);
+                var isActive = _selectedTab == tab;
+
+                switch (evt.type) {
+                    case EventType.Repaint:
+                        if (isActive) {
+                            EditorGUI.DrawRect(tabRect, Ui.TabActiveBg);
+                            EditorGUI.DrawRect(new Rect(tabRect.x, tabRect.yMax - AccentThickness, tabRect.width, AccentThickness), Ui.TabAccentColor);
+                        } else if (tabRect.Contains(evt.mousePosition)) {
+                            EditorGUI.DrawRect(tabRect, Ui.TabHoverBg);
+                        }
+                        style.Draw(tabRect, content, false, false, isActive, false);
+                        break;
+                    case EventType.MouseDown:
+                        if (evt.button == 0 && tabRect.Contains(evt.mousePosition)) {
+                            if (!isActive) {
+                                GUI.FocusControl("");
+                                _selectedTab = tab;
+                            }
+                            evt.Use();
+                        }
+                        break;
+                }
+
+                x += size.x;
+            }
         }
 
         public void ReloadFromConfig(StaticEcsViewConfig config) {
@@ -215,7 +244,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public string Name();
         public void OnWorldChanged(AbstractWorldData newWorldData);
         public void Draw();
-        public void DrawHeader() {}
         public void Init();
         public void Destroy();
         public void SetNavigation(IStaticEcsViewNavigation navigation) {}

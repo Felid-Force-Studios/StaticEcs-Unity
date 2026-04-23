@@ -14,6 +14,23 @@ namespace FFS.Libraries.StaticEcs.Unity {
         static readonly Dictionary<Type, string> _namesCache = new();
         static readonly Dictionary<Type, bool> _ignoredEventsCache = new();
         static readonly Dictionary<Type, string> _fullNamesCache = new();
+        static readonly Dictionary<Type, GroupCacheEntry> _groupCache = new();
+
+        private readonly struct GroupCacheEntry {
+            public readonly bool Has;
+            public readonly string Name;
+            public readonly Color Color;
+            public readonly bool HasColor;
+
+            public GroupCacheEntry(bool has, string name, Color color, bool hasColor) {
+                Has = has;
+                Name = name;
+                Color = color;
+                HasColor = hasColor;
+            }
+
+            public static readonly GroupCacheEntry Empty = new(false, null, default, false);
+        }
 
         private static bool IsWorldWrapperType(Type type, out string baseName) {
             baseName = null;
@@ -94,8 +111,14 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public static bool EditorTypeColor(this Type type, out Color color) {
             if (!_colorsCache.TryGetValue(type, out color)) {
+                var lookupType = type;
+                if (IsWorldWrapperType(type, out _)) {
+                    var args = type.GetGenericArguments();
+                    lookupType = args[args.Length - 1];
+                }
+
                 var authAttrType = typeof(StaticEcsEditorColorAttribute);
-                foreach (var customAttribute in type.GetCustomAttributes()) {
+                foreach (var customAttribute in lookupType.GetCustomAttributes()) {
                     if (customAttribute.GetType().Namespace + customAttribute.GetType().FullName == authAttrType.Namespace + authAttrType.FullName) {
                         var fields = customAttribute.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                         if (fields.Length == 3) {
@@ -113,6 +136,58 @@ namespace FFS.Libraries.StaticEcs.Unity {
             }
 
             return true;
+        }
+
+        public static bool EditorTypeGroup(this Type type, out string name, out Color color, out bool hasColor) {
+            if (_groupCache.TryGetValue(type, out var cached)) {
+                name = cached.Name;
+                color = cached.Color;
+                hasColor = cached.HasColor;
+                return cached.Has;
+            }
+
+            var lookupType = type;
+            if (IsWorldWrapperType(type, out _)) {
+                var args = type.GetGenericArguments();
+                lookupType = args[args.Length - 1];
+            }
+
+            var attrType = typeof(StaticEcsEditorGroupAttribute);
+            foreach (var customAttribute in lookupType.GetCustomAttributes()) {
+                var ct = customAttribute.GetType();
+                if (ct.Namespace + ct.FullName != attrType.Namespace + attrType.FullName) continue;
+
+                var fields = ct.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                string n = null;
+                bool hc = false;
+                float r = 0f, g = 0f, b = 0f;
+                foreach (var f in fields) {
+                    switch (f.Name) {
+                        case "Name":     n  = f.GetValue(customAttribute) as string; break;
+                        case "HasColor": hc = (bool)  f.GetValue(customAttribute); break;
+                        case "R":        r  = (float) f.GetValue(customAttribute); break;
+                        case "G":        g  = (float) f.GetValue(customAttribute); break;
+                        case "B":        b  = (float) f.GetValue(customAttribute); break;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(n)) {
+                    break;
+                }
+
+                var entry = new GroupCacheEntry(true, n, new Color(r, g, b, 1f), hc);
+                _groupCache[type] = entry;
+                name = entry.Name;
+                color = entry.Color;
+                hasColor = entry.HasColor;
+                return true;
+            }
+
+            _groupCache[type] = GroupCacheEntry.Empty;
+            name = null;
+            color = default;
+            hasColor = false;
+            return false;
         }
 
         public static bool IsIgnored(this Type type) {

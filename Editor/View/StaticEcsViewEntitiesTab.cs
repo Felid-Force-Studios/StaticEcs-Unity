@@ -10,15 +10,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class StaticEcsViewEntitiesTab<TWorld, TEntityProvider> : IStaticEcsViewTab 
         where TWorld : struct, IWorldType
         where TEntityProvider : StaticEcsEntityProvider<TWorld> {
-        internal enum TabType: byte {
-            Table,
-            EntityBuilder
-        }
-        
-        private static readonly TabType[] _tabs = { TabType.Table, TabType.EntityBuilder };
-        private static readonly string[] _tabsNames = { "Table", "Entity builder" };
-        internal TabType SelectedTab;
-        
         private readonly Dictionary<Type, EntitiesDrawer<TWorld, TEntityProvider>> _drawersByWorldTypeType = new();
         private EntitiesDrawer<TWorld, TEntityProvider> _currentDrawer;
         
@@ -29,8 +20,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public void Init() {}
 
         public void Draw() {
-            Ui.DrawToolbar(_tabs, ref SelectedTab, type => _tabsNames[(int) type]);
-            _currentDrawer?.DrawEntitiesData();
+            _currentDrawer?.Draw();
         }
 
         public void Destroy() {
@@ -49,13 +39,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         public void SaveState(WorldViewSettings settings) {
-            settings.entities.selectedTab = (int) SelectedTab;
             _currentDrawer?.SaveToConfig(settings.entities);
         }
 
         public void LoadState(WorldViewSettings settings) {
             _savedSettings = settings.entities;
-            SelectedTab = (TabType) settings.entities.selectedTab;
             _currentDrawer?.LoadFromConfig(settings.entities);
         }
     }
@@ -124,29 +112,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        internal void DrawEntitiesData() {
-            switch (_parent.SelectedTab) {
-                case StaticEcsViewEntitiesTab<TWorld, TEntityProvider>.TabType.Table:
-                    DrawEntitiesFilter();
-                    DrawEntitiesTable();
-                    break;
-                case StaticEcsViewEntitiesTab<TWorld, TEntityProvider>.TabType.EntityBuilder:
-                    var prefab = ObjectField("Prefab", _entityBuilder.prefab, typeof(TEntityProvider), true);
-                    if (prefab != _entityBuilder.prefab) {
-                        _entityBuilder.prefab = (TEntityProvider) prefab;
-                        EditorUtility.SetDirty(_entityBuilder);
-                    }
-                    Drawer.DrawEntity<TWorld, TEntityProvider>(_entityBuilder, DrawMode.Builder, provider => {
-                        provider.CreateEntity();
-                        EntityInspectorHelper<TWorld, TEntityProvider>.ShowWindowForEntity(provider.Entity);
-                        provider.EntityGid = default;
-                        EditorUtility.SetDirty(provider);
-                    }, provider => {
-                        provider.EntityGid = default;
-                        EditorUtility.SetDirty(provider);
-                    });
-                    break;
-            }
+        internal void Draw() {
+            DrawEntitiesFilter();
+            DrawEntitiesTable();
         }
 
         private void ShowAllColumns(bool? showTableData) {
@@ -505,7 +473,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             foreach (var idx in types) {
                 if (idx.HasComponent(entity)) {
-                    var style = idx.ComponentHandle.HasValue && idx.ComponentHandle.Value.HasDisabled(entity.ID)
+                    var style = idx.ComponentHandle.HasValue && typeof(IDisableable).IsAssignableFrom(idx.Type) && idx.ComponentHandle.Value.HasDisabled(entity.ID)
                         ? Ui.LabelStyleGreyCenter
                         : Ui.LabelStyleThemeCenter;
                     if (idx.ShowTableData) {
@@ -540,7 +508,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public bool ShowTableData;
 
         public EditorEntityDataMetaByWorld(EditorEntityDataMeta meta, ComponentsHandle? componentHandle, ComponentsHandle? tagHandle, Func<uint, bool> hasComponentFunc)
-            : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
+            : base(meta) {
             _hasComponentFunc = hasComponentFunc;
             ShowTableData = false;
             ComponentHandle = componentHandle;

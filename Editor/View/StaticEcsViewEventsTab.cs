@@ -11,14 +11,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class StaticEcsViewEventsTab<TWorld, TEventsProvider> : IStaticEcsViewTab 
         where TWorld : struct, IWorldType
         where TEventsProvider : StaticEcsEventProvider<TWorld> {
-        internal enum TabType: byte {
-            Table,
-            EventBuilder
-        }
-        
-        private static readonly TabType[] _tabs = { TabType.Table, TabType.EventBuilder };
-        private static readonly string[] _tabsNames = { "Table", "Event builder" };
-        internal TabType SelectedTab;
         
         private readonly Dictionary<Type, EventsDrawer<TWorld, TEventsProvider>> _drawersByWorldTypeType = new();
         private EventsDrawer<TWorld, TEventsProvider> _currentDrawer;
@@ -29,7 +21,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public void Init() {}
 
         public void Draw() {
-            Ui.DrawToolbar(_tabs, ref SelectedTab, type => _tabsNames[(int) type]);
             _currentDrawer?.Draw();
         }
         public void Destroy() {}
@@ -44,13 +35,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         public void SaveState(WorldViewSettings settings) {
-            settings.events.selectedTab = (int) SelectedTab;
             _currentDrawer?.SaveToConfig(settings.events);
         }
 
         public void LoadState(WorldViewSettings settings) {
             _savedSettings = settings.events;
-            SelectedTab = (TabType) settings.events.selectedTab;
             _currentDrawer?.LoadFromConfig(settings.events);
         }
     }
@@ -138,32 +127,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         internal void Draw() {
-            switch (_parent.SelectedTab) {
-                case StaticEcsViewEventsTab<TWorld, TEventProvider>.TabType.Table:
-                    if (_filterTypes.Count > 0) {
-                        DrawFilter(ref currentFilteredPage);
-                    } else {
-                        DrawFilter(ref currentPage);
-                    }
-                    DrawTable();
-                    break;
-                case StaticEcsViewEventsTab<TWorld, TEventProvider>.TabType.EventBuilder:
-                    GUILayout.BeginVertical(Ui.MaxWidth600);
-                    LabelField("Build settings:", Ui.WidthLine(90));
-                    _showAfterBuild = Toggle("Show after build", _showAfterBuild, Ui.WidthLine(90));
-                    GUILayout.EndVertical();
-                    Space(10);
-
-                    Drawer.DrawEvent<TWorld, TEventProvider>(_builder, DrawMode.Builder, provider => {
-                        provider.SendEvent();
-                        if (_showAfterBuild) {
-                            EventInspectorHelper<TWorld, TEventProvider>.ShowWindowForEvent(_builder.RuntimeEvent, _builder.EventCache);
-                        }
-                        _builder.RuntimeEvent = RuntimeEvent.Empty;
-                        _builder.EventCache = null;
-                    });
-                    break;
+            if (_filterTypes.Count > 0) {
+                DrawFilter(ref currentFilteredPage);
+            } else {
+                DrawFilter(ref currentPage);
             }
+            DrawTable();
         }
 
         private void DrawFilter<T>(ref PageView<T> pageView) where T : IEquatable<T> {
@@ -413,7 +382,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public class EditorEventDataMetaByWorld : EditorEventDataMeta {
 
         public EditorEventDataMetaByWorld(EditorEventDataMeta meta)
-            : base(meta.Type, meta.Name, meta.FullName, meta.Width, meta.Layout, meta.LayoutWithOffset, meta.FieldInfo, meta.PropertyInfo) {
+            : base(meta) {
         }
     }
 }

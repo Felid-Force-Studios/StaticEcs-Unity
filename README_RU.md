@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.1.4-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.2.0-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/ru/"><img src="https://img.shields.io/badge/Docs-документация-blueviolet?style=for-the-badge" alt="Документация"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-фреймворк-green?style=for-the-badge" alt="Core фреймворк"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-примеры-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -24,6 +24,7 @@
   * [Шаблоны](#шаблоны)
   * [Окно просмотра Static ECS](#окно-просмотра-static-ecs)
   * [Настройки](#settings---настройки)
+  * [Восстановление сломанных ссылок](#восстановление-сломанных-ссылок)
 * [Вопросы](#вопросы)
 * [Лицензия](#лицензия)
 
@@ -59,7 +60,7 @@
         ClientSystems.Initialize();
 ```
 
-Для добавления дополнительных групп систем в окно отладки используйте `AddSystem` после инициализации систем:
+Все группы систем, созданные в мире, автоматически появляются в окне отладки — дополнительная регистрация не требуется:
 ```csharp
         ClientWorld.Create(WorldConfig.Default());
         ClientSystems.Create();
@@ -70,10 +71,8 @@
         ClientWorld.Initialize();
         ClientSystems.Initialize();
         ClientAdditionalSystems.Initialize();
-        
-        EcsDebug<ClientWorldType>.AddSystem<ClientAdditionalSystemsType>();
 ```
-Примечание: `AddWorld` необходимо вызывать до `Initialize` (регистрирует debug-систему), а `AddSystem` — после `Initialize` (системы должны быть уже инициализированы)
+Примечание: `AddWorld` необходимо вызывать до `Initialize` (регистрирует debug-систему). Вкладка Systems обнаруживает все пайплайны `Systems<TSystemsType>` через хендл мира.
 
 ### Провайдеры сущностей:  
 Скрипт добавляющий возможность конфигурировать сущность в редакторе Unity и автоматически создавать ее в мире ECS  
@@ -455,6 +454,16 @@ public struct Velocity : IComponent {
     public float Val;
 }
 ```
+Чтобы сгруппировать связанные компоненты и теги в сворачиваемую секцию в инспекторе сущности, установите атрибут `StaticEcsEditorGroup`. Все компоненты и теги с одинаковым именем группы рисуются внутри одного foldout, сортируются по алфавиту имени группы и располагаются перед негруппированными элементами. Имя группы можно опционально дополнить цветом (RGB или HEX) — он отображается как цветная вертикальная полоска и жирный заголовок. Состояние свёрнуто/развёрнуто для каждой группы сохраняется в конфиге окна для каждого мира.
+```csharp
+[StaticEcsEditorGroup("Movement", "00FF00")]
+public struct Velocity : IComponent {
+    public float Val;
+}
+
+[StaticEcsEditorGroup("Movement")]
+public struct Frozen : ITag { }
+```
 
 так же доступны кнопки управления сущностью  
 - значок глаза - открыть сущность на просмотр
@@ -560,6 +569,29 @@ public struct DamageEvent : IEvent {
 - Системы: максимальная глубина вложенности при отображении свойств систем
 
 Настройки автоматически сохраняются периодически (каждые 30 секунд) и при выходе из Play Mode.
+
+## Восстановление сломанных ссылок
+Окно: `Tools > Static ECS > Fix Broken Providers`
+
+Когда компонент, тег, событие, link, multi или сам класс-обёртка переименован, перенесён в другую сборку или удалён, соответствующие `SerializeReference` слоты внутри Unity-провайдеров (в сценах и в префабах) превращаются в «missing types». Это окно восстанавливает их массово.
+
+### Возможности
+- **Два режима сканирования**:
+  - `Active Scene` — сканируется только активная сцена (другие открытые сцены пропускаются — при multi-scene editing выводится подсказка).
+  - `Prefabs Folder` — сканируются все `.prefab` под выбранной папкой (включая prefab variants). По умолчанию `Assets/`.
+- **Auto-fix all by GUID** — для каждой группы, чья missing-идентичность совпадает с известным GUID типа в `StaticEcsTypeGuidRegistry`, переписывает все затронутые слоты на текущий тип. Переименования и переносы между сборками восстанавливаются автоматически.
+- **Replace group with…** — ручной выбор нового типа для всей группы. Если kind обёртки не удалось определить (пропал сам класс-обёртка), в дропдауне показываются все зарегистрированные типы по всем kind.
+- **Auto-fix group / Remove group** — действия над одной группой. Remove удаляет слоты из массива `providers` / `eventTemplate` и сохраняет затронутые префаб-ассеты через `PrefabUtility.SavePrefabAsset`.
+
+### Как это работает
+Окно вызывает `SerializationUtility.GetManagedReferencesWithMissingTypes` для каждого провайдера, группирует missing-записи по `(class, namespace, assembly, kind)` и переписывает YAML затронутых сцен / префабов на месте по `referenceId`. Успешно исправленные записи сразу пропадают из UI — ручной rescan не нужен.
+
+Точечное исправление одного слота также доступно прямо в инспекторе провайдера: у broken-слота отображается строка с кнопками `Replace…` / `Apply` (auto-match) / `Remove`.
+
+### Замечания
+- Скан запускается только при открытии окна и по кнопке `Rescan` — автоматических подписок на изменения сцен/ассетов нет.
+- Для лучшего автоматического восстановления убедитесь, что все компоненты/теги/события/links попадают в реестр GUID типов; тогда `Auto-fix by GUID` справляется с переименованиями без ручной работы.
+- Встроена де-дупликация: один и тот же физический broken-слот, доступный через несколько префабов (nested prefabs, варианты), показывается ровно один раз.
 
 # Вопросы
 ### Как создать свой метод отрисовки для типа?

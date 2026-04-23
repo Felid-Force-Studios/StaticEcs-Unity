@@ -6,24 +6,9 @@ using UnityEngine;
 namespace FFS.Libraries.StaticEcs.Unity {
 
     public abstract partial class StaticEcsEntityProvider<TWorld> {
-        private void OnValidate() {
-            if (prefab && prefab.gameObject.scene.IsValid()) {
-                Debug.LogWarning($"The {nameof(prefab)} field should reference to the prefab, not to an object in the scene.", this);
-                prefab = null;
-            }
-
-            if (prefab && !gameObject.scene.IsValid()) {
-                prefab = null;
-            }
-        }
-
         public virtual bool EntityIsActual() {
             return World<TWorld>.Status == WorldStatus.Initialized
                    && entityGid.Status<TWorld>() == GIDStatus.Active;
-        }
-
-        public virtual bool IsPrefab() {
-            return !gameObject.scene.IsValid();
         }
 
         public virtual bool HasComponents() {
@@ -32,7 +17,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public virtual bool IsDisabled(Type componentType) {
             if (!EntityIsActual()) return false;
-            return World<TWorld>.Data.Handle.TryGetComponentsHandle(componentType, out var handle) && handle.HasDisabled(EntityGid.Id);
+            return World<TWorld>.Data.Handle.TryGetComponentsHandle(componentType, out var handle) && typeof(IDisableable).IsAssignableFrom(componentType) && handle.HasDisabled(EntityGid.Id);
         }
 
         public virtual void Disable(Type componentType) {
@@ -91,7 +76,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             _tagPoolIdx = 0;
         }
 
-        public virtual void GetProviders(List<IComponentOrTagProvider> result) {
+        public virtual void GetComponentsAndTags(List<IComponentOrTagProvider> result) {
             if (EntityIsActual()) {
                 ResetProviderPool();
                 var eid = EntityGid.Id;
@@ -169,10 +154,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public List<IComponentOrTagProvider> SerializedProviders => providers;
-
-        public AbstractStaticEcsProvider GetPrefab() => prefab;
-
-        public void ClearPrefab() => prefab = null;
     }
 }
 #endif

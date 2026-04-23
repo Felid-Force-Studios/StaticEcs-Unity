@@ -5,7 +5,7 @@
   <a href="./README_RU.md"><img src="https://img.shields.io/badge/RU-Русский-blue?style=flat-square" alt="Русский"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/ZH-中文-blue?style=flat-square" alt="中文"></a>
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.1.4-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.2.0-blue?style=for-the-badge" alt="Version">
   <a href="https://felid-force-studios.github.io/StaticEcs/en/"><img src="https://img.shields.io/badge/Docs-documentation-blueviolet?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs"><img src="https://img.shields.io/badge/Core-framework-green?style=for-the-badge" alt="Core framework"></a>
   <a href="https://github.com/Felid-Force-Studios/StaticEcs-Showcase"><img src="https://img.shields.io/badge/Showcase-examples-yellow?style=for-the-badge" alt="Showcase"></a>
@@ -24,6 +24,7 @@
   * [Templates](#templates)
   * [Static ECS view window](#static-ecs-view-window)
   * [Settings](#settings)
+  * [Fix Broken Providers](#fix-broken-providers)
 * [Questions](#questions)
 * [License](#license)
 
@@ -59,7 +60,7 @@ specifying the world or systems required
         ClientSystems.Initialize();
 ```
 
-To add additional system groups to the debug window, use `AddSystem` after the systems are initialized:
+All system groups created within the world automatically appear in the debug window — no extra registration is required:
 ```csharp
         ClientWorld.Create(WorldConfig.Default());
         ClientSystems.Create();
@@ -70,10 +71,8 @@ To add additional system groups to the debug window, use `AddSystem` after the s
         ClientWorld.Initialize();
         ClientSystems.Initialize();
         ClientAdditionalSystems.Initialize();
-        
-        EcsDebug<ClientWorldType>.AddSystem<ClientAdditionalSystemsType>();
 ```
-Note: `AddWorld` must be called before `Initialize` (it registers the debug system), while `AddSystem` must be called after `Initialize` (systems must already be initialized)
+Note: `AddWorld` must be called before `Initialize` (it registers the debug system). The Systems tab discovers all `Systems<TSystemsType>` pipelines via the world handle.
 
 ### Entity providers:
 A script that adds the ability to configure an entity in the Unity editor and automatically create it in the ECS world  
@@ -455,6 +454,16 @@ public struct Velocity : IComponent {
     public float Val;
 }
 ```
+To group related components and tags into a collapsible section in the entity inspector, set the `StaticEcsEditorGroup` attribute. All components and tags sharing the same group name are rendered inside one foldout, sorted alphabetically by group name and placed before ungrouped components. The group name can optionally be paired with a color (RGB or HEX), shown as a colored vertical bar and bold header label. Each group's expanded/collapsed state is persisted per-world in the view config.
+```csharp
+[StaticEcsEditorGroup("Movement", "00FF00")]
+public struct Velocity : IComponent {
+    public float Val;
+}
+
+[StaticEcsEditorGroup("Movement")]
+public struct Frozen : ITag { }
+```
 
 entity control buttons are also available  
 - eye icon - open the entity for viewing
@@ -560,6 +569,29 @@ Settings are persisted between sessions. The following state is saved:
 - Systems: max nesting depth for system property display
 
 Settings are auto-saved periodically (every 30 seconds) and on play mode exit.
+
+## Fix Broken Providers
+Window: `Tools > Static ECS > Fix Broken Providers`
+
+When a component, tag, event, link, multi or wrapper class is renamed, moved between assemblies or deleted, the corresponding `SerializeReference` slots inside Unity providers (in scenes and in prefabs) become "missing types". This window restores them in bulk.
+
+### Capabilities
+- **Two scan modes**:
+  - `Active Scene` — scans only the currently active scene (other loaded scenes are skipped — a hint is shown when multi-scene editing is detected).
+  - `Prefabs Folder` — scans every `.prefab` under a folder of your choice (prefab variants included). Defaults to `Assets/`.
+- **Auto-fix all by GUID** — for every group whose missing identity matches a known type GUID in `StaticEcsTypeGuidRegistry`, rewrites all affected slots to the current type. Renames and assembly moves are recovered automatically.
+- **Replace group with…** — manually pick the new type for a whole group. If the wrapper kind cannot be inferred (the wrapper class itself is missing), the dropdown lists every registered type across all kinds.
+- **Auto-fix group / Remove group** — per-group actions. Remove deletes the slots from `providers` array / `eventTemplate` and saves affected prefab assets via `PrefabUtility.SavePrefabAsset`.
+
+### How it works
+The window calls `SerializationUtility.GetManagedReferencesWithMissingTypes` on each provider, groups missing entries by `(class, namespace, assembly, kind)`, and rewrites the YAML of the affected scene / prefab files in place by `referenceId`. Successfully fixed entries disappear from the UI immediately — no manual rescan needed.
+
+In-inspector single-slot fixing is also available on individual provider components: a broken slot shows a `Replace…` / `Apply` (auto-match) / `Remove` row directly in the entity provider editor.
+
+### Notes
+- Scanning runs only on window open and on `Rescan` button — there are no automatic subscriptions to scene/asset changes.
+- For best automatic recovery, mark all components/tags/events/links so they end up in the type GUID registry; then `Auto-fix by GUID` handles renames without manual work.
+- Duplicate detection is built in: the same physical broken slot reachable through multiple prefabs (nested prefabs, variants) is shown only once.
 
 # Questions
 ### How to create a custom drawing method for a type?

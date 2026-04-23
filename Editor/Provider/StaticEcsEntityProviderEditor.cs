@@ -43,18 +43,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 DrawDefaultInspector();
             }
 
-            Drawer.DrawEntity<TWorld, TSelf>(provider, DrawMode.Inspector, p => {
-                p.CreateEntity();
-                if (p.IsPrefab()) {
-                    EntityInspectorHelper<TWorld, TSelf>.ShowWindowForEntity(p.EntityGid);
-                    p.EntityGid = default;
-                }
-                p.ClearPrefab();
-                EditorUtility.SetDirty(p);
-            }, p => {
-                p.EntityGid = default;
-                EditorUtility.SetDirty(p);
-            });
+            Drawer.DrawEntity<TWorld, TSelf>(provider, DrawMode.Inspector);
         }
     }
 }

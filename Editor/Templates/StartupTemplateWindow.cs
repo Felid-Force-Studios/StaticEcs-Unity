@@ -213,9 +213,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 sb.AppendLine($"{pad}        // {updateSystemsAliasName}.Add(new YourSystem1()).Add(new YourSystem2()).Add(new YourSystem3());");
                 sb.AppendLine();
                 sb.AppendLine($"{pad}        {updateSystemsAliasName}.Initialize();");
-                if (debugWorld) {
-                    sb.AppendLine($"{pad}        EcsDebug<{worldTypeName}>.AddSystem<{updateSystemsTypeName}>();");
-                }
                 sb.AppendLine();
             }
 
@@ -227,9 +224,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 sb.AppendLine($"{pad}        // {fixedUpdateSystemsAliasName}.Add(new YourSystem1()).Add(new YourSystem2()).Add(new YourSystem3());");
                 sb.AppendLine();
                 sb.AppendLine($"{pad}        {fixedUpdateSystemsAliasName}.Initialize();");
-                if (debugWorld) {
-                    sb.AppendLine($"{pad}        EcsDebug<{worldTypeName}>.AddSystem<{fixedUpdateSystemsTypeName}>();");
-                }
                 sb.AppendLine();
             }
 
@@ -241,9 +235,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 sb.AppendLine($"{pad}        // {lateUpdateSystemsAliasName}.Add(new YourSystem1()).Add(new YourSystem2()).Add(new YourSystem3());");
                 sb.AppendLine();
                 sb.AppendLine($"{pad}        {lateUpdateSystemsAliasName}.Initialize();");
-                if (debugWorld) {
-                    sb.AppendLine($"{pad}        EcsDebug<{worldTypeName}>.AddSystem<{lateUpdateSystemsTypeName}>();");
-                }
             }
             sb.AppendLine($"{pad}    }}");
             sb.AppendLine();

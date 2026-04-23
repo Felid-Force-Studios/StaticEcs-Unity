@@ -139,7 +139,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Vector3 Impulse;
     }
 
-    public struct ContactColliderEntityMap {
+    public struct ContactColliderEntityMap : IResource {
         public Dictionary<int, EntityGID> Map;
     }
 }

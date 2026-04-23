@@ -5,6 +5,9 @@ using UnityEngine;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
     public static partial class Drawer {
+        private static readonly List<ManagedReferenceMissingType> _eventMissingPool = new();
+        private static readonly HashSet<long> _eventShowData = new();
+
         public static void DrawEvent<TWorld, TProvider>(
             TProvider provider, DrawMode mode, Action<TProvider> onClickBuild, Action<TProvider> onCopyTemplate = null
         ) where TProvider : StaticEcsEventProvider<TWorld>
@@ -15,7 +18,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             EditorGUILayout.Space(10);
 
             if (provider.EventTemplate == null && provider.RuntimeEvent.IsEmpty()) {
-                EditorGUILayout.HelpBox("Please, provide event type", MessageType.Warning, true);
+                if (!TryDrawBrokenEventSlot<TWorld, TProvider>(provider)) {
+                    EditorGUILayout.HelpBox("Please, provide event type", MessageType.Warning, true);
+                }
             }
 
             Type knownEventType = null;
@@ -90,7 +95,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             if (knownEventType != null) {
                 EditorGUILayout.BeginVertical(GUI.skin.box);
-                TypeSourceNavigator.DrawScriptField(knownEventType);
+                MetaData.DrawSourceField(knownEventType);
                 EditorGUILayout.EndVertical();
             }
 
@@ -113,11 +118,15 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.BeginVertical(GUI.skin.box);
                 {
                     var wrapper = EventDrawerWrapper.GetFor(provider.GetInstanceID());
-                    wrapper.value = eventValue;
-                    var so = new SerializedObject(wrapper);
-                    so.Update();
-
+                    using var so = new SerializedObject(wrapper);
                     var prop = so.FindProperty("value");
+                    prop.managedReferenceValue = null;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    prop.managedReferenceValue = eventValue;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    so.Update();
+                    prop = so.FindProperty("value");
+
                     DrawSerializedPropertyChildren(prop);
 
                     if (so.ApplyModifiedProperties()) {
@@ -127,6 +136,117 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 }
                 EditorGUILayout.EndVertical();
             }
+        }
+
+        private static bool TryDrawBrokenEventSlot<TWorld, TProvider>(TProvider provider)
+            where TProvider : StaticEcsEventProvider<TWorld>
+            where TWorld : struct, IWorldType {
+
+            if (PrefabUtility.IsPartOfPrefabAsset(provider)) {
+                EditorGUILayout.BeginVertical(GUI.skin.box);
+                EditorGUILayout.HelpBox(
+                    "Broken event template.\n" +
+                    "Prefab has missing SerializeReference types. Unity restricts access to managed references from the Project view — " +
+                    "editing here would cause data loss. Open the prefab to fix.",
+                    MessageType.Warning);
+                if (GUILayout.Button("Open Prefab", Ui.ButtonStyleTheme)) {
+                    var path = AssetDatabase.GetAssetPath(provider);
+                    var prefab = AssetDatabase.LoadMainAssetAtPath(path);
+                    if (prefab != null) AssetDatabase.OpenAsset(prefab);
+                    GUIUtility.ExitGUI();
+                }
+                EditorGUILayout.EndVertical();
+                return true;
+            }
+
+            MissingReferenceMigration.FillMissing(provider, _eventMissingPool);
+            if (_eventMissingPool.Count == 0) return false;
+
+            ManagedReferenceMissingType missing = default;
+            var found = false;
+            using (var so = new SerializedObject(provider)) {
+                var prop = so.FindProperty("eventTemplate");
+                if (prop == null || prop.propertyType != SerializedPropertyType.ManagedReference) return false;
+                if (_eventMissingPool.Find(type => type.referenceId == prop.managedReferenceId).referenceId != 0) found = true;
+            }
+            if (!found) {
+                missing = _eventMissingPool[0];
+            }
+
+            var ns = string.IsNullOrEmpty(missing.namespaceName) ? "" : missing.namespaceName + ".";
+            EditorGUILayout.HelpBox($"Missing event type:\n{ns}{missing.className} (asm: {missing.assemblyName})", MessageType.Warning);
+
+            Type autoType = null;
+            GuidTypeRegistry.TryFindCurrentByMissingIdentity(missing.className, missing.namespaceName, missing.assemblyName, ConfigKind.Event, out autoType);
+            if (autoType != null) {
+                EditorGUILayout.HelpBox($"Auto-match by GUID → {autoType.FullName}", MessageType.Info);
+                if (GUILayout.Button("Apply auto-migration", Ui.ButtonStyleTheme)) {
+                    MissingReferenceMigration.TryMigrateSlot(provider, missing, autoType);
+                    GUIUtility.ExitGUI();
+                }
+            }
+
+            var showKey = provider.GetInstanceID() ^ missing.referenceId.GetHashCode();
+            var expanded = _eventShowData.Contains(showKey);
+
+            EditorGUILayout.BeginHorizontal();
+            {
+                if (GUILayout.Button("Replace with...", Ui.ButtonStyleTheme)) {
+                    ShowBrokenEventReplaceMenu<TWorld, TProvider>(provider, missing);
+                }
+                if (GUILayout.Button("Remove", Ui.ButtonStyleTheme)) {
+                    using (var so = new SerializedObject(provider)) {
+                        var prop = so.FindProperty("eventTemplate");
+                        if (prop != null) {
+                            prop.managedReferenceValue = null;
+                            so.ApplyModifiedProperties();
+                        }
+                    }
+                    MissingReferenceMigration.CleanAllMissing(provider);
+                    EditorUtility.SetDirty(provider);
+                    GUIUtility.ExitGUI();
+                }
+                if (GUILayout.Button(expanded ? "Hide data" : "Show data", Ui.ButtonStyleTheme)) {
+                    if (expanded) _eventShowData.Remove(showKey);
+                    else _eventShowData.Add(showKey);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (expanded) {
+                var text = string.IsNullOrEmpty(missing.serializedData) ? "(empty)" : missing.serializedData;
+                EditorGUILayout.TextArea(text, EditorStyles.textArea);
+            }
+            return true;
+        }
+
+        private static void ShowBrokenEventReplaceMenu<TWorld, TProvider>(TProvider provider, ManagedReferenceMissingType missing)
+            where TProvider : StaticEcsEventProvider<TWorld>
+            where TWorld : struct, IWorldType {
+
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
+            var items = new List<SearchableDropdown.Item>(worldMeta.Events.Count);
+            foreach (var eventDataMeta in worldMeta.Events) {
+                items.Add(new SearchableDropdown.Item(eventDataMeta.FullName, eventDataMeta.Type, true));
+            }
+
+            var capturedMissing = missing;
+            SearchableDropdown.Show("Replace broken event", items, payload => {
+                var t = (Type) payload;
+                var migrated = MissingReferenceMigration.TryMigrateSlot(provider, capturedMissing, t);
+                if (!migrated) {
+                    var raw = (IEvent) Activator.CreateInstance(t, true);
+                    using (var so = new SerializedObject(provider)) {
+                        var prop = so.FindProperty("eventTemplate");
+                        if (prop != null) {
+                            prop.managedReferenceValue = raw;
+                            so.ApplyModifiedProperties();
+                        }
+                    }
+                    MissingReferenceMigration.CleanAllMissing(provider);
+                    EditorUtility.SetDirty(provider);
+                }
+            });
         }
 
         private static void DrawEventsMenu<TWorld, TEntityProvider>(TEntityProvider provider) where TEntityProvider : StaticEcsEventProvider<TWorld> where TWorld : struct, IWorldType {

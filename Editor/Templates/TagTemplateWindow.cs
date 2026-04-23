@@ -16,7 +16,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         string worldTypeName;
         Type worldType;
 
-        bool serialization = true;
+        bool trackableAdded = false;
+        bool trackableDeleted = false;
 
         bool withExtensions = true;
         bool hasMethod = true;
@@ -32,6 +33,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         bool withColor = true;
         Color color = Color.white;
+
+        bool withGroup = false;
+        string groupName = "";
 
         [MenuItem("Assets/Create/Static ECS/Tags", false, -229)]
         static void ShowWindow() {
@@ -81,13 +85,25 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             EditorGUILayout.Space(10);
-            serialization = EditorGUILayout.Toggle("Serialization", serialization);
+            EditorGUILayout.LabelField("Tracking markers:", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            trackableAdded = EditorGUILayout.Toggle("ITrackableAdded", trackableAdded);
+            trackableDeleted = EditorGUILayout.Toggle("ITrackableDeleted", trackableDeleted);
+            EditorGUI.indentLevel--;
 
             EditorGUILayout.Space(10);
             withColor = EditorGUILayout.Toggle("Editor color", withColor);
             if (withColor) {
                 EditorGUI.indentLevel++;
                 color = EditorGUILayout.ColorField("Color", color);
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space(10);
+            withGroup = EditorGUILayout.Toggle("Editor group", withGroup);
+            if (withGroup) {
+                EditorGUI.indentLevel++;
+                groupName = EditorGUILayout.TextField("Group name", groupName);
                 EditorGUI.indentLevel--;
             }
 
@@ -181,10 +197,21 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]", withColor);
-            sb.AppendLine($"{pad}public struct {tagName} : ITag {{");
-            if (serialization) {
-                sb.AppendLine($"{pad}    public static readonly TagTypeConfig<{tagName}> Config = new(guid: new(\"{GUID.Generate().ToString()}\"));");
+            if (withGroup) {
+                if (withColor) {
+                    sb.AppendLine($"{pad}[StaticEcsEditorGroup(\"{groupName}\", " +
+                        $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
+                        $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
+                        $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]");
+                } else {
+                    sb.AppendLine($"{pad}[StaticEcsEditorGroup(\"{groupName}\")]");
+                }
             }
+            var tagInterfaces = $"ITag, ITagConfig<{tagName}>";
+            if (trackableAdded) tagInterfaces += ", ITrackableAdded";
+            if (trackableDeleted) tagInterfaces += ", ITrackableDeleted";
+            sb.AppendLine($"{pad}public struct {tagName} : {tagInterfaces} {{");
+            sb.AppendLine($"{pad}    public TagTypeConfig<{tagName}> Config() => new(guid: new(\"{GUID.Generate().ToString()}\"));");
             sb.AppendLine($"{pad}}}");
             if (withExtensions) {
                 sb.AppendLine();

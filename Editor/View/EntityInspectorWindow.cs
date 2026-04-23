@@ -224,7 +224,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         }
 
         private static void DrawEntity(EntityInspectorWindow window) {
-            Drawer.DrawEntity<TWorld, TProvider>((TProvider) window.provider, DrawMode.Viewer, _ => {}, _ => window.Close());
+            Drawer.DrawEntity<TWorld, TProvider>((TProvider) window.provider, DrawMode.Viewer);
         }
 
         private static bool IsActual(EntityInspectorWindow window) {

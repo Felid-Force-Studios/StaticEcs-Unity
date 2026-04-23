@@ -11,7 +11,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
     #if UNITY_EDITOR
     internal sealed class StaticEcsDebugData {
         internal static readonly Dictionary<Type, AbstractWorldData> Worlds = new();
-        internal static readonly Dictionary<Type, (SystemData[] systems, int count, Type worldType)> Systems = new();
     }
     #endif
 
@@ -22,18 +21,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public static DebugViewSystem<TWorld> DebugViewSystem { get; private set; }
         #endif
         #endif
-
-        public static void AddSystem<TSystemsType>() where TSystemsType : struct, ISystemsType {
-            #if UNITY_EDITOR
-            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
-            if (!World<TWorld>.Systems<TSystemsType>.IsInitialized) {
-                throw new InvalidOperationException("StaticEcsWorldDebug Debug mode connection is possible only when systems initialized");
-            }
-
-            StaticEcsDebugData.Systems[typeof(TSystemsType)] = (World<TWorld>.Systems<TSystemsType>.AllSystems, World<TWorld>.Systems<TSystemsType>.AllSystemsCount, typeof(TWorld));
-            #endif
-            #endif
-        }
 
         public static void AddWorld<TSystemsType>(int eventHistoryCount = 8192, Func<EntityGID, string> windowEntityNameFunction = null, short systemOrder = short.MaxValue)
             where TSystemsType : struct, ISystemsType {
@@ -63,18 +50,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
             #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             DebugViewSystem = null;
             StaticEcsDebugData.Worlds.Remove(typeof(TWorld));
-
-            var toRemove = new List<Type>();
-            foreach (var pair in StaticEcsDebugData.Systems) {
-                if (pair.Value.worldType == typeof(TWorld)) {
-                    toRemove.Add(pair.Key);
-                }
-            }
-
-            foreach (var key in toRemove) {
-                StaticEcsDebugData.Systems.Remove(key);
-            }
-
             World<TWorld>.Data.Instance.EventListener = default;
             #endif
             #endif

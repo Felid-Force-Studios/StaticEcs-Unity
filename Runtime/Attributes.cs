@@ -14,9 +14,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
     }
 
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
-    public sealed class StaticEcsEditorCompactViewAttribute : Attribute { }
-
-    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public class StaticEcsEditorColorAttribute : Attribute {
         public const string SystemColor = "A0AEA1";
 
@@ -55,6 +52,57 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
     }
 
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
+    public sealed class StaticEcsEditorGroupAttribute : Attribute {
+        public readonly string Name;
+        public readonly bool HasColor;
+        public readonly float R;
+        public readonly float G;
+        public readonly float B;
+
+        public StaticEcsEditorGroupAttribute(string name) {
+            Name = name;
+            HasColor = false;
+        }
+
+        public StaticEcsEditorGroupAttribute(string name, float r, float g, float b) {
+            Name = name;
+            HasColor = true;
+            R = r;
+            G = g;
+            B = b;
+        }
+
+        public StaticEcsEditorGroupAttribute(string name, int r, int g, int b) {
+            Name = name;
+            HasColor = true;
+            R = r / 255f;
+            G = g / 255f;
+            B = b / 255f;
+        }
+
+        public StaticEcsEditorGroupAttribute(string name, string hex) {
+            Name = name;
+            HasColor = true;
+
+            if (string.IsNullOrEmpty(hex)) {
+                throw new ArgumentException("Hex string cannot be null or empty");
+            }
+
+            if (hex.StartsWith("#")) {
+                hex = hex[1..];
+            }
+
+            if (hex.Length != 6 && hex.Length != 8) {
+                throw new ArgumentException("Hex string must be 6 or 8 characters long");
+            }
+
+            R = Convert.ToByte(hex.Substring(0, 2), 16) / 255f;
+            G = Convert.ToByte(hex.Substring(2, 2), 16) / 255f;
+            B = Convert.ToByte(hex.Substring(4, 2), 16) / 255f;
+        }
+    }
+
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
     public sealed class StaticEcsEditorTableValueAttribute : Attribute {
         public readonly float ColumnWidth;
@@ -63,9 +111,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
             ColumnWidth = columnWidth;
         }
     }
-
-    [AttributeUsage(AttributeTargets.Field)]
-    public sealed class StaticEcsEditorRuntimeReadOnlyAttribute : Attribute { }
 
     [AttributeUsage(AttributeTargets.Field)]
     public sealed class StaticEcsEditorShowAttribute : Attribute { }

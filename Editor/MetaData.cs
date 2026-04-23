@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -20,10 +24,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private static readonly Dictionary<Type, FieldInfo[]> _typesCacheWithNonPublic = new();
         private static readonly Dictionary<Type, FieldInfo[]> _typesCache = new();
 
-        static MetaData() {
-            Init();
-        }
+        internal static readonly Dictionary<Type, MonoScript> SourceCache = new();
+        private static readonly Dictionary<string, Type> _sourceLookup = new();
+        private static bool _sourceCacheReady;
+        private static Task<List<(string path, Type type)>> _sourceCacheTask;
+        private static readonly Regex _sourceNsRegex = new(@"(?m)^\s*namespace\s+([\w.]+)\s*[;{]", RegexOptions.Compiled);
+        private static readonly Regex _sourceDeclRegex = new(@"\b(?:struct|class|interface|record)\s+(\w+)", RegexOptions.Compiled);
 
+        [InitializeOnLoadMethod]
         private static void Init() {
             var componentTypes = new List<Type>();
             var tagTypes = new List<Type>();
@@ -35,7 +43,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var worldTypes = new List<Type>();
 
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-                foreach (var type in assembly.GetTypes()) {
+                Type[] assemblyTypes;
+                try { assemblyTypes = assembly.GetTypes(); }
+                catch (ReflectionTypeLoadException e) { assemblyTypes = e.Types; }
+                catch { continue; }
+
+                foreach (var type in assemblyTypes) {
+                    if (type == null) continue;
+                    RegisterSourceLookup(type);
                     if (!type.IsValueType) continue;
                     var interfaces = type.GetInterfaces();
 
@@ -88,19 +103,26 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
             entityTypes.Sort((a, b) => a.Id.CompareTo(b.Id));
 
+            var reg = StaticEcsTypeGuidRegistry.Active;
+            var changed = false;
+
             foreach (var worldType in worldTypes) {
                 var data = new WorldMetaData(worldType);
+                var ws = reg.GetOrCreate(worldType);
 
                 foreach (var type in componentTypes) {
                     HandleComponentMeta(data, type);
+                    changed |= RegisterGuid(ConfigKind.Component, worldType, type, ws);
                 }
 
                 foreach (var type in tagTypes) {
                     HandleTagMeta(data, type);
+                    changed |= RegisterGuid(ConfigKind.Tag, worldType, type, ws);
                 }
 
                 foreach (var type in eventTypes) {
                     HandleEventMeta(data, type);
+                    changed |= RegisterGuid(ConfigKind.Event, worldType, type, ws);
                 }
 
                 data.EntityTypes.AddRange(entityTypes);
@@ -110,20 +132,179 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 foreach (var linkType in linkTypes) {
                     var linkComponentType = worldOpenType.GetNestedType("Link`1").MakeGenericType(worldType, linkType);
                     HandleComponentMeta(data, linkComponentType);
+                    changed |= RegisterGuid(ConfigKind.Link, worldType, linkType, ws);
                 }
 
                 foreach (var linksType in linksTypes) {
                     var linksComponentType = worldOpenType.GetNestedType("Links`1").MakeGenericType(worldType, linksType);
                     HandleComponentMeta(data, linksComponentType);
+                    changed |= RegisterGuid(ConfigKind.Links, worldType, linksType, ws);
                 }
 
                 foreach (var multiType in multiTypes) {
                     var multiComponentType = worldOpenType.GetNestedType("Multi`1").MakeGenericType(worldType, multiType);
                     HandleComponentMeta(data, multiComponentType);
+                    changed |= RegisterGuid(ConfigKind.Multi, worldType, multiType, ws);
                 }
 
                 PerWorldMetaData[worldType] = data;
             }
+
+            if (changed) {
+                reg.Save();
+            }
+        }
+        
+        private static void RegisterSourceLookup(Type type) {
+            if (type.IsGenericTypeDefinition) return;
+            if (!(typeof(IComponentOrTag).IsAssignableFrom(type)
+                  || typeof(IEvent).IsAssignableFrom(type)
+                  || typeof(IResource).IsAssignableFrom(type)
+                  || typeof(ISystem).IsAssignableFrom(type)
+                  || typeof(ILinkType).IsAssignableFrom(type)
+                  || typeof(ILinksType).IsAssignableFrom(type)
+                  || typeof(IMultiComponent).IsAssignableFrom(type))) {
+                return;
+            }
+            var name = type.Name;
+            var tickIdx = name.IndexOf('`');
+            if (tickIdx > 0) name = name.Substring(0, tickIdx);
+            _sourceLookup[(type.Namespace ?? string.Empty) + "|" + name] = type;
+        }
+
+        internal static void DrawSourceField(Type type) {
+            if (!_sourceCacheReady) {
+                EnsureSourceCacheStarted();
+                using (new EditorGUI.DisabledScope(true)) {
+                    EditorGUILayout.TextField("Source", "Loading…");
+                }
+                return;
+            }
+            var script = GetSourceScript(type);
+            using (new EditorGUI.DisabledScope(true)) {
+                EditorGUILayout.ObjectField("Source", script, typeof(MonoScript), false);
+            }
+        }
+
+        internal static MonoScript GetSourceScript(Type type) {
+            type = UnwrapSourceTarget(type);
+            if (type == null) return null;
+            SourceCache.TryGetValue(type, out var script);
+            return script;
+        }
+
+        private static Type UnwrapSourceTarget(Type type) {
+            if (type == null || !type.IsGenericType) return type;
+            foreach (var arg in type.GetGenericArguments()) {
+                if (typeof(ILinkType).IsAssignableFrom(arg)
+                    || typeof(ILinksType).IsAssignableFrom(arg)
+                    || typeof(IMultiComponent).IsAssignableFrom(arg)) {
+                    return arg;
+                }
+            }
+            return type;
+        }
+
+        private static void EnsureSourceCacheStarted() {
+            if (_sourceCacheReady || _sourceCacheTask != null) return;
+            if (_sourceLookup.Count == 0) {
+                _sourceCacheReady = true;
+                return;
+            }
+
+            var guids = AssetDatabase.FindAssets("t:MonoScript");
+            var paths = new List<string>(guids.Length);
+            foreach (var g in guids) {
+                var p = AssetDatabase.GUIDToAssetPath(g);
+                if (p.EndsWith(".cs", StringComparison.Ordinal)) paths.Add(p);
+            }
+
+            _sourceCacheTask = Task.Run(() => ParseSources(paths));
+            EditorApplication.update += PollSourceCacheTask;
+        }
+
+        private static List<(string path, Type type)> ParseSources(List<string> paths) {
+            var result = new List<(string, Type)>();
+            foreach (var path in paths) {
+                string text;
+                try { text = File.ReadAllText(path); }
+                catch { continue; }
+
+                var declMatches = _sourceDeclRegex.Matches(text);
+                if (declMatches.Count == 0) continue;
+
+                var nsMatch = _sourceNsRegex.Match(text);
+                var nsKey = (nsMatch.Success ? nsMatch.Groups[1].Value : string.Empty) + "|";
+
+                foreach (Match m in declMatches) {
+                    if (_sourceLookup.TryGetValue(nsKey + m.Groups[1].Value, out var t)) {
+                        result.Add((path, t));
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static void PollSourceCacheTask() {
+            var task = _sourceCacheTask;
+            if (task == null || !task.IsCompleted) return;
+            EditorApplication.update -= PollSourceCacheTask;
+            if (task.Status == TaskStatus.RanToCompletion) {
+                foreach (var (path, type) in task.Result) {
+                    if (SourceCache.ContainsKey(type)) continue;
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null) SourceCache[type] = script;
+                }
+            }
+            _sourceCacheReady = true;
+            _sourceCacheTask = null;
+            InternalEditorUtility.RepaintAllViews();
+        }
+
+        internal static bool RegisterGuid(ConfigKind kind, Type worldType, Type type, StaticEcsTypeGuidRegistry.WorldSettings ws) {
+            var configOpenType = kind switch {
+                ConfigKind.Component => typeof(IComponentConfig<>),
+                ConfigKind.Tag => typeof(ITagConfig<>),
+                ConfigKind.Event => typeof(IEventConfig<>),
+                ConfigKind.Link => typeof(ILinkConfig<>),
+                ConfigKind.Links => typeof(ILinksConfig<>),
+                ConfigKind.Multi => typeof(IMultiComponentConfig<>),
+                _ => typeof(IComponentConfig<>),
+            };
+
+            var configType = configOpenType.MakeGenericType(type);
+
+            Guid? guid = null;
+            if (kind is ConfigKind.Link or ConfigKind.Links or ConfigKind.Multi) {
+                try {
+                    var config = configType.GetMethod("Config")?.MakeGenericMethod(worldType).Invoke(Activator.CreateInstance(type), null);
+                    if (config != null) {
+                        var guidField = config.GetType().GetField("Guid", BindingFlags.Public | BindingFlags.Instance);
+                        guid = (Guid?)guidField!.GetValue(config);
+                    }
+                }
+                catch (Exception) {
+                    // ignored
+                }
+            }
+            else {
+                try {
+                    var config = configType.GetMethod("Config")?.Invoke(Activator.CreateInstance(type), null);
+                    if (config != null) {
+                        var guidField = config.GetType().GetField("Guid", BindingFlags.Public | BindingFlags.Instance);
+                        guid = (Guid?)guidField!.GetValue(config);
+                    }
+                }
+                catch (Exception) {
+                    // ignored
+                }
+            }
+
+            return guid.HasValue && ws.SyncEntry(kind, guid.Value, new StaticEcsTypeGuidRegistry.TypeIdentity {
+                className = type.Name,
+                namespaceName = type.Namespace ?? "",
+                assembly = type.Assembly.GetName().Name
+            });
         }
 
         internal static WorldMetaData GetWorldMetaData(Type worldType) {
@@ -198,10 +379,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             var (field, property, width) = FindValueAttribute(type);
-            width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
 
-            data.Components.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                                          new[] { GUILayout.Width(width + 68f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
+            data.Components.Add(new EditorEntityDataMeta(type, name, fullName, width, 68f, field, property));
         }
 
         private static void HandleTagMeta(WorldMetaData data, Type type) {
@@ -223,9 +402,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 return;
             }
 
-            var width = GUI.skin.label.CalcSize(new GUIContent(name)).x;
-            data.Tags.Add(new EditorEntityDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                                    new[] { GUILayout.Width(width + 46f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, null, null));
+            data.Tags.Add(new EditorEntityDataMeta(type, name, fullName, -1f, 46f, null, null));
         }
 
         private static void HandleEventMeta(WorldMetaData data, Type type) {
@@ -249,10 +426,8 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             var (field, property, width) = FindValueAttribute(type);
-            width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(name)).x, width);
 
-            data.Events.Add(new EditorEventDataMeta(type, name, fullName, width, new[] { GUILayout.Width(width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) },
-                                                     new[] { GUILayout.Width(width + 70f), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) }, field, property));
+            data.Events.Add(new EditorEventDataMeta(type, name, fullName, width, 70f, field, property));
         }
 
         private static EditorEntityTypeMeta CreateEntityTypeMeta(Type type) {
@@ -381,21 +556,42 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public readonly Type Type;
         public readonly string Name;
         public readonly string FullName;
-        public readonly float Width;
-        public readonly GUILayoutOption[] Layout;
-        public readonly GUILayoutOption[] LayoutWithOffset;
         public readonly FieldInfo FieldInfo;
         public readonly PropertyInfo PropertyInfo;
+        private readonly float _extraWidth;
+        private readonly float _offsetDelta;
+        private float _width = -1f;
+        private GUILayoutOption[] _layout;
+        private GUILayoutOption[] _layoutWithOffset;
 
-        public EditorEventDataMeta(Type type, string name, string fullName, float width, GUILayoutOption[] layout, GUILayoutOption[] layoutWithOffset, FieldInfo fieldInfo, PropertyInfo propertyInfo) {
+        public float Width {
+            get {
+                if (_width < 0f) _width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(Name)).x, _extraWidth);
+                return _width;
+            }
+        }
+
+        public GUILayoutOption[] Layout => _layout ??= new[] { GUILayout.Width(Width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) };
+        public GUILayoutOption[] LayoutWithOffset => _layoutWithOffset ??= new[] { GUILayout.Width(Width + _offsetDelta), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) };
+
+        public EditorEventDataMeta(Type type, string name, string fullName, float extraWidth, float offsetDelta, FieldInfo fieldInfo, PropertyInfo propertyInfo) {
             Type = type;
             Name = name;
             FullName = fullName;
-            Width = width;
-            Layout = layout;
-            LayoutWithOffset = layoutWithOffset;
+            _extraWidth = extraWidth;
+            _offsetDelta = offsetDelta;
             FieldInfo = fieldInfo;
             PropertyInfo = propertyInfo;
+        }
+
+        protected EditorEventDataMeta(EditorEventDataMeta other) {
+            Type = other.Type;
+            Name = other.Name;
+            FullName = other.FullName;
+            _extraWidth = other._extraWidth;
+            _offsetDelta = other._offsetDelta;
+            FieldInfo = other.FieldInfo;
+            PropertyInfo = other.PropertyInfo;
         }
 
         public bool TryGetTableField(out FieldInfo field) {
@@ -413,21 +609,42 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public readonly Type Type;
         public readonly string Name;
         public readonly string FullName;
-        public readonly float Width;
-        public readonly GUILayoutOption[] Layout;
-        public readonly GUILayoutOption[] LayoutWithOffset;
         public readonly FieldInfo FieldInfo;
         public readonly PropertyInfo PropertyInfo;
+        private readonly float _extraWidth;
+        private readonly float _offsetDelta;
+        private float _width = -1f;
+        private GUILayoutOption[] _layout;
+        private GUILayoutOption[] _layoutWithOffset;
 
-        public EditorEntityDataMeta(Type type, string name, string fullName, float width, GUILayoutOption[] layout, GUILayoutOption[] layoutWithOffset, FieldInfo fieldInfo, PropertyInfo propertyInfo) {
+        public float Width {
+            get {
+                if (_width < 0f) _width = Math.Max(GUI.skin.label.CalcSize(new GUIContent(Name)).x, _extraWidth);
+                return _width;
+            }
+        }
+
+        public GUILayoutOption[] Layout => _layout ??= new[] { GUILayout.Width(Width), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) };
+        public GUILayoutOption[] LayoutWithOffset => _layoutWithOffset ??= new[] { GUILayout.Width(Width + _offsetDelta), GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight) };
+
+        public EditorEntityDataMeta(Type type, string name, string fullName, float extraWidth, float offsetDelta, FieldInfo fieldInfo, PropertyInfo propertyInfo) {
             Type = type;
             Name = name;
             FullName = fullName;
-            Width = width;
-            Layout = layout;
-            LayoutWithOffset = layoutWithOffset;
+            _extraWidth = extraWidth;
+            _offsetDelta = offsetDelta;
             FieldInfo = fieldInfo;
             PropertyInfo = propertyInfo;
+        }
+
+        protected EditorEntityDataMeta(EditorEntityDataMeta other) {
+            Type = other.Type;
+            Name = other.Name;
+            FullName = other.FullName;
+            _extraWidth = other._extraWidth;
+            _offsetDelta = other._offsetDelta;
+            FieldInfo = other.FieldInfo;
+            PropertyInfo = other.PropertyInfo;
         }
 
         public bool TryGetTableField(out FieldInfo field) {

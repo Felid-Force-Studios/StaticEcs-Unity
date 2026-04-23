@@ -1,7 +1,6 @@
 #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,7 +11,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly Dictionary<Type, ContextDrawer> _drawersByWorldTypeType = new();
         private ContextDrawer _currentDrawer;
 
-        public string Name() => "Context";
+        public string Name() => "Resources";
 
         public void Init() { }
 
@@ -35,9 +34,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         private readonly WorldHandle _handle;
         private readonly AbstractWorldData _worldData;
 
-        private readonly List<string> _toRemoveNamedContext = new();
-        private readonly List<Type> _toRemoveContext = new();
-        private readonly Dictionary<Type, (ScriptableObject wrapper, FieldInfo field)> _valueTypeWrapperCache = new();
+        private readonly List<Action> _pendingRemovals = new();
 
         private Vector2 verticalScrollStatsPosition = Vector2.zero;
 
@@ -48,34 +45,88 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         internal void Draw() {
             verticalScrollStatsPosition = EditorGUILayout.BeginScrollView(verticalScrollStatsPosition);
-            DrawContext();
-            DrawNamedContext();
+
+            DrawResourcesSection(
+                "World", "World",
+                _handle.GetAllResourcesTypes,
+                _handle.GetAllResourcesKeys,
+                _handle.GetResource,
+                _handle.GetResource,
+                _handle.SetResource,
+                _handle.SetResource,
+                _handle.RemoveResource,
+                _handle.RemoveResource);
+
+            foreach (var sh in _handle.GetAllSystemsHandles()) {
+                var systemsTypeName = sh.SystemsType.EditorTypeName();
+                var idPrefix = sh.SystemsType.FullName ?? systemsTypeName;
+                var capturedHandle = sh;
+
+                DrawResourcesSection(
+                    $"Sys_{idPrefix}", $"Systems: {systemsTypeName}",
+                    capturedHandle.GetAllResourcesTypes,
+                    capturedHandle.GetAllResourcesKeys,
+                    capturedHandle.GetResource,
+                    capturedHandle.GetResource,
+                    capturedHandle.SetResource,
+                    capturedHandle.SetResource,
+                    capturedHandle.RemoveResource,
+                    capturedHandle.RemoveResource);
+            }
+
             EditorGUILayout.EndScrollView();
+
+            if (_pendingRemovals.Count > 0) {
+                foreach (var action in _pendingRemovals) {
+                    action();
+                }
+                _pendingRemovals.Clear();
+            }
         }
 
-        private void DrawContext() {
-            DrawHeader("Context");
+        private void DrawResourcesSection(
+            string sectionId,
+            string header,
+            Func<IReadOnlyCollection<Type>> getTypes,
+            Func<IReadOnlyCollection<string>> getKeys,
+            Func<Type, IResource> getByType,
+            Func<string, IResource> getByKey,
+            Action<Type, IResource, bool> setByType,
+            Action<string, IResource, bool> setByKey,
+            Action<Type> removeByType,
+            Action<string> removeByKey) {
+            var types = getTypes();
+            var keys = getKeys();
+            if (types.Count == 0 && keys.Count == 0) {
+                return;
+            }
+
+            DrawHeader(header);
 
             Type changedType = null;
-            object changedValue = null;
-            foreach (var resourceType in _handle.GetAllResourcesTypes()) {
-                var resourceValue = _handle.GetResource(resourceType);
-                var name = resourceType.EditorTypeName();
+            IResource changedTypeValue = null;
+            string changedKey = null;
+            IResource changedKeyValue = null;
 
+            foreach (var resourceType in types) {
                 if (!resourceType.IsSerializable) {
                     continue;
                 }
 
+                var resourceValue = getByType(resourceType);
+                var name = resourceType.EditorTypeName();
+
                 bool show;
                 EditorGUILayout.BeginHorizontal(GUI.skin.box);
                 {
-                    Drawer.DrawFoldoutBox(HashCode.Combine("CONTEXT_", resourceType.FullName), name, name, out show);
+                    Drawer.DrawFoldoutBox(HashCode.Combine(sectionId, "T", resourceType.FullName), name, name, out show);
 
                     EditorGUILayout.BeginVertical(GUILayout.MinWidth(32));
                     if (Ui.MenuButton) {
                         var capturedType = resourceType;
+                        var capturedRemove = removeByType;
                         var menu = new GenericMenu();
-                        menu.AddItem(new GUIContent("Remove"), false, () => _toRemoveContext.Add(capturedType));
+                        menu.AddItem(new GUIContent("Remove"), false, () => _pendingRemovals.Add(() => capturedRemove(capturedType)));
                         menu.ShowAsContext();
                     }
 
@@ -85,9 +136,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (show) {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
-                    if (TryDrawResourceValue(resourceType, resourceValue, out var newValue)) {
+                    MetaData.DrawSourceField(resourceType);
+                    var wrapperKey = HashCode.Combine(sectionId, "T", resourceType.FullName);
+                    if (TryDrawResourceValue(wrapperKey, resourceValue, out var newValue)) {
                         changedType = resourceType;
-                        changedValue = newValue;
+                        changedTypeValue = newValue;
                     }
                     EditorGUILayout.EndVertical();
                     if (changedType != null) {
@@ -97,22 +150,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             if (changedType != null) {
-                _handle.SetResource(changedType, changedValue, true);
+                setByType(changedType, changedTypeValue, true);
             }
 
-            foreach (var type in _toRemoveContext) {
-                _handle.RemoveResource(type);
-            }
-            _toRemoveContext.Clear();
-        }
-
-        private void DrawNamedContext() {
-            DrawHeader("Named context");
-
-            string changedKey = null;
-            object changedValue = null;
-            foreach (var resourceKey in _handle.GetAllResourcesKeys()) {
-                var resourceValue = _handle.GetResource(resourceKey);
+            foreach (var resourceKey in keys) {
+                var resourceValue = getByKey(resourceKey);
                 var resourceType = resourceValue.GetType();
 
                 if (!resourceType.IsSerializable) {
@@ -122,13 +164,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 bool show;
                 EditorGUILayout.BeginHorizontal(GUI.skin.box);
                 {
-                    Drawer.DrawFoldoutBox(HashCode.Combine("CONTEXT_", resourceKey), resourceKey, resourceKey, out show);
+                    Drawer.DrawFoldoutBox(HashCode.Combine(sectionId, "K", resourceKey), resourceKey, resourceKey, out show);
 
                     EditorGUILayout.BeginVertical(GUILayout.MinWidth(32));
                     if (Ui.MenuButton) {
                         var capturedKey = resourceKey;
+                        var capturedRemove = removeByKey;
                         var menu = new GenericMenu();
-                        menu.AddItem(new GUIContent("Remove"), false, () => _toRemoveNamedContext.Add(capturedKey));
+                        menu.AddItem(new GUIContent("Remove"), false, () => _pendingRemovals.Add(() => capturedRemove(capturedKey)));
                         menu.ShowAsContext();
                     }
 
@@ -138,9 +181,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
                 if (show) {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
-                    if (TryDrawResourceValue(resourceType, resourceValue, out var newValue)) {
+                    MetaData.DrawSourceField(resourceType);
+                    var wrapperKey = HashCode.Combine(sectionId, "K", resourceKey);
+                    if (TryDrawResourceValue(wrapperKey, resourceValue, out var newValue)) {
                         changedKey = resourceKey;
-                        changedValue = newValue;
+                        changedKeyValue = newValue;
                     }
                     EditorGUILayout.EndVertical();
                     if (changedKey != null) {
@@ -150,33 +195,20 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             if (changedKey != null) {
-                _handle.SetResource(changedKey, changedValue, true);
+                setByKey(changedKey, changedKeyValue, true);
             }
 
-            foreach (var val in _toRemoveNamedContext) {
-                _handle.RemoveResource(val);
-            }
-            _toRemoveNamedContext.Clear();
+            EditorGUILayout.Space();
+            Ui.DrawHorizontalSeparator(Ui.Width((int) (Math.Round((EditorGUIUtility.currentViewWidth - 30f) / (double) 5) * 5)));
+            EditorGUILayout.Space();
         }
 
-        private bool TryDrawResourceValue(Type resourceType, object resourceValue, out object newValue) {
+        private bool TryDrawResourceValue(int wrapperKey, IResource resourceValue, out IResource newValue) {
             newValue = null;
-            if (resourceType.IsValueType) {
-                return TryDrawValueType(resourceType, resourceValue, out newValue);
-            }
-
-            return TryDrawReferenceType(resourceValue, out newValue);
-        }
-
-        private bool TryDrawReferenceType(object resourceValue, out object newValue) {
-            newValue = null;
-            var wrapper = ContextDrawerWrapper.Instance;
-            var so = new SerializedObject(wrapper);
+            var wrapper = ContextDrawerWrapper.GetFor(wrapperKey);
+            wrapper.value = resourceValue;
+            using var so = new SerializedObject(wrapper);
             var prop = so.FindProperty("value");
-            prop.managedReferenceValue = resourceValue;
-            so.ApplyModifiedProperties();
-            so.Update();
-            prop = so.FindProperty("value");
 
             if (prop != null && prop.propertyType == SerializedPropertyType.ManagedReference) {
                 Drawer.DrawSerializedPropertyChildren(prop);
@@ -188,38 +220,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             return false;
-        }
-
-        private bool TryDrawValueType(Type resourceType, object resourceValue, out object newValue) {
-            newValue = null;
-            var (wrapper, field) = GetValueTypeWrapper(resourceType);
-            field.SetValue(wrapper, resourceValue);
-            var so = new SerializedObject(wrapper);
-            so.Update();
-            var prop = so.FindProperty("value");
-
-            if (prop != null) {
-                Drawer.DrawSerializedPropertyChildren(prop);
-
-                if (so.ApplyModifiedProperties()) {
-                    newValue = field.GetValue(wrapper);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private (ScriptableObject wrapper, FieldInfo field) GetValueTypeWrapper(Type valueType) {
-            if (!_valueTypeWrapperCache.TryGetValue(valueType, out var cached)) {
-                var wrapperType = typeof(ContextValueDrawerWrapper<>).MakeGenericType(valueType);
-                var wrapper = ScriptableObject.CreateInstance(wrapperType);
-                wrapper.hideFlags = HideFlags.DontSave;
-                var field = wrapperType.GetField("value");
-                cached = (wrapper, field);
-                _valueTypeWrapperCache[valueType] = cached;
-            }
-            return cached;
         }
 
         private void DrawHeader(string name) {

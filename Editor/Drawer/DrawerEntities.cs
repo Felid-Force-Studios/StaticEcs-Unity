@@ -1,156 +1,25 @@
-using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     public enum DrawMode {
         Inspector,
-        Builder,
         Viewer
     }
 
     public static partial class Drawer {
-        private static readonly List<IComponentOrTagProvider> _providersCache = new();
+        private static readonly List<IComponentOrTagProvider> _ComponentsAndTagsCache = new();
 
-        public static void DrawEntity<TWorld, TEntityProvider>(
-            TEntityProvider provider, DrawMode mode, Action<TEntityProvider> onClickSpawn, Action<TEntityProvider> onClose
-        ) where TEntityProvider : StaticEcsEntityProvider<TWorld> where TWorld : struct, IWorldType {
-            var prefab = provider.GetPrefab();
-            var prefabView = mode != DrawMode.Viewer && prefab != null && prefab is StaticEcsEntityProvider<TWorld>;
-            var origin = provider;
-
-            AbstractStaticEcsProvider activeBase = provider;
-            StaticEcsEntityProvider<TWorld> active = provider;
-            if (prefabView) {
-                activeBase = prefab;
-                active = (StaticEcsEntityProvider<TWorld>) prefab;
-            }
-
-            using (Ui.EnabledScopeVal(!prefabView)) {
+        public static void DrawEntity<TWorld, TEntityProvider>(TEntityProvider provider, DrawMode mode) where TEntityProvider : StaticEcsEntityProvider<TWorld> where TWorld : struct, IWorldType {
+            using (Ui.EnabledScope) {
                 if (mode != DrawMode.Inspector) {
-                    activeBase.Scroll = EditorGUILayout.BeginScrollView(activeBase.Scroll);
+                    provider.Scroll = EditorGUILayout.BeginScrollView(provider.Scroll);
                 }
 
-                EditorGUILayout.Space(10);
-
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (Ui.MenuButton) {
-                        var menu = new GenericMenu();
-
-                        if (active.EntityIsActual()) {
-                            if (mode == DrawMode.Viewer) {
-                                menu.AddItem(new GUIContent("Close"), false, () => onClose(origin));
-                            }
-
-                            var entity = active.EntityGid.Unpack<TWorld>();
-                            if (entity.IsEnabled) {
-                                menu.AddItem(new GUIContent("Disable"), false, () => {
-                                    EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                                        Type = DebugCommandType.DisableEntity,
-                                        EntityGid = entity.GID,
-                                    });
-                                });
-                            } else {
-                                menu.AddItem(new GUIContent("Enable"), false, () => {
-                                    EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                                        Type = DebugCommandType.EnableEntity,
-                                        EntityGid = entity.GID,
-                                    });
-                                });
-                            }
-
-                            menu.AddItem(new GUIContent("Destroy entity"), false, () => {
-                                EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
-                                    Type = DebugCommandType.DestroyEntity,
-                                    EntityGid = entity.GID,
-                                });
-                                active.EntityGid = default;
-                                EditorUtility.SetDirty(activeBase);
-                            });
-                        } else {
-                            menu.AddItem(new GUIContent("Clear template"), false, () => {
-                                active.Clear();
-                                EditorUtility.SetDirty(activeBase);
-                            });
-                        }
-
-                        menu.ShowAsContext();
-                    }
-
-                    EditorGUILayout.LabelField("Entity GID:", Ui.WidthLine(90));
-                    if (active.EntityIsActual()) {
-                        EditorGUILayout.SelectableLabel(Ui.IntToStringD6((int) active.EntityGid.Id).d6, Ui.LabelStyleThemeBold, Ui.WidthLine(120));
-                        if (active.EntityGid.Unpack<TWorld>().IsDisabled) {
-                            EditorGUILayout.LabelField("[Disabled]", Ui.LabelStyleThemeBold, Ui.WidthLine(70));
-                        }
-                    } else {
-                        EditorGUILayout.LabelField("---", Ui.LabelStyleThemeBold, Ui.WidthLine(60));
-                        using (Ui.EnabledScope) {
-                            var text = mode == DrawMode.Inspector && !origin.IsPrefab() ? "Build" : "Spawn";
-                            if (mode != DrawMode.Viewer && Application.isPlaying && active.HasComponents() && GUILayout.Button(text, Ui.ButtonStyleYellow, Ui.WidthLine(60))) {
-                                onClickSpawn(origin);
-                            }
-                        }
-                    }
-                }
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (Ui.MenuButton) { }
-
-                    EditorGUILayout.LabelField("Entity Type:", Ui.WidthLine(90));
-                    var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
-                    if (active.EntityIsActual()) {
-                        var entity = active.EntityGid.Unpack<TWorld>();
-                        var entityTypeByte = entity.EntityType;
-                        var typeName = worldMeta.GetEntityTypeName(entityTypeByte);
-                        EditorGUILayout.SelectableLabel($"{typeName} ({entityTypeByte})", Ui.LabelStyleThemeBold, Ui.WidthLine(120));
-                    } else {
-                        if (worldMeta != null && worldMeta.EntityTypes.Count > 0) {
-                            var currentIdx = worldMeta.EntityTypes.FindIndex(et => et.Id == active.entityType);
-                            if (currentIdx < 0) currentIdx = 0;
-                            var names = new string[worldMeta.EntityTypes.Count];
-                            for (var i = 0; i < worldMeta.EntityTypes.Count; i++) {
-                                names[i] = $"{worldMeta.EntityTypes[i].Name} ({worldMeta.EntityTypes[i].Id})";
-                            }
-                            var newIdx = EditorGUILayout.Popup(currentIdx, names, Ui.WidthLine(120));
-                            if (newIdx != currentIdx) {
-                                active.entityType = worldMeta.EntityTypes[newIdx].Id;
-                                EditorUtility.SetDirty(activeBase);
-                            }
-                        } else {
-                            EditorGUILayout.LabelField("---", Ui.LabelStyleThemeBold, Ui.WidthLine(60));
-                        }
-                    }
-                }
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (Ui.MenuButton) { }
-
-                    EditorGUILayout.LabelField("Cluster ID:", Ui.WidthLine(90));
-                    if (active.EntityIsActual()) {
-                        EditorGUILayout.SelectableLabel(Ui.IntToStringD6(active.EntityGid.ClusterId).d6, Ui.LabelStyleThemeBold, Ui.WidthLine(120));
-                    } else {
-                        EditorGUILayout.LabelField("---", Ui.LabelStyleThemeBold);
-                    }
-                }
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.Space();
-
-                Ui.DrawHorizontalSeparator();
-
-                if (!active.EntityIsActual() && !active.HasComponents()) {
-                    EditorGUILayout.HelpBox("Please, provide at least one component", MessageType.Warning, true);
-                }
-
-                DrawEntity(activeBase, active, mode);
+                DrawHeader(provider, mode);
+                DrawComponentsAndTags(provider, mode);
 
                 if (mode != DrawMode.Inspector) {
                     EditorGUILayout.EndScrollView();
@@ -158,14 +27,143 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
         }
 
-        private static void DrawEntity<TWorld>(Object obj, StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
-            EditorGUILayout.Space(10);
+        private static void DrawHeader<TWorld>(StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
+            EditorGUILayout.BeginHorizontal();
 
-            provider.GetProviders(_providersCache);
+            DrawEntityLabel();
+            DrawEntityType(provider);
+            DrawSectionSeparator(EditorGUIUtility.singleLineHeight);
+            DrawEntityInfo(provider);
+            GUILayout.FlexibleSpace();
+            DrawEntityDisabled(provider);
+            DrawSpawnButton(provider, mode);
+            DrawActionMenu(provider);
 
-            EditorGUILayout.Space(10);
-            DrawProviders(_providersCache, obj, provider, mode);
-            _providersCache.Clear();
+            EditorGUILayout.EndHorizontal();
+
+            DrawHeaderSeparator();
         }
+
+        private static void DrawComponentsAndTags<TWorld>(StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
+            provider.GetComponentsAndTags(_ComponentsAndTagsCache);
+            DrawComponentsAndTags(_ComponentsAndTagsCache, provider, mode);
+            _ComponentsAndTagsCache.Clear();
+        }
+
+        private static void DrawEntityLabel() {
+            GUILayout.Label("Entity", Ui.LabelStyleThemeLeftColor(new Color(1f, 1f, 1f, 0.55f)), GUILayout.Width(45), GUILayout.Height(EditorGUIUtility.singleLineHeight));
+            DrawSectionSeparator(EditorGUIUtility.singleLineHeight);
+        }
+
+        private static void DrawEntityType<TWorld>(StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            var worldMeta = MetaData.GetWorldMetaData(typeof(TWorld));
+            if (provider.EntityIsActual()) {
+                var entity = provider.EntityGid.Unpack<TWorld>();
+                var typeName = worldMeta.GetEntityTypeName(entity.EntityType);
+                GUILayout.Label(typeName, Ui.LabelStyleThemeBold, GUILayout.Height(EditorGUIUtility.singleLineHeight), GUILayout.ExpandWidth(false));
+            } else if (worldMeta != null && worldMeta.EntityTypes.Count > 0) {
+                var currentIdx = worldMeta.EntityTypes.FindIndex(et => et.Id == provider.entityType);
+                if (currentIdx < 0) currentIdx = 0;
+                var names = new string[worldMeta.EntityTypes.Count];
+                for (var i = 0; i < worldMeta.EntityTypes.Count; i++) {
+                    names[i] = worldMeta.EntityTypes[i].Name;
+                }
+                var newIdx = EditorGUILayout.Popup(currentIdx, names, GUILayout.Width(100), GUILayout.Height(EditorGUIUtility.singleLineHeight));
+                if (newIdx != currentIdx) {
+                    provider.entityType = worldMeta.EntityTypes[newIdx].Id;
+                    EditorUtility.SetDirty(provider);
+                }
+            } else {
+                GUILayout.Label("---", Ui.LabelStyleThemeBold, GUILayout.Height(EditorGUIUtility.singleLineHeight), GUILayout.ExpandWidth(false));
+            }
+        }
+
+        private static void DrawEntityInfo<TWorld>(StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            if (provider.EntityIsActual()) {
+                var gid = Ui.IntToStringD6((int) provider.EntityGid.Id).simple;
+                var content = new GUIContent($"GID {gid}");
+                EditorGUILayout.SelectableLabel(content.text, Ui.LabelStyleThemeBold, GUILayout.Height(EditorGUIUtility.singleLineHeight), GUILayout.Width(Ui.LabelStyleThemeBold.CalcSize(content).x));
+
+                DrawSectionSeparator(EditorGUIUtility.singleLineHeight);
+
+                var clusterId = Ui.IntToStringD6(provider.EntityGid.ClusterId).simple;
+                var clContent = new GUIContent($"Cluster {clusterId}");
+                EditorGUILayout.SelectableLabel(clContent.text, Ui.LabelStyleThemeBold, GUILayout.Height(EditorGUIUtility.singleLineHeight), GUILayout.Width(Ui.LabelStyleThemeBold.CalcSize(clContent).x));
+            }
+        }
+
+        private static void DrawEntityDisabled<TWorld>(StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            if (provider.EntityIsActual() && provider.EntityGid.Unpack<TWorld>().IsDisabled) {
+                GUILayout.Label("[Disabled]", Ui.LabelStyleYellowCenter, GUILayout.Height(EditorGUIUtility.singleLineHeight), GUILayout.ExpandWidth(false));
+            }
+        }
+
+        private static void DrawSpawnButton<TWorld>(StaticEcsEntityProvider<TWorld> provider, DrawMode mode) where TWorld : struct, IWorldType {
+            if (!provider.EntityIsActual() && mode != DrawMode.Viewer && Application.isPlaying) {
+                using (Ui.EnabledScope) {
+                    if (GUILayout.Button("Spawn", Ui.ButtonStyleYellow, GUILayout.Width(60), GUILayout.Height(EditorGUIUtility.singleLineHeight))) {
+                        provider.CreateEntity();
+                        EditorUtility.SetDirty(provider);
+                    }
+                }
+            }
+        }
+
+        private static void DrawActionMenu<TWorld>(StaticEcsEntityProvider<TWorld> provider) where TWorld : struct, IWorldType {
+            if (Ui.MenuButton) {
+                var menu = new GenericMenu();
+                if (provider.EntityIsActual()) {
+                    var entity = provider.EntityGid.Unpack<TWorld>();
+                    if (entity.IsEnabled) {
+                        menu.AddItem(new GUIContent("Disable"), false, () => {
+                            EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
+                                Type = DebugCommandType.DisableEntity,
+                                EntityGid = entity.GID,
+                            });
+                        });
+                    } else {
+                        menu.AddItem(new GUIContent("Enable"), false, () => {
+                            EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
+                                Type = DebugCommandType.EnableEntity,
+                                EntityGid = entity.GID,
+                            });
+                        });
+                    }
+                    menu.AddItem(new GUIContent("Destroy"), false, () => {
+                        EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
+                            Type = DebugCommandType.DestroyEntity,
+                            EntityGid = entity.GID,
+                        });
+                        provider.EntityGid = default;
+                        EditorUtility.SetDirty(provider);
+                    });
+                } else {
+                    menu.AddItem(new GUIContent("Clear"), false, () => {
+                        provider.Clear();
+                        EditorUtility.SetDirty(provider);
+                    });
+                }
+                menu.ShowAsContext();
+            }
+        }
+
+        private static void DrawHeaderSeparator() {
+            EditorGUILayout.Space(6);
+            var sepRect = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none, GUILayout.ExpandWidth(true), GUILayout.Height(1));
+            EditorGUI.DrawRect(sepRect, new Color(1f, 1f, 1f, 0.12f));
+            EditorGUILayout.Space(6);
+        }
+
+        private static void DrawSectionSeparator(float height) {
+            GUILayout.Space(6);
+            var rect = GUILayoutUtility.GetRect(1, height, GUILayout.Width(1), GUILayout.Height(height));
+            rect.x += 0;
+            rect.y += 3;
+            rect.width = 1;
+            rect.height = height - 6;
+            EditorGUI.DrawRect(rect, new Color(1f, 1f, 1f, 0.18f));
+            GUILayout.Space(6);
+        }
+
     }
 }

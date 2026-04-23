@@ -21,7 +21,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public OnDestroyType onDestroyType = OnDestroyType.None;
         public bool disableEntityOnCreate;
         public bool onEnableAndDisable = true;
-        public AbstractStaticEcsProvider prefab;
 
         [SerializeReference, HideInInspector]
         protected List<IComponentOrTagProvider> providers = new();
@@ -40,14 +39,12 @@ namespace FFS.Libraries.StaticEcs.Unity {
         protected void Awake() {
             if (UsageType == UsageType.OnAwake) {
                 CreateEntity();
-                prefab = null;
             }
         }
 
         protected void Start() {
             if (UsageType == UsageType.OnStart) {
                 CreateEntity();
-                prefab = null;
             }
         }
 
@@ -78,16 +75,6 @@ namespace FFS.Libraries.StaticEcs.Unity {
         }
 
         public override bool CreateEntity() {
-            if (prefab && prefab is StaticEcsEntityProvider<TWorld> prefabProvider) {
-                if (prefabProvider.CreateEntity()) {
-                    entityGid = prefabProvider.EntityGid;
-                    prefabProvider.EntityGid = default;
-                    return true;
-                }
-
-                return false;
-            }
-
             if (World<TWorld>.Status != WorldStatus.Initialized) {
                 Debug.LogWarning($"You're trying to create an entity in an uninitialized world {typeof(TWorld).Name}");
                 return false;

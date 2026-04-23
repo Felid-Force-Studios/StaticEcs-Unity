@@ -176,25 +176,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
             return mask;
         }
 
-        public void PushQueryData<TWorld>(QueryData data) where TWorld : struct, IWorldType {
-            foreach (var filter in _filters) {
-                filter.PushQueryData<TWorld>(data);
-            }
-        }
-
-        public void PopQueryData<TWorld>() where TWorld : struct, IWorldType {
-            foreach (var filter in _filters) {
-                filter.PopQueryData<TWorld>();
-            }
-        }
-
         #if FFS_ECS_DEBUG
-        public void Assert<TWorld>() where TWorld : struct, IWorldType {
-            foreach (var filter in _filters) {
-                filter.Assert<TWorld>();
-            }
-        }
-
         public void Block<TWorld>(int val) where TWorld : struct, IWorldType {
             foreach (var filter in _filters) {
                 filter.Block<TWorld>(val);

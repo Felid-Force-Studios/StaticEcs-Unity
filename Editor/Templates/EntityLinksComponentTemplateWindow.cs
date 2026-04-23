@@ -16,7 +16,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         string worldTypeName;
         Type worldType;
 
-        bool serialization = false;
         bool withHooks = false;
 
         bool withExtensions = true;
@@ -35,6 +34,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         bool withColor = true;
         Color color = Color.white;
+
+        bool withGroup = false;
+        string groupName = "";
 
         [MenuItem("Assets/Create/Static ECS/Entity Links-Components", false, -225)]
         static void ShowWindow() {
@@ -84,9 +86,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             }
 
             EditorGUILayout.Space(10);
-            serialization = EditorGUILayout.Toggle("Serialization", serialization);
-
-            EditorGUILayout.Space(10);
             withHooks = EditorGUILayout.Toggle("Hooks", withHooks);
 
             EditorGUILayout.Space(10);
@@ -94,6 +93,14 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (withColor) {
                 EditorGUI.indentLevel++;
                 color = EditorGUILayout.ColorField("Color", color);
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space(10);
+            withGroup = EditorGUILayout.Toggle("Editor group", withGroup);
+            if (withGroup) {
+                EditorGUI.indentLevel++;
+                groupName = EditorGUILayout.TextField("Group name", groupName);
                 EditorGUI.indentLevel--;
             }
 
@@ -170,7 +177,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             var pad = string.IsNullOrEmpty(nameSpace) ? "" : "    ";
             sb.AppendLine("using System;");
             sb.AppendLine("using FFS.Libraries.StaticEcs;");
-            sb.AppendLine("using FFS.Libraries.StaticPack;", serialization);
             sb.AppendLine("using FFS.Libraries.StaticEcs.Unity;", withColor);
             sb.AppendLine($"#if ENABLE_IL2CPP");
             sb.AppendLine($"using Unity.IL2CPP.CompilerServices;");
@@ -190,14 +196,20 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]", withColor);
-            sb.AppendLine($"{pad}public struct {linksName} : ILinksType {{");
-            if (serialization) {
-                sb.AppendLine($"{pad}    public static readonly ComponentTypeConfig<Links<{linksName}>> Config = new(");
-                sb.AppendLine($"{pad}        guid: new(\"{GUID.Generate().ToString()}\"),");
-                sb.AppendLine($"{pad}        readWriteStrategy: new LinksUnmanagedPackArrayStrategy<{worldTypeName}, {linksName}>()");
-                sb.AppendLine($"{pad}    );");
-                sb.AppendLine();
+            if (withGroup) {
+                if (withColor) {
+                    sb.AppendLine($"{pad}[StaticEcsEditorGroup(\"{groupName}\", " +
+                        $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
+                        $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
+                        $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]");
+                } else {
+                    sb.AppendLine($"{pad}[StaticEcsEditorGroup(\"{groupName}\")]");
+                }
             }
+            sb.AppendLine($"{pad}public struct {linksName} : ILinksType, ILinksConfig<{linksName}> {{");
+            sb.AppendLine($"{pad}    public ComponentTypeConfig<World<TWorld>.Links<{linksName}>> Config<TWorld>() where TWorld : struct, IWorldType");
+            sb.AppendLine($"{pad}        => new(guid: new(\"{GUID.Generate().ToString()}\"));");
+            sb.AppendLine();
             if (withHooks) {
                 sb.AppendLine($"{pad}    public void OnAdd<TWorld>(World<TWorld>.Entity self, EntityGID link) where TWorld : struct, IWorldType {{");
                 sb.AppendLine($"{pad}        // TODO implement this");

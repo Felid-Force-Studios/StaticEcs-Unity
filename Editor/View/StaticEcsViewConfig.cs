@@ -20,7 +20,6 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
     [Serializable]
     public class EntitiesSettings {
-        public int selectedTab;
         public List<string> componentColumns = new();
         public List<string> tagColumns = new();
         public List<string> showTableDataTypes = new();
@@ -40,11 +39,13 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         public List<string> filterAnyWithDisabled = new();
         public ComponentFoldoutMode foldoutMode = ComponentFoldoutMode.CollapseAll;
         public List<string> autoExpandComponentTypes = new();
+        public bool sortComponents;
+        public bool defaultGroupExpanded = true;
+        public List<string> groupOverrides = new();
     }
 
     [Serializable]
     public class EventsSettings {
-        public int selectedTab;
         public bool latest = true;
         public List<string> filterTypeNames = new();
     }

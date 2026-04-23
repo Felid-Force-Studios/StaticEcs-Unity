@@ -29,6 +29,11 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
         bool unmanaged = false;
         bool withHooks = false;
 
+        bool disableable = false;
+        bool trackableAdded = false;
+        bool trackableDeleted = false;
+        bool trackableChanged = false;
+
         bool withExtensions = true;
         bool refMethod = true;
         bool addMethod = true;
@@ -45,6 +50,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
 
         bool withColor = true;
         Color color = Color.white;
+
+        bool withGroup = false;
+        string groupName = "";
 
         [MenuItem("Assets/Create/Static ECS/Components", false, -230)]
         static void ShowWindow() {
@@ -105,10 +113,27 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             withHooks = EditorGUILayout.Toggle("Hooks", withHooks);
 
             EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField("Markers:", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            disableable = EditorGUILayout.Toggle("IDisableable", disableable);
+            trackableAdded = EditorGUILayout.Toggle("ITrackableAdded", trackableAdded);
+            trackableDeleted = EditorGUILayout.Toggle("ITrackableDeleted", trackableDeleted);
+            trackableChanged = EditorGUILayout.Toggle("ITrackableChanged", trackableChanged);
+            EditorGUI.indentLevel--;
+
+            EditorGUILayout.Space(10);
             withColor = EditorGUILayout.Toggle("Editor color", withColor);
             if (withColor) {
                 EditorGUI.indentLevel++;
                 color = EditorGUILayout.ColorField("Color", color);
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space(10);
+            withGroup = EditorGUILayout.Toggle("Editor group", withGroup);
+            if (withGroup) {
+                EditorGUI.indentLevel++;
+                groupName = EditorGUILayout.TextField("Group name", groupName);
                 EditorGUI.indentLevel--;
             }
 
@@ -120,10 +145,17 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 addMethod = EditorGUILayout.Toggle("Add", addMethod);
                 setMethod = EditorGUILayout.Toggle("Set", setMethod);
                 hasMethod = EditorGUILayout.Toggle("Has", hasMethod);
-                hasDisabledMethod = EditorGUILayout.Toggle("Has disabled", hasDisabledMethod);
-                hasEnabledMethod = EditorGUILayout.Toggle("Has enabled", hasEnabledMethod);
-                enableMethod = EditorGUILayout.Toggle("Enable", enableMethod);
-                disableMethod = EditorGUILayout.Toggle("Disable", disableMethod);
+                if (disableable) {
+                    hasDisabledMethod = EditorGUILayout.Toggle("Has disabled", hasDisabledMethod);
+                    hasEnabledMethod = EditorGUILayout.Toggle("Has enabled", hasEnabledMethod);
+                    enableMethod = EditorGUILayout.Toggle("Enable", enableMethod);
+                    disableMethod = EditorGUILayout.Toggle("Disable", disableMethod);
+                } else {
+                    hasDisabledMethod = false;
+                    hasEnabledMethod = false;
+                    enableMethod = false;
+                    disableMethod = false;
+                }
                 deleteMethod = EditorGUILayout.Toggle("Delete", deleteMethod);
                 copyMethod = EditorGUILayout.Toggle("Copy", copyMethod);
                 moveMethod = EditorGUILayout.Toggle("Move", moveMethod);
@@ -204,15 +236,34 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
                 $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]", withColor);
-            sb.AppendLine($"{pad}public struct {componentName} : IComponent {{");
+            if (withGroup) {
+                if (withColor) {
+                    sb.AppendLine($"{pad}[StaticEcsEditorGroup(\"{groupName}\", " +
+                        $"{color.r.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
+                        $"{color.g.ToString("0.###", CultureInfo.InvariantCulture)}f, " +
+                        $"{color.b.ToString("0.###", CultureInfo.InvariantCulture)}f)]");
+                } else {
+                    sb.AppendLine($"{pad}[StaticEcsEditorGroup(\"{groupName}\")]");
+                }
+            }
+            var interfaces = $"IComponent, IComponentConfig<{componentName}>";
+            if (disableable) interfaces += ", IDisableable";
+            if (trackableAdded) interfaces += ", ITrackableAdded";
+            if (trackableDeleted) interfaces += ", ITrackableDeleted";
+            if (trackableChanged) interfaces += ", ITrackableChanged";
+            sb.AppendLine($"{pad}public struct {componentName} : {interfaces} {{");
             sb.AppendLine($"{pad}    // TODO Write your component fields");
             sb.AppendLine("");
-            if (serialization) {
-                sb.AppendLine($"{pad}    public static readonly ComponentTypeConfig<{componentName}> Config = new(");
+            if (serialization && unmanaged) {
+                sb.AppendLine($"{pad}    public ComponentTypeConfig<{componentName}> Config() => new(");
                 sb.AppendLine($"{pad}        guid: new(\"{GUID.Generate().ToString()}\"),");
-                sb.AppendLine($"{pad}        readWriteStrategy: new UnmanagedPackArrayStrategy<{componentName}>()", unmanaged);
+                sb.AppendLine($"{pad}        readWriteStrategy: new UnmanagedPackArrayStrategy<{componentName}>()");
                 sb.AppendLine($"{pad}    );");
-                sb.AppendLine();
+            } else {
+                sb.AppendLine($"{pad}    public ComponentTypeConfig<{componentName}> Config() => new(guid: new(\"{GUID.Generate().ToString()}\"));");
+            }
+            sb.AppendLine();
+            if (serialization) {
                 sb.AppendLine($"{pad}    public void Write<TWorld>(ref BinaryPackWriter writer, World<TWorld>.Entity self) where TWorld : struct, IWorldType {{");
                 sb.AppendLine($"{pad}        throw new NotImplementedException(); // TODO implement this");
                 sb.AppendLine($"{pad}    }}");
