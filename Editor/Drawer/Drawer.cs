@@ -45,6 +45,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
                     if (GUI.Button(rect, $"▸ {open}", style)) {
                         openHideFlags.Add(keyHash);
+                        ResetFocus();
                     }
 
                     EditorGUILayout.EndVertical();
@@ -52,6 +53,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
                     if (GUI.Button(rect, $"▾ {close}", style)) {
                         openHideFlags.Remove(keyHash);
+                        ResetFocus();
                     }
 
                     EditorGUILayout.EndVertical();
@@ -239,6 +241,12 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                 EditorGUILayout.SelectableLabel(text, GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight));
             }
             GUILayout.EndHorizontal();
+        }
+
+        private static void ResetFocus() {
+            GUIUtility.keyboardControl = 0;
+            GUIUtility.hotControl = 0;
+            EditorGUIUtility.editingTextField = false;
         }
 
         static void DrawEnum(object value, bool isFlags, GUIStyle style, GUILayoutOption[] layout) {
