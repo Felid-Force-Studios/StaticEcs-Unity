@@ -140,7 +140,7 @@ namespace FFS.Libraries.StaticEcs.Unity {
     }
 
     public struct ContactColliderEntityMap : IResource {
-        public Dictionary<int, EntityGID> Map;
+        public Dictionary<EntityId, EntityGID> Map;
     }
 }
 #endif

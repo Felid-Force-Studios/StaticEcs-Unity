@@ -5,9 +5,9 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
     internal class EventDrawerWrapper : ScriptableObject {
         [SerializeReference] public IEvent value;
 
-        private static readonly Dictionary<int, EventDrawerWrapper> _pool = new();
+        private static readonly Dictionary<EntityId, EventDrawerWrapper> _pool = new();
 
-        public static EventDrawerWrapper GetFor(int key) {
+        public static EventDrawerWrapper GetFor(EntityId key) {
             if (!_pool.TryGetValue(key, out var w) || w == null) {
                 w = CreateInstance<EventDrawerWrapper>();
                 w.hideFlags = HideFlags.DontSave;
