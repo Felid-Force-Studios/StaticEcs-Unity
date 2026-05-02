@@ -67,8 +67,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 });
             }
 
-            map.Map.TryGetValue(colliderA.GetInstanceID(), out var gidA);
-            map.Map.TryGetValue(colliderB.GetInstanceID(), out var gidB);
+            map.Map.TryGetValue(colliderA.GetEntityId(), out var gidA);
+            map.Map.TryGetValue(colliderB.GetEntityId(), out var gidB);
 
             World<TWorld>.SendEvent(new ContactEnter3DEntityEvent {
                 EntityA = gidA,
@@ -110,8 +110,8 @@ namespace FFS.Libraries.StaticEcs.Unity {
                 });
             }
 
-            map.Map.TryGetValue(colliderA.GetInstanceID(), out var gidA);
-            map.Map.TryGetValue(colliderB.GetInstanceID(), out var gidB);
+            map.Map.TryGetValue(colliderA.GetEntityId(), out var gidA);
+            map.Map.TryGetValue(colliderB.GetEntityId(), out var gidB);
 
             World<TWorld>.SendEvent(new ContactExit3DEntityEvent {
                 EntityA = gidA,
