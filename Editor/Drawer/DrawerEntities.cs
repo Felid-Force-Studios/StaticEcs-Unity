@@ -113,6 +113,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
             if (Ui.MenuButton) {
                 var menu = new GenericMenu();
                 if (provider.EntityIsActual()) {
+                    #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
                     var entity = provider.EntityGid.Unpack<TWorld>();
                     if (entity.IsEnabled) {
                         menu.AddItem(new GUIContent("Disable"), false, () => {
@@ -137,6 +138,7 @@ namespace FFS.Libraries.StaticEcs.Unity.Editor {
                         provider.EntityGid = default;
                         EditorUtility.SetDirty(provider);
                     });
+                    #endif
                 } else {
                     menu.AddItem(new GUIContent("Clear"), false, () => {
                         provider.Clear();

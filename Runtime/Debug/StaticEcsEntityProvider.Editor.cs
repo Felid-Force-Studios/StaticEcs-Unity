@@ -22,20 +22,24 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public virtual void Disable(Type componentType) {
             if (!EntityIsActual()) return;
+            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
                 Type = DebugCommandType.DisableComponent,
                 EntityGid = EntityGid,
                 TargetType = componentType,
             });
+            #endif
         }
 
         public virtual void Enable(Type componentType) {
             if (!EntityIsActual()) return;
+            #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
             EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
                 Type = DebugCommandType.EnableComponent,
                 EntityGid = EntityGid,
                 TargetType = componentType,
             });
+            #endif
         }
 
         private static readonly List<ComponentProvider> _componentProviderPool = new();
@@ -134,11 +138,13 @@ namespace FFS.Libraries.StaticEcs.Unity {
 
         public virtual void OnDeleteProvider(Type type) {
             if (EntityIsActual()) {
+                #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
                 EcsDebug<TWorld>.DebugViewSystem.EnqueueCommand(new DebugCommand {
                     Type = DebugCommandType.Delete,
                     EntityGid = EntityGid,
                     TargetType = type,
                 });
+                #endif
             } else {
                 providers.RemoveAll(p => p.ComponentType == type);
             }

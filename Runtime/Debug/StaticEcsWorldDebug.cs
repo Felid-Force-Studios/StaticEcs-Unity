@@ -57,7 +57,11 @@ namespace FFS.Libraries.StaticEcs.Unity {
         public Func<EntityGID, string> WindowNameFunction;
     }
 
-    internal class WorldData<TWorld> : AbstractWorldData, World<TWorld>.IEventsDebugEventListener where TWorld : struct, IWorldType {
+    internal class WorldData<TWorld> : AbstractWorldData
+                                       #if ((DEBUG || FFS_ECS_ENABLE_DEBUG) && !FFS_ECS_DISABLE_DEBUG)
+                                       , World<TWorld>.IEventsDebugEventListener
+                                       #endif
+        where TWorld : struct, IWorldType {
         private SpinLock _eventListenerLock = new SpinLock(false);
 
         public void OnEventSent<T>(World<TWorld>.Event<T> value) where T : struct, IEvent {
